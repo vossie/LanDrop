@@ -37,6 +37,10 @@ def ensure_upload_dir() -> None:
     UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
 
+def uploads_index_path() -> Path:
+    return UPLOAD_DIR / ".landrop-files.json"
+
+
 def now_ts() -> float:
     return time.time()
 
@@ -111,6 +115,15 @@ def recompute_updated_at_locked() -> None:
     shared_state["updated_at"] = max(timestamps, default=0.0)
 
 
+def persist_files_locked() -> None:
+    ensure_upload_dir()
+    payload = {"files": shared_state["files"]}
+    index_path = uploads_index_path()
+    temp_path = index_path.with_suffix(index_path.suffix + ".tmp")
+    temp_path.write_text(json.dumps(payload), encoding="utf-8")
+    temp_path.replace(index_path)
+
+
 def prune_expired_locked() -> None:
     cutoff = now_ts() - EXPIRY_SECONDS
 
@@ -130,6 +143,8 @@ def prune_expired_locked() -> None:
             target.unlink(missing_ok=True)
 
     recompute_updated_at_locked()
+    if expired_files:
+        persist_files_locked()
 
 
 def trim_history_limits_locked() -> None:
@@ -148,6 +163,64 @@ def trim_history_limits_locked() -> None:
             target.unlink(missing_ok=True)
 
     recompute_updated_at_locked()
+    if overflow_files:
+        persist_files_locked()
+
+
+def load_persisted_files() -> None:
+    ensure_upload_dir()
+    index_path = uploads_index_path()
+    if not index_path.exists():
+        with state_lock:
+            shared_state["files"] = []
+            recompute_updated_at_locked()
+        return
+
+    try:
+        payload = json.loads(index_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        payload = {}
+
+    raw_files = payload.get("files", [])
+    if not isinstance(raw_files, list):
+        raw_files = []
+
+    restored_files = []
+    for item in raw_files:
+        if not isinstance(item, dict):
+            continue
+        stored_name = item.get("stored_name")
+        if not isinstance(stored_name, str):
+            continue
+        target = UPLOAD_DIR / stored_name
+        if not target.exists() or not target.is_file():
+            continue
+
+        restored_files.append(
+            {
+                "id": str(item.get("id") or make_id()),
+                "name": sanitize_filename(str(item.get("name") or stored_name)),
+                "stored_name": stored_name,
+                "size": int(item.get("size") or target.stat().st_size),
+                "hidden": bool(item.get("hidden", False)),
+                "password_hash": item.get("password_hash")
+                if isinstance(item.get("password_hash"), str)
+                else None,
+                "sharer_name": str(item.get("sharer_name") or "").strip(),
+                "sharer_ip": str(item.get("sharer_ip") or "").strip(),
+                "short_code": str(item.get("short_code") or make_short_code()).upper(),
+                "created_at": float(item.get("created_at") or now_ts()),
+                "expires_at": float(item.get("expires_at") or (now_ts() + EXPIRY_SECONDS)),
+            }
+        )
+
+    restored_files.sort(key=lambda item: item["created_at"], reverse=True)
+
+    with state_lock:
+        shared_state["files"] = restored_files
+        prune_expired_locked()
+        trim_history_limits_locked()
+        persist_files_locked()
 
 
 def mask_text_value(value: str) -> str:
@@ -307,6 +380,7 @@ def add_file(
             },
         )
         trim_history_limits_locked()
+        persist_files_locked()
 
 
 def delete_file_entry(file_id: str) -> bool:
@@ -321,6 +395,8 @@ def delete_file_entry(file_id: str) -> bool:
                 kept.append(item)
         shared_state["files"] = kept
         recompute_updated_at_locked()
+        if removed is not None:
+            persist_files_locked()
 
     if removed is None:
         return False
@@ -2118,6 +2194,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
 def main() -> None:
     ensure_upload_dir()
+    load_persisted_files()
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
     server = ThreadingHTTPServer((host, port), AppHandler)

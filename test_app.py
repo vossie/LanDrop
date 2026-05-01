@@ -148,6 +148,56 @@ class AppStateTests(unittest.TestCase):
         self.assertIsNotNone(newest_target)
         self.assertTrue(newest_target.exists())
 
+    def test_file_metadata_is_persisted_and_reloaded_after_restart(self) -> None:
+        target = app.UPLOAD_DIR / "persisted.txt"
+        target.write_text("payload", encoding="utf-8")
+
+        app.add_file(
+            "persisted.txt",
+            "persisted.txt",
+            target.stat().st_size,
+            hidden=True,
+            password="vault",
+            sharer_name="Laptop",
+            sharer_ip="192.168.1.9",
+        )
+        original_snapshot = app.get_snapshot()
+        original_entry = original_snapshot["files"][0]
+
+        with app.state_lock:
+            app.shared_state["files"] = []
+            app.shared_state["updated_at"] = 0.0
+
+        app.load_persisted_files()
+
+        reloaded_snapshot = app.get_snapshot()
+        reloaded_entry = reloaded_snapshot["files"][0]
+        self.assertEqual(len(reloaded_snapshot["files"]), 1)
+        self.assertEqual(reloaded_entry["id"], original_entry["id"])
+        self.assertEqual(reloaded_entry["name"], "persisted.txt")
+        self.assertEqual(reloaded_entry["stored_name"], "persisted.txt")
+        self.assertTrue(reloaded_entry["hidden"])
+        self.assertTrue(reloaded_entry["password_required"])
+        self.assertEqual(reloaded_entry["sharer_name"], "Laptop")
+        self.assertEqual(reloaded_entry["sharer_ip"], "192.168.1.9")
+        self.assertEqual(reloaded_entry["short_code"], original_entry["short_code"])
+
+    def test_reload_skips_missing_files_and_cleans_index(self) -> None:
+        target = app.UPLOAD_DIR / "gone.txt"
+        target.write_text("payload", encoding="utf-8")
+        app.add_file("gone.txt", "gone.txt", target.stat().st_size)
+        target.unlink()
+
+        with app.state_lock:
+            app.shared_state["files"] = []
+            app.shared_state["updated_at"] = 0.0
+
+        app.load_persisted_files()
+
+        self.assertEqual(app.get_snapshot()["files"], [])
+        index_payload = json.loads(app.uploads_index_path().read_text(encoding="utf-8"))
+        self.assertEqual(index_payload["files"], [])
+
 
 class HttpServerTests(unittest.TestCase):
     def setUp(self) -> None:

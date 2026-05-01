@@ -10,6 +10,16 @@ It is especially useful at home when you want to move something between differen
 
 ![LanDrop flow](docs/landrop-flow.svg)
 
+## Product Images
+
+### Text Sharing
+
+![LanDrop text sharing UI](docs/landrop-product-text.svg)
+
+### File Sharing
+
+![LanDrop file sharing UI](docs/landrop-product-files.svg)
+
 ## Why LanDrop
 
 - Share text and files across your local network from any browser
