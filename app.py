@@ -11,6 +11,7 @@ import time
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from html.parser import HTMLParser
 from pathlib import Path
 
 
@@ -228,6 +229,125 @@ def mask_text_value(value: str) -> str:
     return "".join("*" if not char.isspace() else char for char in value)
 
 
+ALLOWED_RICH_TAGS = {
+    "a",
+    "b",
+    "blockquote",
+    "br",
+    "code",
+    "div",
+    "em",
+    "i",
+    "li",
+    "ol",
+    "p",
+    "pre",
+    "s",
+    "span",
+    "strong",
+    "u",
+    "ul",
+}
+SELF_CLOSING_RICH_TAGS = {"br"}
+BLOCK_RICH_TAGS = {"blockquote", "div", "li", "ol", "p", "pre", "ul"}
+
+
+class RichTextSanitizer(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+        self.stack: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag not in ALLOWED_RICH_TAGS:
+            return
+        if tag == "a":
+            href = ""
+            for name, value in attrs:
+                if name == "href" and value:
+                    href = value.strip()
+                    break
+            if href and (
+                href.startswith("http://")
+                or href.startswith("https://")
+                or href.startswith("mailto:")
+                or href.startswith("/")
+                or href.startswith("#")
+            ):
+                safe_href = html.escape(href, quote=True)
+                self.parts.append(
+                    f'<a href="{safe_href}" rel="noopener noreferrer" target="_blank">'
+                )
+                self.stack.append(tag)
+            else:
+                self.parts.append("<span>")
+                self.stack.append("span")
+            return
+        self.parts.append(f"<{tag}>")
+        if tag not in SELF_CLOSING_RICH_TAGS:
+            self.stack.append(tag)
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag not in ALLOWED_RICH_TAGS or tag in SELF_CLOSING_RICH_TAGS:
+            return
+        for index in range(len(self.stack) - 1, -1, -1):
+            if self.stack[index] == tag:
+                while len(self.stack) > index:
+                    closing = self.stack.pop()
+                    self.parts.append(f"</{closing}>")
+                return
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(html.escape(data))
+
+    def handle_entityref(self, name: str) -> None:
+        self.parts.append(f"&{name};")
+
+    def handle_charref(self, name: str) -> None:
+        self.parts.append(f"&#{name};")
+
+    def get_html(self) -> str:
+        while self.stack:
+            self.parts.append(f"</{self.stack.pop()}>")
+        return "".join(self.parts).strip()
+
+
+class PlainTextExtractor(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        self.parts: list[str] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        if tag == "br":
+            self.parts.append("\n")
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag in BLOCK_RICH_TAGS:
+            self.parts.append("\n")
+
+    def handle_data(self, data: str) -> None:
+        self.parts.append(data)
+
+    def get_text(self) -> str:
+        text = "".join(self.parts)
+        lines = [line.rstrip() for line in text.splitlines()]
+        return "\n".join(lines).strip()
+
+
+def sanitize_rich_text(value: str) -> str:
+    parser = RichTextSanitizer()
+    parser.feed(value)
+    parser.close()
+    return parser.get_html()
+
+
+def extract_plain_text_from_html(value: str) -> str:
+    parser = PlainTextExtractor()
+    parser.feed(value)
+    parser.close()
+    return parser.get_text()
+
+
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
@@ -249,9 +369,15 @@ def serialize_text_entry(entry: dict) -> dict:
         "created_at": entry["created_at"],
         "expires_at": entry["expires_at"],
         "masked_content": mask_text_value(entry["content"]),
+        "rich": bool(entry.get("content_html")),
     }
     payload["content"] = (
         None if entry["hidden"] and entry.get("password_hash") else entry["content"]
+    )
+    payload["content_html"] = (
+        None
+        if entry["hidden"] and entry.get("password_hash")
+        else entry.get("content_html")
     )
     return payload
 
@@ -316,6 +442,7 @@ def make_unique_short_code_locked() -> str:
 
 def add_text_entry(
     value: str,
+    content_html: str = "",
     hidden: bool = False,
     password: str = "",
     sharer_name: str = "",
@@ -329,6 +456,7 @@ def add_text_entry(
             {
                 "id": make_id(),
                 "content": value,
+                "content_html": content_html,
                 "hidden": hidden,
                 "password_hash": hash_password(password) if password else None,
                 "sharer_name": sharer_name.strip(),
@@ -449,6 +577,52 @@ def json_bytes(payload: dict) -> bytes:
 
 def get_share_base_url() -> str:
     return SHARE_BASE_URL.rstrip("/")
+
+
+def render_shared_rich_text_page(content_html: str) -> str:
+    return f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LanDrop Shared Text</title>
+  <style>
+    body {{
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      background: #f7fbff;
+      color: #0f2a7a;
+    }}
+    main {{
+      max-width: 860px;
+      margin: 0 auto;
+      padding: 28px 20px 48px;
+    }}
+    article {{
+      background: #fffdfa;
+      border: 3px solid #3a3330;
+      border-radius: 28px;
+      padding: 28px 30px;
+      color: #4b433f;
+      line-height: 1.65;
+      box-shadow: 0 18px 42px rgba(15, 42, 122, 0.12);
+      word-break: break-word;
+    }}
+    pre {{
+      white-space: pre-wrap;
+      word-break: break-word;
+    }}
+    a {{
+      color: #1497ff;
+    }}
+  </style>
+</head>
+<body>
+  <main>
+    <article>{content_html}</article>
+  </main>
+</body>
+</html>"""
 
 
 INDEX_HTML = """<!doctype html>
@@ -582,7 +756,7 @@ INDEX_HTML = """<!doctype html>
     .panel-title h2 {
       margin: 0;
     }
-    textarea {
+    textarea, .rich-editor {
       width: 100%;
       min-height: 220px;
       resize: vertical;
@@ -593,7 +767,15 @@ INDEX_HTML = """<!doctype html>
       font: inherit;
       color: var(--ink);
     }
-    textarea:focus, input:focus {
+    .rich-editor {
+      overflow: auto;
+      white-space: pre-wrap;
+    }
+    .rich-editor:empty::before {
+      content: attr(data-placeholder);
+      color: #7a8db7;
+    }
+    textarea:focus, .rich-editor:focus, input:focus {
       outline: 2px solid rgba(18, 200, 244, 0.35);
       outline-offset: 2px;
       border-color: var(--accent-strong);
@@ -940,7 +1122,7 @@ INDEX_HTML = """<!doctype html>
 <body>
   <main class="shell">
     <section class="hero">
-      <h1>LAN Text And File Sharing.<br>Fast, local, simple.</h1>
+      <h1>LanDrop Text And File Sharing.<br>Fast, local, simple.</h1>
       <p class="subhead">
         Share clipboard text and files between devices on the same network with direct LAN links,
         optional passwords, and automatic cleanup after 24 hours.
@@ -961,7 +1143,7 @@ INDEX_HTML = """<!doctype html>
           <h2>Shared Text</h2>
           <div class="meta" id="textMeta">Waiting for updates…</div>
         </div>
-        <textarea id="sharedText" placeholder="Paste text here"></textarea>
+        <div id="sharedText" class="rich-editor" contenteditable="true" data-placeholder="Paste rich text here"></div>
         <div class="row stack">
           <label class="checkbox-row" for="hiddenText">
             <input id="hiddenText" type="checkbox">
@@ -1030,6 +1212,7 @@ INDEX_HTML = """<!doctype html>
     let activeTab = "text";
     const revealedTextIds = new Set();
     const revealedTextContent = new Map();
+    const revealedTextHtml = new Map();
     let snapshotInitialized = false;
     let latestTextId = null;
     let latestFileId = null;
@@ -1145,6 +1328,18 @@ INDEX_HTML = """<!doctype html>
       );
     }
 
+    function getEditorText() {
+      return sharedText.innerText.replace(/\u00a0/g, " ").trim();
+    }
+
+    function getEditorHtml() {
+      return sharedText.innerHTML.trim();
+    }
+
+    function clearEditor() {
+      sharedText.innerHTML = "";
+    }
+
     function fallbackCopyText(content) {
       const temp = document.createElement("textarea");
       temp.value = content;
@@ -1222,6 +1417,7 @@ INDEX_HTML = """<!doctype html>
       if (!entry.password_required) {
         const content = entry.content ?? "";
         revealedTextContent.set(entry.id, content);
+        revealedTextHtml.set(entry.id, entry.content_html ?? "");
         revealedTextIds.add(entry.id);
         return true;
       }
@@ -1242,6 +1438,7 @@ INDEX_HTML = """<!doctype html>
         }
         const payload = await response.json();
         revealedTextContent.set(entry.id, payload.content);
+        revealedTextHtml.set(entry.id, payload.content_html ?? "");
         revealedTextIds.add(entry.id);
         textStatus.textContent = "Text revealed.";
         return true;
@@ -1376,6 +1573,7 @@ INDEX_HTML = """<!doctype html>
             if (revealedTextIds.has(entry.id)) {
               revealedTextIds.delete(entry.id);
               revealedTextContent.delete(entry.id);
+              revealedTextHtml.delete(entry.id);
             } else {
               const revealed = await revealProtectedText(entry);
               if (!revealed) {
@@ -1420,9 +1618,13 @@ INDEX_HTML = """<!doctype html>
         if (isMasked) {
           body.classList.add("masked");
         }
-        body.textContent = isMasked
-          ? (entry.masked_content || maskText(entry.content || ""))
-          : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
+        if (isMasked) {
+          body.textContent = entry.masked_content || maskText(entry.content || "");
+        } else if (entry.rich && entry.content_html) {
+          body.innerHTML = revealedTextHtml.get(entry.id) || entry.content_html;
+        } else {
+          body.textContent = revealedTextContent.get(entry.id) ?? entry.content ?? "";
+        }
 
         const deleteWrap = document.createElement("div");
         deleteWrap.className = "text-card-actions";
@@ -1618,7 +1820,7 @@ INDEX_HTML = """<!doctype html>
       }
 
       if (!pendingTextPush && !isTextFormActive()) {
-        sharedText.value = "";
+        clearEditor();
       }
       textMeta.textContent = `Last update: ${formatDate(snapshot.updated_at)} • Auto-delete after 24 hours`;
       renderTextHistory(snapshot.texts || []);
@@ -1639,12 +1841,13 @@ INDEX_HTML = """<!doctype html>
     }
 
     async function saveText() {
-      const content = sharedText.value.trim();
+      const content = getEditorText();
       if (!content) {
         textStatus.textContent = "Paste some text first.";
         return;
       }
-      const submittedText = sharedText.value;
+      const submittedText = content;
+      const submittedHtml = getEditorHtml();
       const submittedHidden = hiddenText.checked;
       const submittedPassword = textPassword.value.trim();
 
@@ -1656,6 +1859,7 @@ INDEX_HTML = """<!doctype html>
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: submittedText,
+            html: submittedHtml,
             hidden: submittedHidden,
             password: textPassword.value,
             name: sharerName.value
@@ -1670,7 +1874,7 @@ INDEX_HTML = """<!doctype html>
           unreadText = false;
         }
         renderSnapshot(snapshot);
-        sharedText.value = "";
+        clearEditor();
         hiddenText.checked = false;
         textPassword.value = "";
         updateHiddenOptions();
@@ -2034,7 +2238,16 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(text, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Text must be a string")
             return
-        if not text.strip():
+        rich_html = payload.get("html", "")
+        if not isinstance(rich_html, str):
+            self.send_error(HTTPStatus.BAD_REQUEST, "HTML must be a string")
+            return
+        sanitized_html = sanitize_rich_text(rich_html)
+        extracted_text = (
+            extract_plain_text_from_html(sanitized_html) if sanitized_html else ""
+        )
+        normalized_text = text.strip() or extracted_text
+        if not normalized_text:
             self.send_error(HTTPStatus.BAD_REQUEST, "Text cannot be empty")
             return
         hidden = payload.get("hidden", False)
@@ -2051,7 +2264,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         add_text_entry(
-            text,
+            normalized_text,
+            content_html=sanitized_html,
             hidden=hidden,
             password=password.strip(),
             sharer_name=sharer_name.strip(),
@@ -2081,7 +2295,13 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
 
-        self.send_json({"content": entry["content"]})
+        self.send_json(
+            {
+                "content": entry["content"],
+                "content_html": entry.get("content_html"),
+                "rich": bool(entry.get("content_html")),
+            }
+        )
 
     def handle_latest_text(self) -> None:
         entry = get_latest_text_entry()
@@ -2115,7 +2335,10 @@ class AppHandler(BaseHTTPRequestHandler):
             if payload.get("password_hash") and not entry_password_is_valid(payload, password):
                 self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
                 return
-            self.send_text(payload["content"])
+            if payload.get("content_html"):
+                self.send_html(render_shared_rich_text_page(payload["content_html"]))
+            else:
+                self.send_text(payload["content"])
             return
 
         if payload.get("password_hash") and not entry_password_is_valid(payload, password):

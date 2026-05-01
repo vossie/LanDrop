@@ -90,6 +90,23 @@ class AppStateTests(unittest.TestCase):
         self.assertIsNone(snapshot["texts"][0]["content"])
         self.assertEqual(snapshot["texts"][0]["masked_content"], "****** *****")
 
+    def test_rich_text_is_sanitized_in_snapshot(self) -> None:
+        sanitized = app.sanitize_rich_text(
+            '<p><strong>Hello</strong> <a href="https://example.com">world</a></p><script>alert(1)</script>'
+        )
+        app.add_text_entry(
+            "Hello world",
+            content_html=sanitized,
+            sharer_name="Alice",
+        )
+
+        snapshot = app.get_snapshot()
+
+        self.assertTrue(snapshot["texts"][0]["rich"])
+        self.assertIn("<strong>Hello</strong>", snapshot["texts"][0]["content_html"])
+        self.assertIn('href="https://example.com"', snapshot["texts"][0]["content_html"])
+        self.assertNotIn("<script>", snapshot["texts"][0]["content_html"])
+
     def test_delete_file_entry_removes_file_from_disk(self) -> None:
         target = app.UPLOAD_DIR / "stored.txt"
         target.write_text("payload", encoding="utf-8")
@@ -394,6 +411,41 @@ class HttpServerTests(unittest.TestCase):
 
         self.assertEqual(home["status"], 200)
         self.assertIn('const configuredShareBaseUrl = "http://192.168.1.24:8000";', home["text"])
+
+    def test_rich_text_share_renders_html_page(self) -> None:
+        self.start_server()
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps(
+                {
+                    "text": "Hello world",
+                    "html": '<p><strong>Hello</strong> <a href="https://example.com">world</a></p><script>alert(1)</script>',
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+        self.assertTrue(created_entry["rich"])
+        self.assertIn("<strong>Hello</strong>", created_entry["content_html"])
+        self.assertNotIn("<script>", created_entry["content_html"])
+
+        latest_text_response = self.request("GET", "/api/latest-text")
+        self.assertEqual(latest_text_response["status"], 200)
+        latest_text_entry = json.loads(latest_text_response["body"])
+        self.assertTrue(latest_text_entry["rich"])
+        self.assertIn("<strong>Hello</strong>", latest_text_entry["content_html"])
+
+        shared_text_response = self.request("GET", f"/s/{created_entry['short_code']}")
+        self.assertEqual(shared_text_response["status"], 200)
+        self.assertEqual(
+            shared_text_response["headers"]["Content-Type"],
+            "text/html; charset=utf-8",
+        )
+        self.assertIn("<strong>Hello</strong>", shared_text_response["text"])
+        self.assertNotIn("<script>", shared_text_response["text"])
 
     def test_text_update_rejects_non_boolean_hidden_flag(self) -> None:
         self.start_server()
