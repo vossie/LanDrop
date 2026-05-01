@@ -751,11 +751,25 @@ INDEX_HTML = """<!doctype html>
       min-width: 0;
     }
     .text-card-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
       margin: 0 0 10px 12px;
       color: #3d3532;
       font-size: 1rem;
       font-weight: 700;
       letter-spacing: -0.02em;
+    }
+    .copied-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      background: rgba(18, 200, 244, 0.14);
+      color: #1497ff;
+      font-size: 0.78rem;
+      font-weight: 700;
+      letter-spacing: 0;
     }
     .entry-table {
       width: 100%;
@@ -809,8 +823,28 @@ INDEX_HTML = """<!doctype html>
       transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
       line-height: 1.65;
     }
+    .text-card.flash-copy {
+      animation: copiedFlash 1.25s ease;
+    }
     .text-card.masked {
       letter-spacing: 0.04em;
+    }
+    @keyframes copiedFlash {
+      0% {
+        background: #fff3cf;
+        border-color: #ffb648;
+        box-shadow: 0 0 0 0 rgba(255, 182, 72, 0.35);
+      }
+      35% {
+        background: #fff9e8;
+        border-color: #ffb648;
+        box-shadow: 0 0 0 10px rgba(255, 182, 72, 0.08);
+      }
+      100% {
+        background: #fffdfa;
+        border-color: #3a3330;
+        box-shadow: 0 0 0 0 rgba(255, 182, 72, 0);
+      }
     }
     .text-card-actions {
       display: flex;
@@ -1004,6 +1038,9 @@ INDEX_HTML = """<!doctype html>
     let suppressedTextId = null;
     let suppressedFileId = null;
     let textStatusTimer = null;
+    let copiedTextId = null;
+    let copiedTextTimer = null;
+    let lastRenderedTexts = [];
 
     function updateTabIndicators() {
       textTabBtn.classList.toggle("has-update", unreadText);
@@ -1130,6 +1167,19 @@ INDEX_HTML = """<!doctype html>
       return copied;
     }
 
+    function showCopiedState(entryId) {
+      copiedTextId = entryId;
+      if (copiedTextTimer) {
+        window.clearTimeout(copiedTextTimer);
+      }
+      renderTextHistory(lastRenderedTexts);
+      copiedTextTimer = window.setTimeout(() => {
+        copiedTextId = null;
+        copiedTextTimer = null;
+        renderTextHistory(lastRenderedTexts);
+      }, 1400);
+    }
+
     async function copyText(content) {
       clearActiveTabIndicator();
       try {
@@ -1138,12 +1188,13 @@ INDEX_HTML = """<!doctype html>
         } else if (!fallbackCopyText(content)) {
           throw new Error("Fallback copy failed");
         }
-        setTextStatus("Copied", true);
+        return true;
       } catch (error) {
         if (fallbackCopyText(content)) {
-          setTextStatus("Copied", true);
+          return true;
         } else {
           setTextStatus("Clipboard copy failed.");
+          return false;
         }
       }
     }
@@ -1227,6 +1278,7 @@ INDEX_HTML = """<!doctype html>
     }
 
     function renderTextHistory(texts) {
+      lastRenderedTexts = texts;
       textHistory.innerHTML = "";
       if (!texts.length) {
         const li = document.createElement("li");
@@ -1250,7 +1302,10 @@ INDEX_HTML = """<!doctype html>
 
           const content = revealedTextContent.get(entry.id) ?? entry.content;
           if (content !== null) {
-            copyText(content);
+            const copied = await copyText(content);
+            if (copied) {
+              showCopiedState(entry.id);
+            }
           }
         });
 
@@ -1349,20 +1404,25 @@ INDEX_HTML = """<!doctype html>
         const label = document.createElement("div");
         label.className = "text-card-label";
         label.textContent = "Click to copy...";
+        if (copiedTextId === entry.id) {
+          const copiedPill = document.createElement("span");
+          copiedPill.className = "copied-pill";
+          copiedPill.textContent = "Copied";
+          label.appendChild(copiedPill);
+        }
 
         const body = document.createElement("div");
         body.className = "history-body text-card";
+        if (copiedTextId === entry.id) {
+          body.classList.add("flash-copy");
+        }
         const isMasked = entry.hidden && !revealedTextIds.has(entry.id);
         if (isMasked) {
           body.classList.add("masked");
         }
-        if (entry.password_required && isMasked) {
-          body.textContent = "";
-        } else {
-          body.textContent = isMasked
-            ? (entry.masked_content || maskText(entry.content || ""))
-            : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
-        }
+        body.textContent = isMasked
+          ? (entry.masked_content || maskText(entry.content || ""))
+          : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
 
         const deleteWrap = document.createElement("div");
         deleteWrap.className = "text-card-actions";
