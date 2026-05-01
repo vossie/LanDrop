@@ -149,6 +149,8 @@ def serialize_text_entry(entry: dict) -> dict:
         "id": entry["id"],
         "hidden": entry["hidden"],
         "password_required": bool(entry.get("password_hash")),
+        "sharer_name": entry.get("sharer_name", ""),
+        "sharer_ip": entry.get("sharer_ip", ""),
         "short_code": entry["short_code"],
         "created_at": entry["created_at"],
         "expires_at": entry["expires_at"],
@@ -168,6 +170,8 @@ def serialize_file_entry(entry: dict) -> dict:
         "size": entry["size"],
         "hidden": entry.get("hidden", False),
         "password_required": bool(entry.get("password_hash")),
+        "sharer_name": entry.get("sharer_name", ""),
+        "sharer_ip": entry.get("sharer_ip", ""),
         "short_code": entry["short_code"],
         "created_at": entry["created_at"],
         "expires_at": entry["expires_at"],
@@ -216,7 +220,13 @@ def make_unique_short_code_locked() -> str:
             return candidate
 
 
-def add_text_entry(value: str, hidden: bool = False, password: str = "") -> None:
+def add_text_entry(
+    value: str,
+    hidden: bool = False,
+    password: str = "",
+    sharer_name: str = "",
+    sharer_ip: str = "",
+) -> None:
     with state_lock:
         prune_expired_locked()
         created_at = now_ts()
@@ -227,6 +237,8 @@ def add_text_entry(value: str, hidden: bool = False, password: str = "") -> None
                 "content": value,
                 "hidden": hidden,
                 "password_hash": hash_password(password) if password else None,
+                "sharer_name": sharer_name.strip(),
+                "sharer_ip": sharer_ip.strip(),
                 "short_code": make_unique_short_code_locked(),
                 "created_at": created_at,
                 "expires_at": created_at + EXPIRY_SECONDS,
@@ -252,6 +264,8 @@ def add_file(
     size: int,
     hidden: bool = False,
     password: str = "",
+    sharer_name: str = "",
+    sharer_ip: str = "",
 ) -> None:
     with state_lock:
         prune_expired_locked()
@@ -265,6 +279,8 @@ def add_file(
                 "size": size,
                 "hidden": hidden,
                 "password_hash": hash_password(password) if password else None,
+                "sharer_name": sharer_name.strip(),
+                "sharer_ip": sharer_ip.strip(),
                 "short_code": make_unique_short_code_locked(),
                 "created_at": created_at,
                 "expires_at": created_at + EXPIRY_SECONDS,
@@ -715,6 +731,9 @@ INDEX_HTML = """<!doctype html>
           <h2>Shared Text</h2>
           <div class="meta" id="textMeta">Waiting for updates…</div>
         </div>
+        <div class="row">
+          <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Your name or device name">
+        </div>
         <textarea id="sharedText" placeholder="Paste text here"></textarea>
         <div class="row stack">
           <label class="checkbox-row" for="hiddenText">
@@ -758,6 +777,7 @@ INDEX_HTML = """<!doctype html>
 
   <script>
     const sharedText = document.getElementById("sharedText");
+    const sharerName = document.getElementById("sharerName");
     const hiddenText = document.getElementById("hiddenText");
     const textHiddenOptions = document.getElementById("textHiddenOptions");
     const textPassword = document.getElementById("textPassword");
@@ -811,6 +831,11 @@ INDEX_HTML = """<!doctype html>
       if (!hiddenFile.checked) {
         filePassword.value = "";
       }
+    }
+
+    function isTextFormActive() {
+      const active = document.activeElement;
+      return active === sharedText || active === textPassword || active === sharerName;
     }
 
     function fallbackCopyText(content) {
@@ -972,6 +997,17 @@ INDEX_HTML = """<!doctype html>
         savedRow.appendChild(savedHead);
         savedRow.appendChild(savedValue);
 
+        const fromRow = document.createElement("tr");
+        const fromHead = document.createElement("th");
+        fromHead.textContent = "Shared by";
+        const fromValue = document.createElement("td");
+        fromValue.textContent = entry.sharer_name || "Anonymous";
+        if (entry.sharer_ip) {
+          fromValue.textContent += ` (${entry.sharer_ip})`;
+        }
+        fromRow.appendChild(fromHead);
+        fromRow.appendChild(fromValue);
+
         const expiresRow = document.createElement("tr");
         const expiresHead = document.createElement("th");
         expiresHead.textContent = "Expires";
@@ -999,24 +1035,10 @@ INDEX_HTML = """<!doctype html>
         linkRow.appendChild(linkHead);
         linkRow.appendChild(linkValue);
 
-        const privacyRow = document.createElement("tr");
-        const privacyHead = document.createElement("th");
-        privacyHead.textContent = "Access";
-        const privacyValue = document.createElement("td");
-        if (!entry.hidden) {
-          privacyValue.textContent = "Visible";
-        } else if (entry.password_required) {
-          privacyValue.textContent = "Hidden and password protected";
-        } else {
-          privacyValue.textContent = "Hidden";
-        }
-        privacyRow.appendChild(privacyHead);
-        privacyRow.appendChild(privacyValue);
-
         infoTable.appendChild(savedRow);
+        infoTable.appendChild(fromRow);
         infoTable.appendChild(expiresRow);
         infoTable.appendChild(linkRow);
-        infoTable.appendChild(privacyRow);
 
         if (entry.hidden) {
           const toggleBtn = document.createElement("button");
@@ -1036,8 +1058,26 @@ INDEX_HTML = """<!doctype html>
             }
             renderTextHistory(texts);
           });
-          privacyValue.appendChild(document.createTextNode(" "));
-          privacyValue.appendChild(toggleBtn);
+          if (entry.password_required) {
+            const privacyRow = document.createElement("tr");
+            const privacyHead = document.createElement("th");
+            privacyHead.textContent = "Access";
+            const privacyValue = document.createElement("td");
+            privacyValue.textContent = "Password protected ";
+            privacyValue.appendChild(toggleBtn);
+            privacyRow.appendChild(privacyHead);
+            privacyRow.appendChild(privacyValue);
+            infoTable.appendChild(privacyRow);
+          } else {
+            const revealRow = document.createElement("tr");
+            const revealHead = document.createElement("th");
+            revealHead.textContent = "Reveal";
+            const revealValue = document.createElement("td");
+            revealValue.appendChild(toggleBtn);
+            revealRow.appendChild(revealHead);
+            revealRow.appendChild(revealValue);
+            infoTable.appendChild(revealRow);
+          }
         }
         head.appendChild(infoTable);
 
@@ -1057,9 +1097,13 @@ INDEX_HTML = """<!doctype html>
         if (isMasked) {
           body.classList.add("masked");
         }
-        body.textContent = isMasked
-          ? (entry.masked_content || maskText(entry.content || ""))
-          : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
+        if (entry.password_required && isMasked) {
+          body.textContent = "Password protected. Reveal to view.";
+        } else {
+          body.textContent = isMasked
+            ? (entry.masked_content || maskText(entry.content || ""))
+            : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
+        }
 
         const deleteWrap = document.createElement("div");
         deleteWrap.className = "text-card-actions";
@@ -1129,6 +1173,17 @@ INDEX_HTML = """<!doctype html>
         sizeRow.appendChild(sizeHead);
         sizeRow.appendChild(sizeValue);
 
+        const fromRow = document.createElement("tr");
+        const fromHead = document.createElement("th");
+        fromHead.textContent = "Shared by";
+        const fromValue = document.createElement("td");
+        fromValue.textContent = file.sharer_name || "Anonymous";
+        if (file.sharer_ip) {
+          fromValue.textContent += ` (${file.sharer_ip})`;
+        }
+        fromRow.appendChild(fromHead);
+        fromRow.appendChild(fromValue);
+
         const uploadedRow = document.createElement("tr");
         const uploadedHead = document.createElement("th");
         uploadedHead.textContent = "Uploaded";
@@ -1164,19 +1219,21 @@ INDEX_HTML = """<!doctype html>
         linkRow.appendChild(linkHead);
         linkRow.appendChild(linkValue);
 
-        const accessRow = document.createElement("tr");
-        const accessHead = document.createElement("th");
-        accessHead.textContent = "Access";
-        const accessValue = document.createElement("td");
-        accessValue.textContent = file.password_required ? "Password protected" : "Open on LAN";
-        accessRow.appendChild(accessHead);
-        accessRow.appendChild(accessValue);
-
         infoTable.appendChild(sizeRow);
+        infoTable.appendChild(fromRow);
         infoTable.appendChild(uploadedRow);
         infoTable.appendChild(expiresRow);
         infoTable.appendChild(linkRow);
-        infoTable.appendChild(accessRow);
+        if (file.password_required) {
+          const accessRow = document.createElement("tr");
+          const accessHead = document.createElement("th");
+          accessHead.textContent = "Access";
+          const accessValue = document.createElement("td");
+          accessValue.textContent = "Password protected";
+          accessRow.appendChild(accessHead);
+          accessRow.appendChild(accessValue);
+          infoTable.appendChild(accessRow);
+        }
 
         details.appendChild(name);
         details.appendChild(infoTable);
@@ -1213,7 +1270,7 @@ INDEX_HTML = """<!doctype html>
     }
 
     function renderSnapshot(snapshot) {
-      if (!pendingTextPush && document.activeElement !== sharedText) {
+      if (!pendingTextPush && !isTextFormActive()) {
         sharedText.value = "";
       }
       textMeta.textContent = `Last update: ${formatDate(snapshot.updated_at)} • Auto-delete after 24 hours`;
@@ -1239,6 +1296,9 @@ INDEX_HTML = """<!doctype html>
         textStatus.textContent = "Paste some text first.";
         return;
       }
+      const submittedText = sharedText.value;
+      const submittedHidden = hiddenText.checked;
+      const submittedPassword = textPassword.value.trim();
 
       pendingTextPush = true;
       textStatus.textContent = "Saving…";
@@ -1247,15 +1307,21 @@ INDEX_HTML = """<!doctype html>
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            text: sharedText.value,
-            hidden: hiddenText.checked,
-            password: textPassword.value
+            text: submittedText,
+            hidden: submittedHidden,
+            password: textPassword.value,
+            name: sharerName.value
           })
         });
         if (!response.ok) {
           throw new Error(`Save failed: ${response.status}`);
         }
-        renderSnapshot(await response.json());
+        const snapshot = await response.json();
+        if (submittedHidden && submittedPassword && snapshot.texts && snapshot.texts.length > 0) {
+          revealedTextIds.add(snapshot.texts[0].id);
+          revealedTextContent.set(snapshot.texts[0].id, submittedText);
+        }
+        renderSnapshot(snapshot);
         sharedText.value = "";
         hiddenText.checked = false;
         textPassword.value = "";
@@ -1274,7 +1340,8 @@ INDEX_HTML = """<!doctype html>
         return;
       }
       if (hiddenFile.checked && !filePassword.value.trim()) {
-        fileStatus.textContent = "Hidden files require a password.";
+        fileStatus.textContent = "Add a password before uploading a hidden file.";
+        filePassword.focus();
         return;
       }
 
@@ -1282,6 +1349,7 @@ INDEX_HTML = """<!doctype html>
       formData.append("file", file);
       formData.append("hidden", hiddenFile.checked ? "true" : "false");
       formData.append("password", filePassword.value);
+      formData.append("name", sharerName.value);
       fileStatus.textContent = `Uploading ${file.name}…`;
 
       try {
@@ -1619,8 +1687,18 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(password, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
             return
+        sharer_name = payload.get("name", "")
+        if not isinstance(sharer_name, str):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Name must be a string")
+            return
 
-        add_text_entry(text, hidden=hidden, password=password.strip())
+        add_text_entry(
+            text,
+            hidden=hidden,
+            password=password.strip(),
+            sharer_name=sharer_name.strip(),
+            sharer_ip=self.client_address[0],
+        )
         self.send_json(get_snapshot())
 
     def handle_text_reveal(self, entry_id: str) -> None:
@@ -1727,6 +1805,7 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         hidden = fields.get("hidden", "false").lower() == "true"
         password = fields.get("password", "").strip()
+        sharer_name = fields.get("name", "").strip()
         if hidden and not password:
             self.send_error(HTTPStatus.BAD_REQUEST, "Hidden files require a password")
             return
@@ -1737,7 +1816,15 @@ class AppHandler(BaseHTTPRequestHandler):
         with target.open("wb") as handle:
             handle.write(file_bytes)
 
-        add_file(filename, stored_name, len(file_bytes), hidden=hidden, password=password)
+        add_file(
+            filename,
+            stored_name,
+            len(file_bytes),
+            hidden=hidden,
+            password=password,
+            sharer_name=sharer_name,
+            sharer_ip=self.client_address[0],
+        )
         self.send_json(get_snapshot())
 
     def parse_multipart_file(self, body: bytes, boundary: bytes):

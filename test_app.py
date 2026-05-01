@@ -42,19 +42,29 @@ class AppStateTests(unittest.TestCase):
         return self.current_time
 
     def test_snapshot_contains_latest_text_and_file_history(self) -> None:
-        app.add_text_entry("first")
+        app.add_text_entry("first", sharer_name="Alice", sharer_ip="192.168.1.10")
         self.current_time += 5
-        app.add_text_entry("second")
-        app.add_file("hello.txt", "stored-hello.txt", 12)
+        app.add_text_entry("second", sharer_name="Bob", sharer_ip="192.168.1.11")
+        app.add_file(
+            "hello.txt",
+            "stored-hello.txt",
+            12,
+            sharer_name="Bob",
+            sharer_ip="192.168.1.11",
+        )
 
         snapshot = app.get_snapshot()
 
         self.assertEqual(snapshot["latest_text"], "second")
         self.assertEqual(len(snapshot["texts"]), 2)
         self.assertEqual(snapshot["texts"][0]["content"], "second")
+        self.assertEqual(snapshot["texts"][0]["sharer_name"], "Bob")
+        self.assertEqual(snapshot["texts"][0]["sharer_ip"], "192.168.1.11")
         self.assertEqual(len(snapshot["texts"][0]["short_code"]), 4)
         self.assertEqual(len(snapshot["files"]), 1)
         self.assertEqual(snapshot["files"][0]["name"], "hello.txt")
+        self.assertEqual(snapshot["files"][0]["sharer_name"], "Bob")
+        self.assertEqual(snapshot["files"][0]["sharer_ip"], "192.168.1.11")
         self.assertEqual(len(snapshot["files"][0]["short_code"]), 4)
         self.assertEqual(snapshot["expires_after_seconds"], app.EXPIRY_SECONDS)
 
@@ -164,6 +174,7 @@ class HttpServerTests(unittest.TestCase):
         cookie: str | None = None,
         hidden: bool = False,
         password: str = "",
+        name: str = "",
     ):
         boundary = "----LanDropBoundary"
         body = (
@@ -181,6 +192,11 @@ class HttpServerTests(unittest.TestCase):
             'Content-Disposition: form-data; name="password"\r\n\r\n'
             f"{password}"
         ).encode("utf-8")
+        body += (
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="name"\r\n\r\n'
+            f"{name}"
+        ).encode("utf-8")
         body += f"\r\n--{boundary}--\r\n".encode("utf-8")
         headers = {
             "Content-Type": f"multipart/form-data; boundary={boundary}",
@@ -195,12 +211,12 @@ class HttpServerTests(unittest.TestCase):
 
         home = self.request("GET", "/")
         self.assertEqual(home["status"], 200)
-        self.assertIn("Paste once.", home["text"])
+        self.assertIn("LAN Text And File Sharing.", home["text"])
 
         text_response = self.request(
             "POST",
             "/api/text",
-            body=json.dumps({"text": "shared text"}).encode("utf-8"),
+            body=json.dumps({"text": "shared text", "name": "Laptop"}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
         self.assertEqual(text_response["status"], 200)
@@ -214,19 +230,22 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(latest_text_entry["id"], text_id)
         self.assertEqual(latest_text_entry["content"], "shared text")
         self.assertFalse(latest_text_entry["hidden"])
+        self.assertEqual(latest_text_entry["sharer_name"], "Laptop")
+        self.assertEqual(latest_text_entry["sharer_ip"], "127.0.0.1")
         text_short_code = latest_text_entry["short_code"]
 
         hidden_text_response = self.request(
             "POST",
             "/api/text",
-            body=json.dumps({"text": "top secret", "hidden": True}).encode("utf-8"),
+            body=json.dumps({"text": "top secret", "hidden": True, "name": "Carel"}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
         self.assertEqual(hidden_text_response["status"], 200)
         hidden_snapshot = json.loads(hidden_text_response["body"])
         self.assertTrue(hidden_snapshot["texts"][0]["hidden"])
+        self.assertEqual(hidden_snapshot["texts"][0]["sharer_name"], "Carel")
 
-        upload_response = self.upload_request("note.txt", b"network payload")
+        upload_response = self.upload_request("note.txt", b"network payload", name="Phone")
         self.assertEqual(upload_response["status"], 200)
         upload_snapshot = json.loads(upload_response["body"])
         file_entry = upload_snapshot["files"][0]
@@ -240,6 +259,8 @@ class HttpServerTests(unittest.TestCase):
         latest_file_entry = json.loads(latest_file_response["body"])
         self.assertEqual(latest_file_entry["id"], file_id)
         self.assertEqual(latest_file_entry["name"], "note.txt")
+        self.assertEqual(latest_file_entry["sharer_name"], "Phone")
+        self.assertEqual(latest_file_entry["sharer_ip"], "127.0.0.1")
         file_short_code = latest_file_entry["short_code"]
 
         latest_file_content_response = self.request("GET", "/api/latest-file/content")

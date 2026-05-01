@@ -1,11 +1,68 @@
 # LanDrop
 
-Small Python web app for sharing pasted text and uploaded files between browsers on the same network.
+Browser-based LAN file sharing and local network text sharing for fast device-to-device transfer.
 
-## Run
+![LanDrop hero](docs/landrop-hero.svg)
+
+LanDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It works well as a local network clipboard sharing tool, a simple LAN file drop, and a quick browser-based transfer page for phones, laptops, desktops, and Raspberry Pi boxes.
+
+![LanDrop flow](docs/landrop-flow.svg)
+
+## Why LanDrop
+
+- Share text and files across your local network from any browser
+- Generate direct LAN links for each item such as `http://192.168.1.24:8000/s/U9UN`
+- Click any shared text card to copy it instantly
+- Hide sensitive text and optionally require a password to reveal it
+- Hide files behind a required password before download
+- Automatically expire text and files after 24 hours
+- Run with no external Python dependencies
+
+## Use Cases
+
+- Send a command, token, or SSH snippet from laptop to phone
+- Drop a file onto a local network page and open it from another device
+- Share a Wi-Fi password, API key, or login detail with temporary masking
+- Run a simple self-hosted LAN file sharing page at home or in the office
+- Use a browser as a local clipboard sync tool without cloud services
+
+## Features
+
+| Feature | Details |
+| --- | --- |
+| Local network text sharing | Paste text once and open it anywhere on your LAN |
+| LAN file sharing | Upload files from the browser with drag-and-drop support |
+| Short share links | Every item gets a short `/s/XXXX` link |
+| Password protection | Hidden text can require a password, and hidden files always do |
+| Fast copy workflow | Shared text cards are clickable and copy directly |
+| Auto cleanup | Items expire after 24 hours |
+| Access gate | Optional global access code for the whole app |
+| Simple deployment | Run directly or install as an Ubuntu `systemd` service |
+
+## Quick Start
+
+Run LanDrop:
 
 ```bash
 ./.venv/bin/python app.py
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+From other devices on the same network:
+
+```text
+http://<this-machine-ip>:8000
+```
+
+## Protect The App With An Access Code
+
+```bash
+ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
 ```
 
 ## Test
@@ -14,19 +71,19 @@ Small Python web app for sharing pasted text and uploaded files between browsers
 ./.venv/bin/python -m unittest -v test_app.py
 ```
 
-To require a shared access code:
+## API
 
-```bash
-ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
-```
+| Endpoint | Purpose |
+| --- | --- |
+| `GET /api/state` | Full current history snapshot |
+| `GET /api/latest-text` | Newest text entry as JSON |
+| `POST /api/text/<id>/reveal` | Reveal password-protected hidden text |
+| `GET /api/latest-file` | Newest file metadata as JSON |
+| `GET /api/latest-file/content` | Download the newest file |
+| `GET /download/<id>` | Download a file by item id |
+| `GET /s/<code>` | Open a short LAN link for text or file |
 
-The app listens on `0.0.0.0:8000` by default, so other machines on the same network can open:
-
-```text
-http://<this-machine-ip>:8000
-```
-
-## Install As Ubuntu Service
+## Install As An Ubuntu Service
 
 Run the installer as `root` on the target Ubuntu server:
 
@@ -42,7 +99,7 @@ It will:
 - write config to `/etc/landrop/landrop.env`
 - create and enable a `systemd` service that starts on boot
 
-You can override defaults when installing:
+Override defaults during install:
 
 ```bash
 sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./install-ubuntu-service.sh
@@ -56,37 +113,26 @@ sudo systemctl restart landrop
 sudo journalctl -u landrop -f
 ```
 
-To uninstall the service but keep uploaded data and the service user:
+Uninstall while keeping uploads and the service user:
 
 ```bash
 sudo bash ./uninstall-ubuntu-service.sh
 ```
 
-To also remove persisted uploads and the service account:
+Remove persisted uploads and the service account too:
 
 ```bash
 sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./uninstall-ubuntu-service.sh
 ```
 
-## What it does
-
-- Text history with copy and delete actions
-- File history with drag-and-drop upload, download, and delete actions
-- Automatic expiry for text and files after 24 hours
-- Optional access code gate for all browsers
-- No external dependencies
-
-## API
-
-- `GET /api/state`: full current history snapshot
-- `GET /api/latest-text`: newest text entry as JSON
-- `GET /api/latest-file`: newest file entry metadata as JSON
-- `GET /api/latest-file/content`: newest file content as a file download
-
 ## Notes
 
-- Text history is kept in memory while the app is running.
+- Text history is stored in memory while the process is running.
 - Uploaded files are stored in `uploads/`.
-- Browsers poll every 2 seconds for updates.
+- Browsers poll for updates every 2 seconds.
 - Maximum upload size is 1 GB.
 - Expired files are removed automatically when the app is used.
+
+## Search-Friendly Summary
+
+If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, or a simple self-hosted text and file drop for devices on the same Wi-Fi network, LanDrop is built for that exact workflow.

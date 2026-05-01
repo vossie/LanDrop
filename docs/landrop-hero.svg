@@ -1,0 +1,20 @@
+<svg width="1280" height="640" viewBox="0 0 1280 640" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="640" rx="40" fill="#F7FBFF"/>
+  <rect x="40" y="40" width="1200" height="560" rx="32" fill="white" stroke="#BED6FF" stroke-width="4"/>
+  <circle cx="151" cy="110" r="12" fill="#12C8F4"/>
+  <circle cx="189" cy="110" r="12" fill="#1497FF"/>
+  <circle cx="227" cy="110" r="12" fill="#FF9F1A"/>
+  <text x="92" y="190" fill="#0F2A7A" font-family="Arial, sans-serif" font-size="64" font-weight="700">LanDrop</text>
+  <text x="92" y="244" fill="#45619D" font-family="Arial, sans-serif" font-size="28">Local network text and file sharing in your browser</text>
+  <rect x="92" y="302" width="476" height="210" rx="28" fill="#FFFDFA" stroke="#3A3330" stroke-width="5"/>
+  <text x="122" y="338" fill="#3D3532" font-family="Arial, sans-serif" font-size="24" font-weight="700">Click to copy...</text>
+  <text x="124" y="402" fill="#4B433F" font-family="Courier New, monospace" font-size="22">ssh admin@office-pi</text>
+  <text x="124" y="438" fill="#4B433F" font-family="Courier New, monospace" font-size="22">password: ********</text>
+  <text x="124" y="474" fill="#4B433F" font-family="Courier New, monospace" font-size="22">http://192.168.1.24:8000/s/U9UN</text>
+  <rect x="616" y="300" width="572" height="212" rx="28" fill="#FBFDFF" stroke="#BED6FF" stroke-width="3"/>
+  <text x="650" y="340" fill="#0F2A7A" font-family="Arial, sans-serif" font-size="28" font-weight="700">Shared Files</text>
+  <text x="650" y="390" fill="#45619D" font-family="Arial, sans-serif" font-size="22">• Drag-and-drop uploads</text>
+  <text x="650" y="428" fill="#45619D" font-family="Arial, sans-serif" font-size="22">• Full LAN links for each item</text>
+  <text x="650" y="466" fill="#45619D" font-family="Arial, sans-serif" font-size="22">• Optional password-protected text reveal</text>
+  <text x="650" y="504" fill="#45619D" font-family="Arial, sans-serif" font-size="22">• Password-protected hidden file downloads</text>
+</svg>
