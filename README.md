@@ -4,13 +4,16 @@ Browser-based LAN file sharing and local network text sharing for fast device-to
 
 ![LanDrop hero](docs/landrop-hero.svg)
 
-LanDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It works well as a local network clipboard sharing tool, a simple LAN file drop, and a quick browser-based transfer page for phones, laptops, desktops, and Raspberry Pi boxes.
+LanDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It works well as a local network clipboard sharing tool, a simple LAN file drop, and a quick browser-based transfer page for phones, tablets, laptops, desktops, and Raspberry Pi boxes.
+
+It is especially useful at home when you want to move something between different operating systems without thinking about apps, cables, cloud sync, or accounts. Open the same page from Windows, macOS, Linux, iPhone, iPad, or Android on your own Wi-Fi and share text or files directly in the browser.
 
 ![LanDrop flow](docs/landrop-flow.svg)
 
 ## Why LanDrop
 
 - Share text and files across your local network from any browser
+- Move content easily between different operating systems on your own home network
 - Generate direct LAN links for each item such as `http://192.168.1.24:8000/s/U9UN`
 - Click any shared text card to copy it instantly
 - Hide sensitive text and optionally require a password to reveal it
@@ -21,6 +24,8 @@ LanDrop is a lightweight Python web app for sharing pasted text and uploaded fil
 ## Use Cases
 
 - Send a command, token, or SSH snippet from laptop to phone
+- Move a photo, PDF, or download from a Windows PC to an iPhone or Android phone
+- Paste a link or note on a Mac and open it on a Linux box across the room
 - Drop a file onto a local network page and open it from another device
 - Share a Wi-Fi password, API key, or login detail with temporary masking
 - Run a simple self-hosted LAN file sharing page at home or in the office
@@ -38,6 +43,12 @@ LanDrop is a lightweight Python web app for sharing pasted text and uploaded fil
 | Auto cleanup | Items expire after 24 hours |
 | Access gate | Optional global access code for the whole app |
 | Simple deployment | Run directly or install as an Ubuntu `systemd` service |
+
+## Great For Mixed Devices At Home
+
+LanDrop is built for the common home setup where devices do not all use the same operating system. If you have a Windows laptop, a MacBook, a Linux desktop, an iPhone, and an Android tablet on the same network, they can all use the same LanDrop page immediately.
+
+Because everything runs in the browser over your own LAN, there is no need to install matching client apps on every device. That makes it useful for quick household sharing, moving text between workstations, sending downloads to phones, or opening a file from a spare machine in another room.
 
 ## Quick Start
 
@@ -135,4 +146,4 @@ sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./uninstall-ubuntu-service.sh
 
 ## Search-Friendly Summary
 
-If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, or a simple self-hosted text and file drop for devices on the same Wi-Fi network, LanDrop is built for that exact workflow.
+If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, a cross-platform home network sharing tool, or a simple self-hosted text and file drop for devices on the same Wi-Fi network, LanDrop is built for that exact workflow.

@@ -403,6 +403,10 @@ INDEX_HTML = """<!doctype html>
       line-height: 1.5;
       margin-top: 12px;
     }
+    .hero-input-row {
+      margin-top: 16px;
+      max-width: 920px;
+    }
     .grid {
       display: block;
     }
@@ -799,6 +803,9 @@ INDEX_HTML = """<!doctype html>
         Share clipboard text and files between devices on the same network with direct LAN links,
         optional passwords, and automatic cleanup after 24 hours.
       </p>
+      <div class="hero-input-row">
+        <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Your name or device name">
+      </div>
     </section>
 
     <div class="tabs" aria-label="Sections">
@@ -811,9 +818,6 @@ INDEX_HTML = """<!doctype html>
         <div class="panel-title">
           <h2>Shared Text</h2>
           <div class="meta" id="textMeta">Waiting for updates…</div>
-        </div>
-        <div class="row">
-          <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Your name or device name">
         </div>
         <textarea id="sharedText" placeholder="Paste text here"></textarea>
         <div class="row stack">
