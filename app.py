@@ -387,10 +387,12 @@ INDEX_HTML = """<!doctype html>
     }
     .hero {
       padding: 24px 0 12px;
+      max-width: 920px;
+      margin: 0 auto;
     }
     h1 {
       margin: 0;
-      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      font-size: clamp(1.35rem, 3vw, 2.15rem);
       line-height: 1;
       letter-spacing: -0.04em;
     }
@@ -402,10 +404,46 @@ INDEX_HTML = """<!doctype html>
       margin-top: 12px;
     }
     .grid {
-      display: grid;
-      gap: 20px;
-      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-      align-items: start;
+      display: block;
+    }
+    .tabs {
+      display: flex;
+      gap: 10px;
+      margin: 0 0 16px;
+      flex-wrap: wrap;
+      max-width: 920px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    .tab-btn {
+      min-width: 120px;
+      gap: 8px;
+      box-shadow: none;
+      background: #edf5ff;
+      color: var(--ink);
+      border: 1px solid var(--line);
+    }
+    .tab-btn.has-update::after {
+      content: "";
+      width: 10px;
+      height: 10px;
+      border-radius: 999px;
+      background: #ff9f1a;
+      box-shadow: 0 0 0 3px rgba(255, 159, 26, 0.18);
+      flex: 0 0 auto;
+    }
+    .tab-btn.active.has-update::after {
+      background: #ff9f1a;
+      box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.3);
+    }
+    .tab-btn:hover {
+      background: #e2efff;
+    }
+    .tab-btn.active {
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 10px 24px rgba(20, 151, 255, 0.22);
     }
     .panel {
       background: var(--panel);
@@ -413,6 +451,13 @@ INDEX_HTML = """<!doctype html>
       border-radius: 18px;
       padding: 18px;
       box-shadow: 0 12px 30px var(--shadow);
+    }
+    .panel.tab-panel.hidden {
+      display: none;
+    }
+    .tab-panel {
+      max-width: 920px;
+      margin: 0 auto 20px;
     }
     .panel h2 {
       margin: 0 0 10px;
@@ -711,7 +756,38 @@ INDEX_HTML = """<!doctype html>
     }
     @media (max-width: 720px) {
       .shell { padding: 18px; }
-      .history-head { flex-direction: column; }
+      .text-row {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+      }
+      .text-card-actions {
+        flex-direction: row;
+        justify-content: flex-end;
+        align-items: center;
+        padding-bottom: 0;
+      }
+      .file-card-top {
+        flex-direction: column;
+      }
+      .file-card-actions {
+        margin-left: 0;
+      }
+      .history-actions {
+        padding-left: 0;
+      }
+      .entry-table th,
+      .entry-table td {
+        display: block;
+        width: 100%;
+      }
+      .entry-table th {
+        padding-bottom: 4px;
+        border-bottom: 0;
+      }
+      .entry-table td {
+        padding-top: 0;
+      }
     }
   </style>
 </head>
@@ -725,8 +801,13 @@ INDEX_HTML = """<!doctype html>
       </p>
     </section>
 
+    <div class="tabs" aria-label="Sections">
+      <button id="textTabBtn" class="tab-btn active" type="button">Text</button>
+      <button id="fileTabBtn" class="tab-btn" type="button">Files</button>
+    </div>
+
     <section class="grid">
-      <article class="panel">
+      <article id="textPanel" class="panel tab-panel">
         <div class="panel-title">
           <h2>Shared Text</h2>
           <div class="meta" id="textMeta">Waiting for updates…</div>
@@ -749,7 +830,7 @@ INDEX_HTML = """<!doctype html>
         <ul class="history-list" id="textHistory"></ul>
       </article>
 
-      <article class="panel">
+      <article id="filePanel" class="panel tab-panel">
         <div class="panel-title">
           <h2>Shared Files</h2>
           <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
@@ -778,6 +859,10 @@ INDEX_HTML = """<!doctype html>
   <script>
     const sharedText = document.getElementById("sharedText");
     const sharerName = document.getElementById("sharerName");
+    const textPanel = document.getElementById("textPanel");
+    const filePanel = document.getElementById("filePanel");
+    const textTabBtn = document.getElementById("textTabBtn");
+    const fileTabBtn = document.getElementById("fileTabBtn");
     const hiddenText = document.getElementById("hiddenText");
     const textHiddenOptions = document.getElementById("textHiddenOptions");
     const textPassword = document.getElementById("textPassword");
@@ -795,8 +880,48 @@ INDEX_HTML = """<!doctype html>
     const dropZone = document.getElementById("dropZone");
 
     let pendingTextPush = false;
+    let activeTab = "text";
     const revealedTextIds = new Set();
     const revealedTextContent = new Map();
+    let snapshotInitialized = false;
+    let latestTextId = null;
+    let latestFileId = null;
+    let unreadText = false;
+    let unreadFiles = false;
+
+    function updateTabIndicators() {
+      textTabBtn.classList.toggle("has-update", unreadText);
+      fileTabBtn.classList.toggle("has-update", unreadFiles);
+    }
+
+    function syncTabs() {
+      const showingText = activeTab === "text";
+      textPanel.classList.toggle("hidden", !showingText);
+      filePanel.classList.toggle("hidden", showingText);
+      textTabBtn.classList.toggle("active", showingText);
+      fileTabBtn.classList.toggle("active", !showingText);
+      updateTabIndicators();
+    }
+
+    function setActiveTab(tabName) {
+      activeTab = tabName;
+      if (tabName === "text") {
+        unreadText = false;
+      } else {
+        unreadFiles = false;
+      }
+      syncTabs();
+    }
+
+    function clearActiveTabIndicator() {
+      if (activeTab === "text" && unreadText) {
+        unreadText = false;
+        updateTabIndicators();
+      } else if (activeTab === "file" && unreadFiles) {
+        unreadFiles = false;
+        updateTabIndicators();
+      }
+    }
 
     function formatDate(ts) {
       if (!ts) return "No content yet";
@@ -835,7 +960,13 @@ INDEX_HTML = """<!doctype html>
 
     function isTextFormActive() {
       const active = document.activeElement;
-      return active === sharedText || active === textPassword || active === sharerName;
+      return (
+        active === sharedText ||
+        active === textPassword ||
+        active === sharerName ||
+        active === hiddenText ||
+        active === saveTextBtn
+      );
     }
 
     function fallbackCopyText(content) {
@@ -1058,26 +1189,14 @@ INDEX_HTML = """<!doctype html>
             }
             renderTextHistory(texts);
           });
-          if (entry.password_required) {
-            const privacyRow = document.createElement("tr");
-            const privacyHead = document.createElement("th");
-            privacyHead.textContent = "Access";
-            const privacyValue = document.createElement("td");
-            privacyValue.textContent = "Password protected ";
-            privacyValue.appendChild(toggleBtn);
-            privacyRow.appendChild(privacyHead);
-            privacyRow.appendChild(privacyValue);
-            infoTable.appendChild(privacyRow);
-          } else {
-            const revealRow = document.createElement("tr");
-            const revealHead = document.createElement("th");
-            revealHead.textContent = "Reveal";
-            const revealValue = document.createElement("td");
-            revealValue.appendChild(toggleBtn);
-            revealRow.appendChild(revealHead);
-            revealRow.appendChild(revealValue);
-            infoTable.appendChild(revealRow);
-          }
+          const revealRow = document.createElement("tr");
+          const revealHead = document.createElement("th");
+          revealHead.textContent = "Reveal";
+          const revealValue = document.createElement("td");
+          revealValue.appendChild(toggleBtn);
+          revealRow.appendChild(revealHead);
+          revealRow.appendChild(revealValue);
+          infoTable.appendChild(revealRow);
         }
         head.appendChild(infoTable);
 
@@ -1098,7 +1217,7 @@ INDEX_HTML = """<!doctype html>
           body.classList.add("masked");
         }
         if (entry.password_required && isMasked) {
-          body.textContent = "Password protected. Reveal to view.";
+          body.textContent = "";
         } else {
           body.textContent = isMasked
             ? (entry.masked_content || maskText(entry.content || ""))
@@ -1270,12 +1389,31 @@ INDEX_HTML = """<!doctype html>
     }
 
     function renderSnapshot(snapshot) {
+      const nextTextId = snapshot.texts && snapshot.texts.length ? snapshot.texts[0].id : null;
+      const nextFileId = snapshot.files && snapshot.files.length ? snapshot.files[0].id : null;
+
+      if (snapshotInitialized) {
+        if (nextTextId && nextTextId !== latestTextId) {
+          unreadText = true;
+        }
+        if (nextFileId && nextFileId !== latestFileId) {
+          unreadFiles = true;
+        }
+      }
+
+      latestTextId = nextTextId;
+      latestFileId = nextFileId;
+      if (!snapshotInitialized) {
+        snapshotInitialized = true;
+      }
+
       if (!pendingTextPush && !isTextFormActive()) {
         sharedText.value = "";
       }
       textMeta.textContent = `Last update: ${formatDate(snapshot.updated_at)} • Auto-delete after 24 hours`;
       renderTextHistory(snapshot.texts || []);
       renderFiles(snapshot.files || []);
+      updateTabIndicators();
     }
 
     async function fetchState() {
@@ -1317,10 +1455,6 @@ INDEX_HTML = """<!doctype html>
           throw new Error(`Save failed: ${response.status}`);
         }
         const snapshot = await response.json();
-        if (submittedHidden && submittedPassword && snapshot.texts && snapshot.texts.length > 0) {
-          revealedTextIds.add(snapshot.texts[0].id);
-          revealedTextContent.set(snapshot.texts[0].id, submittedText);
-        }
         renderSnapshot(snapshot);
         sharedText.value = "";
         hiddenText.checked = false;
@@ -1375,6 +1509,10 @@ INDEX_HTML = """<!doctype html>
     saveTextBtn.addEventListener("click", saveText);
     hiddenText.addEventListener("change", updateHiddenOptions);
     hiddenFile.addEventListener("change", updateHiddenOptions);
+    textTabBtn.addEventListener("click", () => setActiveTab("text"));
+    fileTabBtn.addEventListener("click", () => setActiveTab("file"));
+    textPanel.addEventListener("click", clearActiveTabIndicator);
+    filePanel.addEventListener("click", clearActiveTabIndicator);
     uploadBtn.addEventListener("click", () => uploadFile());
     fileInput.addEventListener("change", () => {
       if (fileInput.files && fileInput.files.length > 0) {
@@ -1408,6 +1546,7 @@ INDEX_HTML = """<!doctype html>
 
     fetchState();
     updateHiddenOptions();
+    syncTabs();
     setInterval(fetchState, 2000);
   </script>
 </body>
