@@ -668,6 +668,11 @@ INDEX_HTML = """<!doctype html>
       margin-top: 12px;
       color: var(--muted);
       font-size: 0.95rem;
+      opacity: 1;
+      transition: opacity 260ms ease;
+    }
+    .status.fading {
+      opacity: 0;
     }
     .history-list {
       margin: 14px 0 0;
@@ -787,6 +792,8 @@ INDEX_HTML = """<!doctype html>
     }
     .text-card {
       min-height: 0;
+      max-height: 22rem;
+      overflow: auto;
       margin-top: 0;
       border: 3px solid #3a3330;
       border-radius: 28px;
@@ -988,6 +995,9 @@ INDEX_HTML = """<!doctype html>
     let latestFileId = null;
     let unreadText = false;
     let unreadFiles = false;
+    let suppressedTextId = null;
+    let suppressedFileId = null;
+    let textStatusTimer = null;
 
     function updateTabIndicators() {
       textTabBtn.classList.toggle("has-update", unreadText);
@@ -1021,6 +1031,28 @@ INDEX_HTML = """<!doctype html>
         unreadFiles = false;
         updateTabIndicators();
       }
+    }
+
+    function setTextStatus(message, fade = false) {
+      if (textStatusTimer) {
+        window.clearTimeout(textStatusTimer);
+        textStatusTimer = null;
+      }
+      textStatus.classList.remove("fading");
+      textStatus.textContent = message;
+
+      if (!fade || !message) {
+        return;
+      }
+
+      textStatusTimer = window.setTimeout(() => {
+        textStatus.classList.add("fading");
+        textStatusTimer = window.setTimeout(() => {
+          textStatus.textContent = "";
+          textStatus.classList.remove("fading");
+          textStatusTimer = null;
+        }, 260);
+      }, 1100);
     }
 
     function formatDate(ts) {
@@ -1092,18 +1124,19 @@ INDEX_HTML = """<!doctype html>
     }
 
     async function copyText(content) {
+      clearActiveTabIndicator();
       try {
         if (navigator.clipboard && window.isSecureContext) {
           await navigator.clipboard.writeText(content);
         } else if (!fallbackCopyText(content)) {
           throw new Error("Fallback copy failed");
         }
-        textStatus.textContent = "Copied to clipboard.";
+        setTextStatus("Copied", true);
       } catch (error) {
         if (fallbackCopyText(content)) {
-          textStatus.textContent = "Copied to clipboard.";
+          setTextStatus("Copied", true);
         } else {
-          textStatus.textContent = "Clipboard copy failed.";
+          setTextStatus("Clipboard copy failed.");
         }
       }
     }
@@ -1464,6 +1497,9 @@ INDEX_HTML = """<!doctype html>
         link.className = "file-link";
         link.href = `/download/${encodeURIComponent(file.id)}`;
         link.textContent = "Download";
+        link.addEventListener("click", () => {
+          clearActiveTabIndicator();
+        });
         if (file.password_required) {
           link.addEventListener("click", (event) => {
             event.preventDefault();
@@ -1493,12 +1529,19 @@ INDEX_HTML = """<!doctype html>
       const nextFileId = snapshot.files && snapshot.files.length ? snapshot.files[0].id : null;
 
       if (snapshotInitialized) {
-        if (nextTextId && nextTextId !== latestTextId) {
+        if (nextTextId && nextTextId !== latestTextId && nextTextId !== suppressedTextId) {
           unreadText = true;
         }
-        if (nextFileId && nextFileId !== latestFileId) {
+        if (nextFileId && nextFileId !== latestFileId && nextFileId !== suppressedFileId) {
           unreadFiles = true;
         }
+      }
+
+      if (nextTextId === suppressedTextId) {
+        suppressedTextId = null;
+      }
+      if (nextFileId === suppressedFileId) {
+        suppressedFileId = null;
       }
 
       latestTextId = nextTextId;
@@ -1555,6 +1598,10 @@ INDEX_HTML = """<!doctype html>
           throw new Error(`Save failed: ${response.status}`);
         }
         const snapshot = await response.json();
+        if (snapshot.texts && snapshot.texts.length > 0) {
+          suppressedTextId = snapshot.texts[0].id;
+          unreadText = false;
+        }
         renderSnapshot(snapshot);
         sharedText.value = "";
         hiddenText.checked = false;
@@ -1595,7 +1642,12 @@ INDEX_HTML = """<!doctype html>
           const message = await response.text();
           throw new Error(message || `Upload failed: ${response.status}`);
         }
-        renderSnapshot(await response.json());
+        const snapshot = await response.json();
+        if (snapshot.files && snapshot.files.length > 0) {
+          suppressedFileId = snapshot.files[0].id;
+          unreadFiles = false;
+        }
+        renderSnapshot(snapshot);
         fileStatus.textContent = `Uploaded ${file.name}.`;
         fileInput.value = "";
         hiddenFile.checked = false;
