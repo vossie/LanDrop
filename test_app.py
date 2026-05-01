@@ -112,6 +112,42 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(snapshot["files"], [])
         self.assertFalse(expired_file.exists())
 
+    def test_text_history_is_capped_at_200_newest_entries(self) -> None:
+        for index in range(app.MAX_TEXT_HISTORY + 5):
+            app.add_text_entry(f"text-{index}")
+            self.current_time += 1
+
+        snapshot = app.get_snapshot()
+
+        self.assertEqual(len(snapshot["texts"]), app.MAX_TEXT_HISTORY)
+        self.assertEqual(snapshot["texts"][0]["content"], "text-204")
+        self.assertEqual(snapshot["texts"][-1]["content"], "text-5")
+
+    def test_file_history_is_capped_at_100_and_oldest_files_are_deleted(self) -> None:
+        oldest_target = None
+        newest_target = None
+
+        for index in range(app.MAX_FILE_HISTORY + 3):
+            stored_name = f"stored-{index}.txt"
+            target = app.UPLOAD_DIR / stored_name
+            target.write_text(f"payload-{index}", encoding="utf-8")
+            app.add_file(f"original-{index}.txt", stored_name, target.stat().st_size)
+            if index == 0:
+                oldest_target = target
+            if index == app.MAX_FILE_HISTORY + 2:
+                newest_target = target
+            self.current_time += 1
+
+        snapshot = app.get_snapshot()
+
+        self.assertEqual(len(snapshot["files"]), app.MAX_FILE_HISTORY)
+        self.assertEqual(snapshot["files"][0]["name"], "original-102.txt")
+        self.assertEqual(snapshot["files"][-1]["name"], "original-3.txt")
+        self.assertIsNotNone(oldest_target)
+        self.assertFalse(oldest_target.exists())
+        self.assertIsNotNone(newest_target)
+        self.assertTrue(newest_target.exists())
+
 
 class HttpServerTests(unittest.TestCase):
     def setUp(self) -> None:

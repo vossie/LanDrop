@@ -19,6 +19,8 @@ ASSETS_DIR = BASE_DIR / "assets"
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads"))).resolve()
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1 GB
 EXPIRY_SECONDS = 24 * 60 * 60
+MAX_TEXT_HISTORY = 200
+MAX_FILE_HISTORY = 100
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "").strip()
 
 state_lock = threading.Lock()
@@ -123,6 +125,24 @@ def prune_expired_locked() -> None:
     ]
 
     for item in expired_files:
+        target = UPLOAD_DIR / item["stored_name"]
+        if target.exists():
+            target.unlink(missing_ok=True)
+
+    recompute_updated_at_locked()
+
+
+def trim_history_limits_locked() -> None:
+    overflow_files = []
+
+    if len(shared_state["texts"]) > MAX_TEXT_HISTORY:
+        shared_state["texts"] = shared_state["texts"][:MAX_TEXT_HISTORY]
+
+    if len(shared_state["files"]) > MAX_FILE_HISTORY:
+        overflow_files = shared_state["files"][MAX_FILE_HISTORY:]
+        shared_state["files"] = shared_state["files"][:MAX_FILE_HISTORY]
+
+    for item in overflow_files:
         target = UPLOAD_DIR / item["stored_name"]
         if target.exists():
             target.unlink(missing_ok=True)
@@ -244,7 +264,7 @@ def add_text_entry(
                 "expires_at": created_at + EXPIRY_SECONDS,
             },
         )
-        recompute_updated_at_locked()
+        trim_history_limits_locked()
 
 
 def delete_text_entry(entry_id: str) -> bool:
@@ -286,7 +306,7 @@ def add_file(
                 "expires_at": created_at + EXPIRY_SECONDS,
             },
         )
-        recompute_updated_at_locked()
+        trim_history_limits_locked()
 
 
 def delete_file_entry(file_id: str) -> bool:
