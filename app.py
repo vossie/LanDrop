@@ -555,13 +555,18 @@ INDEX_HTML = """<!doctype html>
     .history-item.copyable {
       cursor: pointer;
     }
-    .history-item.copyable:hover .history-body {
-      border-color: var(--accent);
-      background: #f6fcff;
+    .history-item.copyable:hover .text-card {
+      transform: translateY(-1px);
+      border-color: #2f2a28;
+      background: #fffdfa;
     }
     .delete-btn {
-      padding: 6px 10px;
-      font-size: 0.82rem;
+      width: 46px;
+      height: 46px;
+      min-width: 46px;
+      padding: 0;
+      border-radius: 14px;
+      font-size: 1.1rem;
     }
     .history-body {
       margin-top: 10px;
@@ -571,6 +576,48 @@ INDEX_HTML = """<!doctype html>
       border: 1px solid var(--line);
       border-radius: 12px;
       padding: 12px;
+    }
+    .text-row {
+      display: flex;
+      align-items: flex-end;
+      gap: 18px;
+    }
+    .text-card-wrap {
+      flex: 1 1 auto;
+      min-width: 0;
+    }
+    .text-card-label {
+      margin: 0 0 10px 10px;
+      color: #3d3532;
+      font-size: 0.98rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+    .text-card {
+      min-height: 176px;
+      margin-top: 0;
+      border: 3px solid #3a3330;
+      border-radius: 0;
+      background: #fffdfa;
+      padding: 28px 38px;
+      color: #4b433f;
+      box-shadow: none;
+      transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+    }
+    .text-card.masked {
+      letter-spacing: 0.04em;
+    }
+    .text-card-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 8px;
+    }
+    .text-delete-label {
+      color: var(--danger);
+      font-size: 0.8rem;
+      font-weight: 700;
     }
     .file-name {
       font-weight: 600;
@@ -918,14 +965,43 @@ INDEX_HTML = """<!doctype html>
         head.appendChild(meta);
         head.appendChild(actions);
 
+        const bodyRow = document.createElement("div");
+        bodyRow.className = "text-row";
+
+        const cardWrap = document.createElement("div");
+        cardWrap.className = "text-card-wrap";
+
+        const label = document.createElement("div");
+        label.className = "text-card-label";
+        label.textContent = "Click to copy...";
+
         const body = document.createElement("div");
-        body.className = "history-body";
-        body.textContent = entry.hidden && !revealedTextIds.has(entry.id)
+        body.className = "history-body text-card";
+        const isMasked = entry.hidden && !revealedTextIds.has(entry.id);
+        if (isMasked) {
+          body.classList.add("masked");
+        }
+        body.textContent = isMasked
           ? (entry.masked_content || maskText(entry.content || ""))
           : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
 
+        const deleteWrap = document.createElement("div");
+        deleteWrap.className = "text-card-actions";
+
+        deleteBtn.textContent = "🗑";
+        const deleteLabel = document.createElement("div");
+        deleteLabel.className = "text-delete-label";
+        deleteLabel.textContent = "Delete";
+
+        cardWrap.appendChild(label);
+        cardWrap.appendChild(body);
+        deleteWrap.appendChild(deleteBtn);
+        deleteWrap.appendChild(deleteLabel);
+        bodyRow.appendChild(cardWrap);
+        bodyRow.appendChild(deleteWrap);
+
         li.appendChild(head);
-        li.appendChild(body);
+        li.appendChild(bodyRow);
         textHistory.appendChild(li);
       }
     }
