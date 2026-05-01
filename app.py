@@ -1,4 +1,6 @@
 #!/usr/bin/env python3
+import hashlib
+import hmac
 import html
 import json
 import os
@@ -128,16 +130,64 @@ def prune_expired_locked() -> None:
     recompute_updated_at_locked()
 
 
+def mask_text_value(value: str) -> str:
+    return "".join("*" if not char.isspace() else char for char in value)
+
+
+def hash_password(password: str) -> str:
+    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+
+
+def verify_password(password: str, password_hash: str | None) -> bool:
+    if password_hash is None:
+        return True
+    return hmac.compare_digest(hash_password(password), password_hash)
+
+
+def serialize_text_entry(entry: dict) -> dict:
+    payload = {
+        "id": entry["id"],
+        "hidden": entry["hidden"],
+        "password_required": bool(entry.get("password_hash")),
+        "short_code": entry["short_code"],
+        "created_at": entry["created_at"],
+        "expires_at": entry["expires_at"],
+        "masked_content": mask_text_value(entry["content"]),
+    }
+    payload["content"] = (
+        None if entry["hidden"] and entry.get("password_hash") else entry["content"]
+    )
+    return payload
+
+
+def serialize_file_entry(entry: dict) -> dict:
+    return {
+        "id": entry["id"],
+        "name": entry["name"],
+        "stored_name": entry["stored_name"],
+        "size": entry["size"],
+        "hidden": entry.get("hidden", False),
+        "password_required": bool(entry.get("password_hash")),
+        "short_code": entry["short_code"],
+        "created_at": entry["created_at"],
+        "expires_at": entry["expires_at"],
+    }
+
+
 def get_snapshot() -> dict:
     with state_lock:
         prune_expired_locked()
-        latest_text = shared_state["texts"][0]["content"] if shared_state["texts"] else ""
+        latest_text = ""
+        if shared_state["texts"]:
+            latest_entry = shared_state["texts"][0]
+            if not (latest_entry["hidden"] and latest_entry.get("password_hash")):
+                latest_text = latest_entry["content"]
         return {
             "updated_at": shared_state["updated_at"],
             "expires_after_seconds": EXPIRY_SECONDS,
             "latest_text": latest_text,
-            "texts": list(shared_state["texts"]),
-            "files": list(shared_state["files"]),
+            "texts": [serialize_text_entry(item) for item in shared_state["texts"]],
+            "files": [serialize_file_entry(item) for item in shared_state["files"]],
         }
 
 
@@ -146,7 +196,7 @@ def get_latest_text_entry() -> dict | None:
         prune_expired_locked()
         if not shared_state["texts"]:
             return None
-        return dict(shared_state["texts"][0])
+        return serialize_text_entry(shared_state["texts"][0])
 
 
 def get_latest_file_entry() -> dict | None:
@@ -154,7 +204,7 @@ def get_latest_file_entry() -> dict | None:
         prune_expired_locked()
         if not shared_state["files"]:
             return None
-        return dict(shared_state["files"][0])
+        return serialize_file_entry(shared_state["files"][0])
 
 
 def make_unique_short_code_locked() -> str:
@@ -166,7 +216,7 @@ def make_unique_short_code_locked() -> str:
             return candidate
 
 
-def add_text_entry(value: str, hidden: bool = False) -> None:
+def add_text_entry(value: str, hidden: bool = False, password: str = "") -> None:
     with state_lock:
         prune_expired_locked()
         created_at = now_ts()
@@ -176,6 +226,7 @@ def add_text_entry(value: str, hidden: bool = False) -> None:
                 "id": make_id(),
                 "content": value,
                 "hidden": hidden,
+                "password_hash": hash_password(password) if password else None,
                 "short_code": make_unique_short_code_locked(),
                 "created_at": created_at,
                 "expires_at": created_at + EXPIRY_SECONDS,
@@ -195,7 +246,13 @@ def delete_text_entry(entry_id: str) -> bool:
         return len(shared_state["texts"]) != original_len
 
 
-def add_file(original_name: str, stored_name: str, size: int) -> None:
+def add_file(
+    original_name: str,
+    stored_name: str,
+    size: int,
+    hidden: bool = False,
+    password: str = "",
+) -> None:
     with state_lock:
         prune_expired_locked()
         created_at = now_ts()
@@ -206,6 +263,8 @@ def add_file(original_name: str, stored_name: str, size: int) -> None:
                 "name": original_name,
                 "stored_name": stored_name,
                 "size": size,
+                "hidden": hidden,
+                "password_hash": hash_password(password) if password else None,
                 "short_code": make_unique_short_code_locked(),
                 "created_at": created_at,
                 "expires_at": created_at + EXPIRY_SECONDS,
@@ -245,6 +304,15 @@ def find_file_entry(file_id: str) -> dict | None:
     return None
 
 
+def find_text_entry(text_id: str) -> dict | None:
+    with state_lock:
+        prune_expired_locked()
+        for item in shared_state["texts"]:
+            if item["id"] == text_id:
+                return dict(item)
+    return None
+
+
 def find_entry_by_short_code(short_code: str) -> tuple[str, dict] | None:
     normalized = short_code.strip().upper()
     with state_lock:
@@ -256,6 +324,10 @@ def find_entry_by_short_code(short_code: str) -> tuple[str, dict] | None:
             if item["short_code"] == normalized:
                 return ("file", dict(item))
     return None
+
+
+def entry_password_is_valid(entry: dict, password: str) -> bool:
+    return verify_password(password, entry.get("password_hash"))
 
 
 def json_bytes(payload: dict) -> bytes:
@@ -271,7 +343,7 @@ INDEX_HTML = """<!doctype html>
   <link rel="icon" type="image/png" href="/assets/logo-landrop-v1.png">
   <style>
     :root {
-      --bg: #eef5ff;
+      --bg: #ffffff;
       --panel: #ffffff;
       --ink: #0f2a7a;
       --muted: #45619d;
@@ -287,9 +359,9 @@ INDEX_HTML = """<!doctype html>
       margin: 0;
       font-family: Georgia, "Times New Roman", serif;
       background:
-        radial-gradient(circle at top left, rgba(18, 200, 244, 0.18), transparent 22rem),
-        radial-gradient(circle at bottom right, rgba(20, 151, 255, 0.12), transparent 28rem),
-        linear-gradient(180deg, #f9fcff 0%, var(--bg) 100%);
+        radial-gradient(circle at top left, rgba(18, 200, 244, 0.05), transparent 22rem),
+        radial-gradient(circle at bottom right, rgba(20, 151, 255, 0.04), transparent 28rem),
+        linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
       color: var(--ink);
     }
     .shell {
@@ -926,7 +998,7 @@ LOGIN_HTML = """<!doctype html>
   <link rel="icon" type="image/png" href="/assets/logo-landrop-v1.png">
   <style>
     :root {
-      --bg: #eef5ff;
+      --bg: #ffffff;
       --panel: #ffffff;
       --ink: #0f2a7a;
       --muted: #45619d;
@@ -945,9 +1017,9 @@ LOGIN_HTML = """<!doctype html>
       padding: 24px;
       font-family: Georgia, "Times New Roman", serif;
       background:
-        radial-gradient(circle at top left, rgba(18, 200, 244, 0.18), transparent 22rem),
-        radial-gradient(circle at bottom right, rgba(20, 151, 255, 0.12), transparent 28rem),
-        linear-gradient(180deg, #f9fcff 0%, var(--bg) 100%);
+        radial-gradient(circle at top left, rgba(18, 200, 244, 0.05), transparent 22rem),
+        radial-gradient(circle at bottom right, rgba(20, 151, 255, 0.04), transparent 28rem),
+        linear-gradient(180deg, #ffffff 0%, var(--bg) 100%);
       color: var(--ink);
     }
     .card {
