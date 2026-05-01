@@ -487,6 +487,22 @@ INDEX_HTML = """<!doctype html>
       height: 18px;
       accent-color: var(--accent);
     }
+    .hidden-options {
+      display: none;
+      width: 100%;
+    }
+    .hidden-options.visible {
+      display: block;
+    }
+    .inline-input {
+      width: min(100%, 320px);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+      padding: 12px 14px;
+      font: inherit;
+      color: var(--ink);
+    }
     input[type="file"] {
       display: none;
     }
@@ -609,6 +625,9 @@ INDEX_HTML = """<!doctype html>
             <input id="hiddenText" type="checkbox">
             <span>Hidden</span>
           </label>
+          <div class="hidden-options" id="textHiddenOptions">
+            <input id="textPassword" class="inline-input" type="password" placeholder="Optional password to reveal">
+          </div>
           <button id="saveTextBtn">Just Add</button>
         </div>
         <div class="status" id="textStatus"></div>
@@ -623,6 +642,15 @@ INDEX_HTML = """<!doctype html>
           <input id="fileInput" type="file">
           <button id="uploadBtn" type="button">Upload File</button>
         </div>
+        <div class="row stack">
+          <label class="checkbox-row" for="hiddenFile">
+            <input id="hiddenFile" type="checkbox">
+            <span>Hidden file</span>
+          </label>
+          <div class="hidden-options" id="fileHiddenOptions">
+            <input id="filePassword" class="inline-input" type="password" placeholder="Password required for hidden files">
+          </div>
+        </div>
         <div class="dropzone" id="dropZone">Drag and drop a file here</div>
         <div class="status" id="fileStatus"></div>
         <ul class="history-list" id="fileList"></ul>
@@ -633,8 +661,13 @@ INDEX_HTML = """<!doctype html>
   <script>
     const sharedText = document.getElementById("sharedText");
     const hiddenText = document.getElementById("hiddenText");
+    const textHiddenOptions = document.getElementById("textHiddenOptions");
+    const textPassword = document.getElementById("textPassword");
     const saveTextBtn = document.getElementById("saveTextBtn");
     const fileInput = document.getElementById("fileInput");
+    const hiddenFile = document.getElementById("hiddenFile");
+    const fileHiddenOptions = document.getElementById("fileHiddenOptions");
+    const filePassword = document.getElementById("filePassword");
     const uploadBtn = document.getElementById("uploadBtn");
     const textMeta = document.getElementById("textMeta");
     const textStatus = document.getElementById("textStatus");
@@ -645,6 +678,7 @@ INDEX_HTML = """<!doctype html>
 
     let pendingTextPush = false;
     const revealedTextIds = new Set();
+    const revealedTextContent = new Map();
 
     function formatDate(ts) {
       if (!ts) return "No content yet";
@@ -660,6 +694,25 @@ INDEX_HTML = """<!doctype html>
 
     function lanSharePath(shortCode) {
       return `/s/${encodeURIComponent(shortCode)}`;
+    }
+
+    function lanShareUrl(shortCode) {
+      return `${window.location.origin}${lanSharePath(shortCode)}`;
+    }
+
+    function withPassword(path, password) {
+      return `${path}?password=${encodeURIComponent(password)}`;
+    }
+
+    function updateHiddenOptions() {
+      textHiddenOptions.classList.toggle("visible", hiddenText.checked);
+      fileHiddenOptions.classList.toggle("visible", hiddenFile.checked);
+      if (!hiddenText.checked) {
+        textPassword.value = "";
+      }
+      if (!hiddenFile.checked) {
+        filePassword.value = "";
+      }
     }
 
     function fallbackCopyText(content) {
@@ -720,6 +773,50 @@ INDEX_HTML = """<!doctype html>
       return content.replace(/[^\\s]/g, "*");
     }
 
+    async function revealProtectedText(entry) {
+      if (!entry.password_required) {
+        const content = entry.content ?? "";
+        revealedTextContent.set(entry.id, content);
+        revealedTextIds.add(entry.id);
+        return true;
+      }
+
+      const password = window.prompt("Password required to reveal this text.");
+      if (!password) {
+        return false;
+      }
+
+      try {
+        const response = await fetch(`/api/text/${encodeURIComponent(entry.id)}/reveal`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ password })
+        });
+        if (!response.ok) {
+          throw new Error(`Reveal failed: ${response.status}`);
+        }
+        const payload = await response.json();
+        revealedTextContent.set(entry.id, payload.content);
+        revealedTextIds.add(entry.id);
+        textStatus.textContent = "Text revealed.";
+        return true;
+      } catch (error) {
+        textStatus.textContent = "Wrong password.";
+        return false;
+      }
+    }
+
+    function openProtectedPath(path, statusElement) {
+      const password = window.prompt("Password required.");
+      if (!password) {
+        return;
+      }
+      if (statusElement) {
+        statusElement.textContent = "Opening protected item…";
+      }
+      window.location.href = withPassword(path, password);
+    }
+
     async function deleteFile(id) {
       try {
         const response = await fetch(`/api/file/${encodeURIComponent(id)}`, {
@@ -748,7 +845,20 @@ INDEX_HTML = """<!doctype html>
       for (const entry of texts) {
         const li = document.createElement("li");
         li.className = "history-item copyable";
-        li.addEventListener("click", () => copyText(entry.content));
+        li.addEventListener("click", async () => {
+          if (entry.hidden && !revealedTextIds.has(entry.id)) {
+            const revealed = await revealProtectedText(entry);
+            if (revealed) {
+              renderTextHistory(texts);
+            }
+            return;
+          }
+
+          const content = revealedTextContent.get(entry.id) ?? entry.content;
+          if (content !== null) {
+            copyText(content);
+          }
+        });
 
         const head = document.createElement("div");
         head.className = "history-head";
@@ -763,10 +873,14 @@ INDEX_HTML = """<!doctype html>
         const shareLink = document.createElement("a");
         shareLink.className = "share-link";
         shareLink.href = lanSharePath(entry.short_code);
-        shareLink.textContent = `LAN /s/${entry.short_code}`;
+        shareLink.textContent = lanShareUrl(entry.short_code);
         shareLink.title = "Open this text directly over the LAN";
         shareLink.addEventListener("click", (event) => {
           event.stopPropagation();
+          if (entry.password_required) {
+            event.preventDefault();
+            openProtectedPath(lanSharePath(entry.short_code), textStatus);
+          }
         });
         actions.appendChild(shareLink);
 
@@ -775,12 +889,16 @@ INDEX_HTML = """<!doctype html>
           toggleBtn.type = "button";
           const isRevealed = revealedTextIds.has(entry.id);
           toggleBtn.textContent = isRevealed ? "Hide" : "Reveal";
-          toggleBtn.addEventListener("click", (event) => {
+          toggleBtn.addEventListener("click", async (event) => {
             event.stopPropagation();
             if (revealedTextIds.has(entry.id)) {
               revealedTextIds.delete(entry.id);
+              revealedTextContent.delete(entry.id);
             } else {
-              revealedTextIds.add(entry.id);
+              const revealed = await revealProtectedText(entry);
+              if (!revealed) {
+                return;
+              }
             }
             renderTextHistory(texts);
           });
@@ -803,8 +921,8 @@ INDEX_HTML = """<!doctype html>
         const body = document.createElement("div");
         body.className = "history-body";
         body.textContent = entry.hidden && !revealedTextIds.has(entry.id)
-          ? maskText(entry.content)
-          : entry.content;
+          ? (entry.masked_content || maskText(entry.content || ""))
+          : (revealedTextContent.get(entry.id) ?? entry.content ?? "");
 
         li.appendChild(head);
         li.appendChild(body);
@@ -845,13 +963,25 @@ INDEX_HTML = """<!doctype html>
         const shareLink = document.createElement("a");
         shareLink.className = "share-link";
         shareLink.href = lanSharePath(file.short_code);
-        shareLink.textContent = `LAN /s/${file.short_code}`;
+        shareLink.textContent = lanShareUrl(file.short_code);
         shareLink.title = "Open this file directly over the LAN";
+        if (file.password_required) {
+          shareLink.addEventListener("click", (event) => {
+            event.preventDefault();
+            openProtectedPath(lanSharePath(file.short_code), fileStatus);
+          });
+        }
 
         const link = document.createElement("a");
         link.className = "file-link";
         link.href = `/download/${encodeURIComponent(file.id)}`;
         link.textContent = "Download";
+        if (file.password_required) {
+          link.addEventListener("click", (event) => {
+            event.preventDefault();
+            openProtectedPath(`/download/${encodeURIComponent(file.id)}`, fileStatus);
+          });
+        }
 
         const deleteBtn = document.createElement("button");
         deleteBtn.type = "button";
@@ -905,7 +1035,8 @@ INDEX_HTML = """<!doctype html>
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             text: sharedText.value,
-            hidden: hiddenText.checked
+            hidden: hiddenText.checked,
+            password: textPassword.value
           })
         });
         if (!response.ok) {
@@ -914,6 +1045,8 @@ INDEX_HTML = """<!doctype html>
         renderSnapshot(await response.json());
         sharedText.value = "";
         hiddenText.checked = false;
+        textPassword.value = "";
+        updateHiddenOptions();
         textStatus.textContent = "Text added to history.";
       } catch (error) {
         textStatus.textContent = "Text save failed.";
@@ -927,9 +1060,15 @@ INDEX_HTML = """<!doctype html>
         fileStatus.textContent = "Choose a file first.";
         return;
       }
+      if (hiddenFile.checked && !filePassword.value.trim()) {
+        fileStatus.textContent = "Hidden files require a password.";
+        return;
+      }
 
       const formData = new FormData();
       formData.append("file", file);
+      formData.append("hidden", hiddenFile.checked ? "true" : "false");
+      formData.append("password", filePassword.value);
       fileStatus.textContent = `Uploading ${file.name}…`;
 
       try {
@@ -944,12 +1083,17 @@ INDEX_HTML = """<!doctype html>
         renderSnapshot(await response.json());
         fileStatus.textContent = `Uploaded ${file.name}.`;
         fileInput.value = "";
+        hiddenFile.checked = false;
+        filePassword.value = "";
+        updateHiddenOptions();
       } catch (error) {
         fileStatus.textContent = error.message || "Upload failed.";
       }
     }
 
     saveTextBtn.addEventListener("click", saveText);
+    hiddenText.addEventListener("change", updateHiddenOptions);
+    hiddenFile.addEventListener("change", updateHiddenOptions);
     uploadBtn.addEventListener("click", () => uploadFile());
     fileInput.addEventListener("change", () => {
       if (fileInput.files && fileInput.files.length > 0) {
@@ -982,6 +1126,7 @@ INDEX_HTML = """<!doctype html>
     });
 
     fetchState();
+    updateHiddenOptions();
     setInterval(fetchState, 2000);
   </script>
 </body>
@@ -1159,12 +1304,14 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if parsed.path.startswith("/s/"):
             short_code = urllib.parse.unquote(parsed.path.removeprefix("/s/"))
-            self.handle_short_link(short_code)
+            password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
+            self.handle_short_link(short_code, password)
             return
 
         if parsed.path.startswith("/download/"):
             file_id = urllib.parse.unquote(parsed.path.removeprefix("/download/"))
-            self.serve_download(file_id)
+            password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
+            self.serve_download(file_id, password)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -1181,6 +1328,13 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/text":
             self.handle_text_update()
+            return
+
+        if parsed.path.startswith("/api/text/") and parsed.path.endswith("/reveal"):
+            entry_id = urllib.parse.unquote(
+                parsed.path.removeprefix("/api/text/").removesuffix("/reveal")
+            )
+            self.handle_text_reveal(entry_id)
             return
 
         if parsed.path == "/api/upload":
@@ -1248,9 +1402,37 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(hidden, bool):
             self.send_error(HTTPStatus.BAD_REQUEST, "Hidden must be a boolean")
             return
+        password = payload.get("password", "")
+        if not isinstance(password, str):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
+            return
 
-        add_text_entry(text, hidden=hidden)
+        add_text_entry(text, hidden=hidden, password=password.strip())
         self.send_json(get_snapshot())
+
+    def handle_text_reveal(self, entry_id: str) -> None:
+        entry = find_text_entry(entry_id)
+        if entry is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Text entry not found")
+            return
+
+        length = int(self.headers.get("Content-Length", "0"))
+        body = self.rfile.read(length)
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return
+
+        password = payload.get("password", "")
+        if not isinstance(password, str):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
+            return
+        if not entry_password_is_valid(entry, password):
+            self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
+            return
+
+        self.send_json({"content": entry["content"]})
 
     def handle_latest_text(self) -> None:
         entry = get_latest_text_entry()
@@ -1273,7 +1455,7 @@ class AppHandler(BaseHTTPRequestHandler):
             return
         self.serve_download_entry(entry)
 
-    def handle_short_link(self, short_code: str) -> None:
+    def handle_short_link(self, short_code: str, password: str = "") -> None:
         entry = find_entry_by_short_code(short_code)
         if entry is None:
             self.send_error(HTTPStatus.NOT_FOUND, "Shared item not found")
@@ -1281,9 +1463,15 @@ class AppHandler(BaseHTTPRequestHandler):
 
         entry_type, payload = entry
         if entry_type == "text":
+            if payload.get("password_hash") and not entry_password_is_valid(payload, password):
+                self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
+                return
             self.send_text(payload["content"])
             return
 
+        if payload.get("password_hash") and not entry_password_is_valid(payload, password):
+            self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
+            return
         self.serve_download_entry(payload)
 
     def handle_text_delete(self, entry_id: str) -> None:
@@ -1320,9 +1508,14 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         body = self.rfile.read(length)
-        filename, file_bytes = self.parse_multipart_file(body, boundary)
+        filename, file_bytes, fields = self.parse_multipart_file(body, boundary)
         if filename is None or file_bytes is None:
             self.send_error(HTTPStatus.BAD_REQUEST, "Could not read uploaded file")
+            return
+        hidden = fields.get("hidden", "false").lower() == "true"
+        password = fields.get("password", "").strip()
+        if hidden and not password:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Hidden files require a password")
             return
 
         ensure_upload_dir()
@@ -1331,12 +1524,15 @@ class AppHandler(BaseHTTPRequestHandler):
         with target.open("wb") as handle:
             handle.write(file_bytes)
 
-        add_file(filename, stored_name, len(file_bytes))
+        add_file(filename, stored_name, len(file_bytes), hidden=hidden, password=password)
         self.send_json(get_snapshot())
 
     def parse_multipart_file(self, body: bytes, boundary: bytes):
         marker = b"--" + boundary
         parts = body.split(marker)
+        fields = {}
+        upload_name = None
+        upload_payload = None
         for part in parts:
             if not part or part in (b"--\r\n", b"--"):
                 continue
@@ -1346,32 +1542,38 @@ class AppHandler(BaseHTTPRequestHandler):
                 continue
 
             headers_text = headers_blob.decode("utf-8", errors="ignore")
-            if "name=\"file\"" not in headers_text:
-                continue
-
-            filename = "upload.bin"
+            field_name = None
+            filename = None
             for line in headers_text.split("\r\n"):
                 lower = line.lower()
-                if lower.startswith("content-disposition:") and "filename=" in line:
+                if lower.startswith("content-disposition:"):
                     for piece in line.split(";"):
                         piece = piece.strip()
+                        if piece.startswith("name="):
+                            field_name = piece.split("=", 1)[1].strip("\"")
                         if piece.startswith("filename="):
                             filename = piece.split("=", 1)[1].strip("\"")
-                            break
 
             if payload.endswith(b"\r\n"):
                 payload = payload[:-2]
             if payload.endswith(b"--"):
                 payload = payload[:-2]
 
-            return sanitize_filename(filename), payload
+            if field_name == "file":
+                upload_name = sanitize_filename(filename or "upload.bin")
+                upload_payload = payload
+            elif field_name:
+                fields[field_name] = payload.decode("utf-8", errors="ignore")
 
-        return None, None
+        return upload_name, upload_payload, fields
 
-    def serve_download(self, file_id: str) -> None:
+    def serve_download(self, file_id: str, password: str = "") -> None:
         entry = find_file_entry(file_id)
         if entry is None:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+            return
+        if entry.get("password_hash") and not entry_password_is_valid(entry, password):
+            self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
 
         self.serve_download_entry(entry)

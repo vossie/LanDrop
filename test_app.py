@@ -66,6 +66,17 @@ class AppStateTests(unittest.TestCase):
         self.assertTrue(snapshot["texts"][0]["hidden"])
         self.assertEqual(snapshot["latest_text"], "secret")
 
+    def test_password_protected_text_is_masked_in_snapshot(self) -> None:
+        app.add_text_entry("secret value", hidden=True, password="open-sesame")
+
+        snapshot = app.get_snapshot()
+
+        self.assertEqual(snapshot["latest_text"], "")
+        self.assertTrue(snapshot["texts"][0]["hidden"])
+        self.assertTrue(snapshot["texts"][0]["password_required"])
+        self.assertIsNone(snapshot["texts"][0]["content"])
+        self.assertEqual(snapshot["texts"][0]["masked_content"], "****** *****")
+
     def test_delete_file_entry_removes_file_from_disk(self) -> None:
         target = app.UPLOAD_DIR / "stored.txt"
         target.write_text("payload", encoding="utf-8")
@@ -146,13 +157,31 @@ class HttpServerTests(unittest.TestCase):
         connection.close()
         return result
 
-    def upload_request(self, filename: str, content: bytes, cookie: str | None = None):
+    def upload_request(
+        self,
+        filename: str,
+        content: bytes,
+        cookie: str | None = None,
+        hidden: bool = False,
+        password: str = "",
+    ):
         boundary = "----LanDropBoundary"
         body = (
             f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
             "Content-Type: application/octet-stream\r\n\r\n"
-        ).encode("utf-8") + content + f"\r\n--{boundary}--\r\n".encode("utf-8")
+        ).encode("utf-8") + content
+        body += (
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="hidden"\r\n\r\n'
+            f"{'true' if hidden else 'false'}"
+        ).encode("utf-8")
+        body += (
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="password"\r\n\r\n'
+            f"{password}"
+        ).encode("utf-8")
+        body += f"\r\n--{boundary}--\r\n".encode("utf-8")
         headers = {
             "Content-Type": f"multipart/form-data; boundary={boundary}",
             "Content-Length": str(len(body)),
@@ -255,6 +284,86 @@ class HttpServerTests(unittest.TestCase):
         )
 
         self.assertEqual(response["status"], 400)
+
+    def test_password_protected_text_requires_reveal_password(self) -> None:
+        self.start_server()
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps(
+                {"text": "classified", "hidden": True, "password": "swordfish"}
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+        self.assertTrue(created_entry["password_required"])
+        self.assertIsNone(created_entry["content"])
+
+        latest_text_response = self.request("GET", "/api/latest-text")
+        self.assertEqual(latest_text_response["status"], 200)
+        latest_text_entry = json.loads(latest_text_response["body"])
+        self.assertIsNone(latest_text_entry["content"])
+        self.assertTrue(latest_text_entry["password_required"])
+
+        wrong_reveal = self.request(
+            "POST",
+            f"/api/text/{created_entry['id']}/reveal",
+            body=json.dumps({"password": "wrong"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(wrong_reveal["status"], 403)
+
+        reveal = self.request(
+            "POST",
+            f"/api/text/{created_entry['id']}/reveal",
+            body=json.dumps({"password": "swordfish"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(reveal["status"], 200)
+        self.assertEqual(json.loads(reveal["body"])["content"], "classified")
+
+        blocked_share = self.request("GET", f"/s/{created_entry['short_code']}")
+        self.assertEqual(blocked_share["status"], 403)
+
+        allowed_share = self.request(
+            "GET", f"/s/{created_entry['short_code']}?password=swordfish"
+        )
+        self.assertEqual(allowed_share["status"], 200)
+        self.assertEqual(allowed_share["body"], b"classified")
+
+    def test_hidden_file_requires_password_for_upload_and_download(self) -> None:
+        self.start_server()
+
+        missing_password_upload = self.upload_request("locked.txt", b"secret", hidden=True)
+        self.assertEqual(missing_password_upload["status"], 400)
+
+        upload_response = self.upload_request(
+            "locked.txt", b"secret", hidden=True, password="vault"
+        )
+        self.assertEqual(upload_response["status"], 200)
+        file_entry = json.loads(upload_response["body"])["files"][0]
+        self.assertTrue(file_entry["password_required"])
+        self.assertTrue(file_entry["hidden"])
+
+        blocked_download = self.request("GET", f"/download/{file_entry['id']}")
+        self.assertEqual(blocked_download["status"], 403)
+
+        allowed_download = self.request(
+            "GET", f"/download/{file_entry['id']}?password=vault"
+        )
+        self.assertEqual(allowed_download["status"], 200)
+        self.assertEqual(allowed_download["body"], b"secret")
+
+        blocked_share = self.request("GET", f"/s/{file_entry['short_code']}")
+        self.assertEqual(blocked_share["status"], 403)
+
+        allowed_share = self.request(
+            "GET", f"/s/{file_entry['short_code']}?password=vault"
+        )
+        self.assertEqual(allowed_share["status"], 200)
+        self.assertEqual(allowed_share["body"], b"secret")
 
     def test_access_code_is_enforced_and_login_unlocks_api(self) -> None:
         self.start_server(access_code="secret-code")
