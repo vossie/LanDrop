@@ -22,6 +22,7 @@ EXPIRY_SECONDS = 24 * 60 * 60
 MAX_TEXT_HISTORY = 200
 MAX_FILE_HISTORY = 100
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "").strip()
+SHARE_BASE_URL = os.environ.get("SHARE_BASE_URL", "").strip()
 
 state_lock = threading.Lock()
 session_lock = threading.Lock()
@@ -444,6 +445,10 @@ def entry_password_is_valid(entry: dict, password: str) -> bool:
 
 def json_bytes(payload: dict) -> bytes:
     return json.dumps(payload).encode("utf-8")
+
+
+def get_share_base_url() -> str:
+    return SHARE_BASE_URL.rstrip("/")
 
 
 INDEX_HTML = """<!doctype html>
@@ -964,6 +969,7 @@ INDEX_HTML = """<!doctype html>
   </main>
 
   <script>
+    const configuredShareBaseUrl = __SHARE_BASE_URL__;
     const sharedText = document.getElementById("sharedText");
     const sharerName = document.getElementById("sharerName");
     const textPanel = document.getElementById("textPanel");
@@ -1072,7 +1078,8 @@ INDEX_HTML = """<!doctype html>
     }
 
     function lanShareUrl(shortCode) {
-      return `${window.location.origin}${lanSharePath(shortCode)}`;
+      const baseUrl = configuredShareBaseUrl || window.location.origin;
+      return `${baseUrl}${lanSharePath(shortCode)}`;
     }
 
     function withPassword(path, password) {
@@ -1851,7 +1858,7 @@ class AppHandler(BaseHTTPRequestHandler):
             if not is_authorized(self):
                 self.send_html(LOGIN_HTML)
                 return
-            self.send_html(INDEX_HTML)
+            self.send_html(INDEX_HTML.replace("__SHARE_BASE_URL__", json.dumps(get_share_base_url())))
             return
 
         if ACCESS_CODE and not is_authorized(self):

@@ -23,9 +23,11 @@ class AppStateTests(unittest.TestCase):
         self.temp_dir = TemporaryDirectory()
         self.original_upload_dir = app.UPLOAD_DIR
         self.original_access_code = app.ACCESS_CODE
+        self.original_share_base_url = app.SHARE_BASE_URL
         self.original_now_ts = app.now_ts
         app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         app.ACCESS_CODE = ""
+        app.SHARE_BASE_URL = ""
         app.now_ts = self.fake_now
         self.current_time = 1_700_000_000.0
         app.ensure_upload_dir()
@@ -35,6 +37,7 @@ class AppStateTests(unittest.TestCase):
         reset_app_state()
         app.UPLOAD_DIR = self.original_upload_dir
         app.ACCESS_CODE = self.original_access_code
+        app.SHARE_BASE_URL = self.original_share_base_url
         app.now_ts = self.original_now_ts
         self.temp_dir.cleanup()
 
@@ -204,9 +207,11 @@ class HttpServerTests(unittest.TestCase):
         self.temp_dir = TemporaryDirectory()
         self.original_upload_dir = app.UPLOAD_DIR
         self.original_access_code = app.ACCESS_CODE
+        self.original_share_base_url = app.SHARE_BASE_URL
         self.original_now_ts = app.now_ts
         self.current_time = 1_700_100_000.0
         app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
+        app.SHARE_BASE_URL = ""
         app.now_ts = self.fake_now
         app.ensure_upload_dir()
         reset_app_state()
@@ -222,6 +227,7 @@ class HttpServerTests(unittest.TestCase):
         reset_app_state()
         app.UPLOAD_DIR = self.original_upload_dir
         app.ACCESS_CODE = self.original_access_code
+        app.SHARE_BASE_URL = self.original_share_base_url
         app.now_ts = self.original_now_ts
         self.temp_dir.cleanup()
 
@@ -379,6 +385,15 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(delete_file_response["status"], 200)
         self.assertEqual(json.loads(delete_file_response["body"])["files"], [])
         self.assertFalse(saved_file.exists())
+
+    def test_configured_share_base_url_is_rendered_into_page(self) -> None:
+        app.SHARE_BASE_URL = "http://192.168.1.24:8000/"
+        self.start_server()
+
+        home = self.request("GET", "/")
+
+        self.assertEqual(home["status"], 200)
+        self.assertIn('const configuredShareBaseUrl = "http://192.168.1.24:8000";', home["text"])
 
     def test_text_update_rejects_non_boolean_hidden_flag(self) -> None:
         self.start_server()

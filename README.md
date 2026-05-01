@@ -86,6 +86,22 @@ http://<this-machine-ip>:8000
 ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
 ```
 
+## Configure The LAN Link Address
+
+By default, LanDrop shows share links using the browser's current origin. If you want every shared text or file link to use a specific address, set `SHARE_BASE_URL`.
+
+Example:
+
+```bash
+SHARE_BASE_URL=http://192.168.1.24:8000 ./.venv/bin/python app.py
+```
+
+This is useful when:
+
+- you want all devices in your home to see the same fixed LAN address
+- LanDrop is behind a reverse proxy
+- you do not want links generated from `127.0.0.1` on the host machine
+
 ## Test
 
 ```bash
@@ -124,6 +140,12 @@ Override defaults during install:
 
 ```bash
 sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./install-ubuntu-service.sh
+```
+
+You can also set the share link base address during install:
+
+```bash
+sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./install-ubuntu-service.sh
 ```
 
 Useful service commands:
