@@ -371,25 +371,11 @@ INDEX_HTML = """<!doctype html>
     }
     .hero {
       padding: 24px 0 12px;
-      display: flex;
-      align-items: center;
-      gap: 20px;
-      flex-wrap: wrap;
-    }
-    .brand-mark {
-      width: clamp(82px, 12vw, 132px);
-      height: auto;
-      flex: 0 0 auto;
-      filter: drop-shadow(0 12px 24px rgba(20, 151, 255, 0.18));
-    }
-    .hero-copy {
-      flex: 1 1 320px;
-      min-width: 0;
     }
     h1 {
       margin: 0;
-      font-size: clamp(2rem, 5vw, 4rem);
-      line-height: 0.95;
+      font-size: clamp(1.6rem, 4vw, 2.8rem);
+      line-height: 1;
       letter-spacing: -0.04em;
     }
     .subhead {
@@ -419,6 +405,16 @@ INDEX_HTML = """<!doctype html>
     .meta {
       color: var(--muted);
       font-size: 0.92rem;
+    }
+    .panel-title {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .panel-title h2 {
+      margin: 0;
     }
     textarea {
       width: 100%;
@@ -526,10 +522,7 @@ INDEX_HTML = """<!doctype html>
       padding-top: 0;
     }
     .history-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: flex-start;
+      display: block;
     }
     .history-actions {
       display: flex;
@@ -587,22 +580,61 @@ INDEX_HTML = """<!doctype html>
       min-width: 0;
     }
     .text-card-label {
-      margin: 0 0 10px 10px;
+      margin: 0 0 10px 12px;
       color: #3d3532;
-      font-size: 0.98rem;
+      font-size: 1rem;
       font-weight: 700;
       letter-spacing: -0.02em;
     }
+    .entry-table {
+      width: 100%;
+      border-collapse: separate;
+      border-spacing: 0;
+      margin-bottom: 12px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f5faff 100%);
+    }
+    .entry-table th,
+    .entry-table td {
+      padding: 10px 14px;
+      border-bottom: 1px solid rgba(190, 214, 255, 0.7);
+      text-align: left;
+      vertical-align: top;
+      font-size: 0.9rem;
+    }
+    .entry-table tr:last-child th,
+    .entry-table tr:last-child td {
+      border-bottom: 0;
+    }
+    .entry-table th {
+      width: 118px;
+      color: var(--muted);
+      font-weight: 700;
+    }
+    .entry-table td {
+      color: var(--ink);
+    }
+    .entry-table a {
+      color: var(--accent-strong);
+      text-decoration: none;
+      word-break: break-all;
+    }
+    .entry-table a:hover {
+      text-decoration: underline;
+    }
     .text-card {
-      min-height: 176px;
+      min-height: 0;
       margin-top: 0;
       border: 3px solid #3a3330;
-      border-radius: 0;
+      border-radius: 28px;
       background: #fffdfa;
-      padding: 28px 38px;
+      padding: 24px 28px;
       color: #4b433f;
       box-shadow: none;
       transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
+      line-height: 1.65;
     }
     .text-card.masked {
       letter-spacing: 0.04em;
@@ -612,7 +644,7 @@ INDEX_HTML = """<!doctype html>
       flex-direction: column;
       align-items: center;
       gap: 10px;
-      padding-bottom: 8px;
+      padding-bottom: 12px;
     }
     .text-delete-label {
       color: var(--danger);
@@ -622,6 +654,25 @@ INDEX_HTML = """<!doctype html>
     .file-name {
       font-weight: 600;
       word-break: break-word;
+    }
+    .file-card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #fbfdff 0%, #f7fbff 100%);
+      padding: 16px;
+    }
+    .file-card-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .file-card-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-left: auto;
     }
     .dropzone {
       margin-top: 12px;
@@ -645,27 +696,25 @@ INDEX_HTML = """<!doctype html>
     @media (max-width: 720px) {
       .shell { padding: 18px; }
       .history-head { flex-direction: column; }
-      .hero { align-items: flex-start; }
     }
   </style>
 </head>
 <body>
   <main class="shell">
     <section class="hero">
-      <img class="brand-mark" src="/assets/logo-landrop-v1.png" alt="LanDrop logo">
-      <div class="hero-copy">
-        <h1>Paste once.<br>Open anywhere.</h1>
-        <p class="subhead">
-          Every browser on your network that opens this page sees the same shared text and uploaded files.
-          Text history and file history both auto-expire after 24 hours.
-        </p>
-      </div>
+      <h1>LAN Text And File Sharing.<br>Fast, local, simple.</h1>
+      <p class="subhead">
+        Share clipboard text and files between devices on the same network with direct LAN links,
+        optional passwords, and automatic cleanup after 24 hours.
+      </p>
     </section>
 
     <section class="grid">
       <article class="panel">
-        <h2>Text History</h2>
-        <div class="meta" id="textMeta">Waiting for updates…</div>
+        <div class="panel-title">
+          <h2>Shared Text</h2>
+          <div class="meta" id="textMeta">Waiting for updates…</div>
+        </div>
         <textarea id="sharedText" placeholder="Paste text here"></textarea>
         <div class="row stack">
           <label class="checkbox-row" for="hiddenText">
@@ -682,8 +731,10 @@ INDEX_HTML = """<!doctype html>
       </article>
 
       <article class="panel">
-        <h2>File History</h2>
-        <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
+        <div class="panel-title">
+          <h2>Shared Files</h2>
+          <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
+        </div>
         <div class="row">
           <label class="file-label" for="fileInput">Choose File</label>
           <input id="fileInput" type="file">
@@ -910,15 +961,30 @@ INDEX_HTML = """<!doctype html>
         const head = document.createElement("div");
         head.className = "history-head";
 
-        const meta = document.createElement("div");
-        meta.className = "muted";
-        meta.textContent = `Saved ${formatDate(entry.created_at)} • Expires ${formatDate(entry.expires_at)}`;
+        const infoTable = document.createElement("table");
+        infoTable.className = "entry-table";
 
-        const actions = document.createElement("div");
-        actions.className = "history-actions";
+        const savedRow = document.createElement("tr");
+        const savedHead = document.createElement("th");
+        savedHead.textContent = "Saved";
+        const savedValue = document.createElement("td");
+        savedValue.textContent = formatDate(entry.created_at);
+        savedRow.appendChild(savedHead);
+        savedRow.appendChild(savedValue);
 
+        const expiresRow = document.createElement("tr");
+        const expiresHead = document.createElement("th");
+        expiresHead.textContent = "Expires";
+        const expiresValue = document.createElement("td");
+        expiresValue.textContent = formatDate(entry.expires_at);
+        expiresRow.appendChild(expiresHead);
+        expiresRow.appendChild(expiresValue);
+
+        const linkRow = document.createElement("tr");
+        const linkHead = document.createElement("th");
+        linkHead.textContent = "LAN link";
+        const linkValue = document.createElement("td");
         const shareLink = document.createElement("a");
-        shareLink.className = "share-link";
         shareLink.href = lanSharePath(entry.short_code);
         shareLink.textContent = lanShareUrl(entry.short_code);
         shareLink.title = "Open this text directly over the LAN";
@@ -929,7 +995,28 @@ INDEX_HTML = """<!doctype html>
             openProtectedPath(lanSharePath(entry.short_code), textStatus);
           }
         });
-        actions.appendChild(shareLink);
+        linkValue.appendChild(shareLink);
+        linkRow.appendChild(linkHead);
+        linkRow.appendChild(linkValue);
+
+        const privacyRow = document.createElement("tr");
+        const privacyHead = document.createElement("th");
+        privacyHead.textContent = "Access";
+        const privacyValue = document.createElement("td");
+        if (!entry.hidden) {
+          privacyValue.textContent = "Visible";
+        } else if (entry.password_required) {
+          privacyValue.textContent = "Hidden and password protected";
+        } else {
+          privacyValue.textContent = "Hidden";
+        }
+        privacyRow.appendChild(privacyHead);
+        privacyRow.appendChild(privacyValue);
+
+        infoTable.appendChild(savedRow);
+        infoTable.appendChild(expiresRow);
+        infoTable.appendChild(linkRow);
+        infoTable.appendChild(privacyRow);
 
         if (entry.hidden) {
           const toggleBtn = document.createElement("button");
@@ -949,21 +1036,10 @@ INDEX_HTML = """<!doctype html>
             }
             renderTextHistory(texts);
           });
-          actions.appendChild(toggleBtn);
+          privacyValue.appendChild(document.createTextNode(" "));
+          privacyValue.appendChild(toggleBtn);
         }
-
-        const deleteBtn = document.createElement("button");
-        deleteBtn.type = "button";
-        deleteBtn.className = "danger delete-btn";
-        deleteBtn.textContent = "Delete";
-        deleteBtn.addEventListener("click", (event) => {
-          event.stopPropagation();
-          deleteText(entry.id);
-        });
-
-        actions.appendChild(deleteBtn);
-        head.appendChild(meta);
-        head.appendChild(actions);
+        head.appendChild(infoTable);
 
         const bodyRow = document.createElement("div");
         bodyRow.className = "text-row";
@@ -987,6 +1063,15 @@ INDEX_HTML = """<!doctype html>
 
         const deleteWrap = document.createElement("div");
         deleteWrap.className = "text-card-actions";
+
+        const deleteBtn = document.createElement("button");
+        deleteBtn.type = "button";
+        deleteBtn.className = "danger delete-btn";
+        deleteBtn.textContent = "🗑";
+        deleteBtn.addEventListener("click", (event) => {
+          event.stopPropagation();
+          deleteText(entry.id);
+        });
 
         deleteBtn.textContent = "🗑";
         const deleteLabel = document.createElement("div");
@@ -1023,21 +1108,49 @@ INDEX_HTML = """<!doctype html>
         const head = document.createElement("div");
         head.className = "history-head";
 
+        const card = document.createElement("div");
+        card.className = "file-card";
+
+        const top = document.createElement("div");
+        top.className = "file-card-top";
+
         const details = document.createElement("div");
         const name = document.createElement("div");
         name.className = "file-name";
         name.textContent = file.name;
-        const meta = document.createElement("div");
-        meta.className = "muted";
-        meta.textContent = `${formatSize(file.size)} • Uploaded ${formatDate(file.created_at)} • Expires ${formatDate(file.expires_at)}`;
-        details.appendChild(name);
-        details.appendChild(meta);
+        const infoTable = document.createElement("table");
+        infoTable.className = "entry-table";
 
-        const actions = document.createElement("div");
-        actions.className = "history-actions";
+        const sizeRow = document.createElement("tr");
+        const sizeHead = document.createElement("th");
+        sizeHead.textContent = "Size";
+        const sizeValue = document.createElement("td");
+        sizeValue.textContent = formatSize(file.size);
+        sizeRow.appendChild(sizeHead);
+        sizeRow.appendChild(sizeValue);
+
+        const uploadedRow = document.createElement("tr");
+        const uploadedHead = document.createElement("th");
+        uploadedHead.textContent = "Uploaded";
+        const uploadedValue = document.createElement("td");
+        uploadedValue.textContent = formatDate(file.created_at);
+        uploadedRow.appendChild(uploadedHead);
+        uploadedRow.appendChild(uploadedValue);
+
+        const expiresRow = document.createElement("tr");
+        const expiresHead = document.createElement("th");
+        expiresHead.textContent = "Expires";
+        const expiresValue = document.createElement("td");
+        expiresValue.textContent = formatDate(file.expires_at);
+        expiresRow.appendChild(expiresHead);
+        expiresRow.appendChild(expiresValue);
+
+        const linkRow = document.createElement("tr");
+        const linkHead = document.createElement("th");
+        linkHead.textContent = "LAN link";
+        const linkValue = document.createElement("td");
 
         const shareLink = document.createElement("a");
-        shareLink.className = "share-link";
         shareLink.href = lanSharePath(file.short_code);
         shareLink.textContent = lanShareUrl(file.short_code);
         shareLink.title = "Open this file directly over the LAN";
@@ -1047,6 +1160,29 @@ INDEX_HTML = """<!doctype html>
             openProtectedPath(lanSharePath(file.short_code), fileStatus);
           });
         }
+        linkValue.appendChild(shareLink);
+        linkRow.appendChild(linkHead);
+        linkRow.appendChild(linkValue);
+
+        const accessRow = document.createElement("tr");
+        const accessHead = document.createElement("th");
+        accessHead.textContent = "Access";
+        const accessValue = document.createElement("td");
+        accessValue.textContent = file.password_required ? "Password protected" : "Open on LAN";
+        accessRow.appendChild(accessHead);
+        accessRow.appendChild(accessValue);
+
+        infoTable.appendChild(sizeRow);
+        infoTable.appendChild(uploadedRow);
+        infoTable.appendChild(expiresRow);
+        infoTable.appendChild(linkRow);
+        infoTable.appendChild(accessRow);
+
+        details.appendChild(name);
+        details.appendChild(infoTable);
+
+        const actions = document.createElement("div");
+        actions.className = "file-card-actions";
 
         const link = document.createElement("a");
         link.className = "file-link";
@@ -1065,11 +1201,12 @@ INDEX_HTML = """<!doctype html>
         deleteBtn.textContent = "Delete";
         deleteBtn.addEventListener("click", () => deleteFile(file.id));
 
-        actions.appendChild(shareLink);
         actions.appendChild(link);
         actions.appendChild(deleteBtn);
-        head.appendChild(details);
-        head.appendChild(actions);
+        top.appendChild(details);
+        top.appendChild(actions);
+        card.appendChild(top);
+        head.appendChild(card);
         li.appendChild(head);
         fileList.appendChild(li);
       }
