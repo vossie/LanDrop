@@ -130,6 +130,7 @@ This is useful when:
 | `GET /s/<code>` | Open a short LAN link for text or file |
 
 Bash examples for the API are in [docs/bash-api.md](docs/bash-api.md).
+Developer and release workflow notes are in [docs/developer-guide.md](docs/developer-guide.md).
 
 ## Bash And Curl Sharing
 

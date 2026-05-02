@@ -888,6 +888,13 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("/api/share-file", doc)
         self.assertIn("curl", doc)
 
+    def test_developer_guide_mentions_versioning_and_main_rule(self) -> None:
+        doc = (
+            Path(__file__).resolve().parent / "docs" / "developer-guide.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("VERSION", doc)
+        self.assertIn("Versions roll up when committing to `main`.", doc)
+
     def test_github_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
             Path(__file__).resolve().parent / "github-install-upgrade.sh"
