@@ -96,7 +96,28 @@ curl -sS \
 
 ## Access Code
 
-If LanDrop is protected by an access code, log in first and reuse the session cookie:
+If LanDrop is protected by an access code, the simplest bash option is to send it as `X-API-Key`:
+
+```bash
+curl -sS \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: your-access-code' \
+  -X POST \
+  -d '{"text":"hello again"}' \
+  http://127.0.0.1:8000/api/share-text
+```
+
+You can do the same for file uploads:
+
+```bash
+curl -sS \
+  -H 'X-API-Key: your-access-code' \
+  -X POST \
+  -F 'file=@./example.txt' \
+  http://127.0.0.1:8000/api/share-file
+```
+
+If you still want browser-style session auth from bash, you can log in first and reuse the session cookie:
 
 ```bash
 curl -sS -c cookies.txt \

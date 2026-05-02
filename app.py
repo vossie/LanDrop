@@ -115,6 +115,10 @@ def is_authorized(handler: BaseHTTPRequestHandler) -> bool:
     if not ACCESS_CODE:
         return True
 
+    api_key = handler.headers.get("X-API-Key", "").strip()
+    if api_key and hmac.compare_digest(api_key, ACCESS_CODE):
+        return True
+
     cookies = parse_cookies(handler.headers.get("Cookie", ""))
     session_id = cookies.get("session")
     if not session_id:

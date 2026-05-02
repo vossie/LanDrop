@@ -569,6 +569,46 @@ class HttpServerTests(unittest.TestCase):
             f"http://127.0.0.1:{self.port}/download/{payload['id']}",
         )
 
+    def test_share_endpoints_accept_x_api_key_when_access_code_is_enabled(self) -> None:
+        self.start_server(access_code="secret-code")
+
+        text_response = self.request(
+            "POST",
+            "/api/share-text",
+            body=json.dumps({"text": "shell text"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": "secret-code",
+            },
+        )
+        self.assertEqual(text_response["status"], 200)
+        text_payload = json.loads(text_response["body"])
+        self.assertEqual(text_payload["type"], "text")
+        self.assertEqual(text_payload["content"], "shell text")
+
+        boundary = "----LanDropApiKeyBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="cli.txt"\r\n'
+            "Content-Type: text/plain\r\n\r\n"
+            "hello from bash"
+            f"\r\n--{boundary}--\r\n"
+        ).encode("utf-8")
+        file_response = self.request(
+            "POST",
+            "/api/share-file",
+            body=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+                "X-API-Key": "secret-code",
+            },
+        )
+        self.assertEqual(file_response["status"], 200)
+        file_payload = json.loads(file_response["body"])
+        self.assertEqual(file_payload["type"], "file")
+        self.assertEqual(file_payload["name"], "cli.txt")
+
     def test_text_update_rejects_non_boolean_hidden_flag(self) -> None:
         self.start_server()
 
@@ -776,6 +816,31 @@ class HttpServerTests(unittest.TestCase):
         self.assertIn("101 Switching Protocols", authorized_handshake)
         expected_accept = app.websocket_accept_value(websocket_key)
         self.assertIn(f"Sec-WebSocket-Accept: {expected_accept}", authorized_handshake)
+
+    def test_websocket_accepts_x_api_key_when_access_code_is_enabled(self) -> None:
+        self.start_server(access_code="secret-code")
+
+        connection = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        self.addCleanup(connection.close)
+        websocket_key = base64.b64encode(os.urandom(16)).decode("ascii")
+        request = (
+            f"GET /ws HTTP/1.1\r\n"
+            f"Host: 127.0.0.1:{self.port}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: {websocket_key}\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "X-API-Key: secret-code\r\n\r\n"
+        )
+        connection.sendall(request.encode("utf-8"))
+        response = b""
+        while b"\r\n\r\n" not in response:
+            chunk = connection.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+        handshake = response.partition(b"\r\n\r\n")[0].decode("utf-8", errors="replace")
+        self.assertIn("101 Switching Protocols", handshake)
 
     def test_latest_endpoints_return_not_found_when_history_is_empty(self) -> None:
         self.start_server()

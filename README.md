@@ -157,6 +157,8 @@ curl -sS \
 
 Both return compact JSON including a short LAN share URL. More examples are in [docs/bash-api.md](docs/bash-api.md).
 
+If the app uses `ACCESS_CODE`, bash clients can send it directly as `X-API-Key` instead of creating a login session first.
+
 ## Install As An Ubuntu Service
 
 Run the installer as `root` on the target Ubuntu server:
