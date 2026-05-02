@@ -895,6 +895,19 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("VERSION", doc)
         self.assertIn("Versions roll up when committing to `main`.", doc)
 
+    def test_readme_and_license_cover_local_control_and_isc_license(self) -> None:
+        root = Path(__file__).resolve().parent
+        readme = (root / "README.md").read_text(encoding="utf-8")
+        license_text = (root / "LICENSE").read_text(encoding="utf-8")
+        version = (root / "VERSION").read_text(encoding="utf-8").strip()
+        self.assertEqual(version, "1.0.4")
+        self.assertIn("you control the app", readme)
+        self.assertIn("know where the data lives", readme)
+        self.assertIn("Developer: Carel Vosloo", readme)
+        self.assertIn("ISC license", readme)
+        self.assertIn("ISC License", license_text)
+        self.assertIn("Copyright (c) 2026 Carel Vosloo", license_text)
+
     def test_github_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
             Path(__file__).resolve().parent / "github-install-upgrade.sh"

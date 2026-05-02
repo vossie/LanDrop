@@ -2,13 +2,15 @@
 
 ![LanDrop wordmark](docs/landrop-wordmark-github.svg)
 
-Browser-based LAN file sharing, local network text sharing, and bash-friendly `curl` sharing for fast device-to-device and server-to-device transfer.
+Browser-based LAN file sharing, local network text sharing, and bash-friendly `curl` sharing for fast device-to-device and server-to-device transfer under your control on your own network.
 
 ![LanDrop hero](docs/landrop-hero.svg)
 
 LanDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`. It works well as a local network clipboard sharing tool, a simple LAN file drop, a server-to-phone handoff tool, and a quick browser-based transfer page for phones, tablets, laptops, desktops, and Raspberry Pi boxes.
 
 It is especially useful at home or on a small private network when you want to move something between different operating systems without thinking about apps, cables, cloud sync, or accounts. Open the same page from Windows, macOS, Linux, iPhone, iPad, or Android on your own Wi-Fi and share text or files directly in the browser, or push data into it from a shell script on a Linux server with `curl`.
+
+The core pitch is simple: you control the app, you control the machine, and you know where the data lives. Your text and files stay on your hardware and your LAN instead of being handed to some server on the internet run by a company you are expected to trust. That matters because every extra cloud hop, vendor account, retention policy, analytics pipeline, and breach headline adds risk. If the job is just getting data from one device you own to another device you own, asking a third party to sit in the middle is often the wrong trade.
 
 ![LanDrop flow](docs/landrop-flow.svg)
 
@@ -26,6 +28,8 @@ It is especially useful at home or on a small private network when you want to m
 
 - Share text and files across your local network from any browser
 - Share text and files from bash or shell scripts with simple `curl` commands
+- Keep text and files on infrastructure you control instead of a third-party cloud
+- Know exactly where your data is while it is being shared
 - Move content easily between different operating systems on your own home network
 - Generate direct LAN links for each item such as `http://192.168.1.24:8000/s/U9UN`
 - Click any shared text card to copy it instantly
@@ -58,6 +62,12 @@ It is especially useful at home or on a small private network when you want to m
 | Auto cleanup | Items expire after 24 hours |
 | Access gate | Optional global access code for the whole app |
 | Simple deployment | Run directly or install as an Ubuntu `systemd` service |
+
+## Why Local Control Matters
+
+LanDrop is for people who do not want to pretend that "someone else’s server" is the same thing as privacy. When you self-host LanDrop on your own machine or a box on your own network, you decide where the app runs, who can reach it, how long data stays around, and when it gets deleted.
+
+That is a materially different trust model from uploading notes, secrets, links, or files to a vendor platform and hoping their security, logging, retention, and staff access policies line up with your interests. If you care where your data is, who can inspect it, and which systems can leak it, local control is the feature.
 
 ## Great For Mixed Devices At Home
 
@@ -254,6 +264,17 @@ sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./uninstall-ubuntu-service.sh
 - Maximum upload size is 1 GB.
 - Expired files are removed automatically when the app is used.
 
+## License
+
+LanDrop is released under the ISC license, the compact permissive license widely associated with OpenBSD.
+
+- Developer: Carel Vosloo
+- Copyright: Copyright (c) 2026 Carel Vosloo
+- Permission is granted to use, copy, modify, and distribute the software with or without fee
+- The software is provided "as is", without warranty
+
+See [LICENSE](LICENSE) for the full text.
+
 ## Search-Friendly Summary
 
-If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, a cross-platform home network sharing tool, a bash `curl` file sharing endpoint, a shell-script text sharing API, or a simple self-hosted text and file drop for devices on the same Wi-Fi network, LanDrop is built for that exact workflow.
+If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, a cross-platform home network sharing tool, a bash `curl` file sharing endpoint, a shell-script text sharing API, or a simple self-hosted text and file drop for devices on the same Wi-Fi network where you control the server and know exactly where the data is, LanDrop is built for that exact workflow.
