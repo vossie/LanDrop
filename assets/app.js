@@ -40,6 +40,8 @@ let textStatusTimer = null;
 let copiedTextId = null;
 let copiedTextTimer = null;
 let lastRenderedTexts = [];
+const textAccordionState = new Map();
+const fileAccordionState = new Map();
 
 function updateTabIndicators() {
   textTabBtn.classList.toggle("has-update", unreadText);
@@ -109,11 +111,17 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function buildAccordionTable(summaryLabel, rows) {
+function buildAccordionTable(summaryLabel, rows, stateStore, stateKey) {
   const details = document.createElement("details");
   details.className = "entry-accordion";
   details.addEventListener("click", (event) => {
     event.stopPropagation();
+  });
+  if (stateStore.get(stateKey)) {
+    details.open = true;
+  }
+  details.addEventListener("toggle", () => {
+    stateStore.set(stateKey, details.open);
   });
 
   const summary = document.createElement("summary");
@@ -378,7 +386,7 @@ function renderTextHistory(texts) {
       savedRow,
       fromRow,
       expiresRow
-    ]);
+    ], textAccordionState, entry.id);
 
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
@@ -562,7 +570,7 @@ function renderFiles(files) {
       fromRow,
       uploadedRow,
       expiresRow
-    ]);
+    ], fileAccordionState, file.id);
 
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
