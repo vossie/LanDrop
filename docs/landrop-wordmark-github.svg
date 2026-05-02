@@ -1,27 +1,26 @@
 <svg width="1280" height="360" viewBox="0 0 1280 360" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="gh-bg" x1="120" y1="40" x2="1100" y2="300" gradientUnits="userSpaceOnUse">
+    <linearGradient id="ld-gh-panel" x1="40" y1="20" x2="1240" y2="340" gradientUnits="userSpaceOnUse">
       <stop stop-color="#F8FBFF"/>
-      <stop offset="1" stop-color="#EEF7FF"/>
+      <stop offset="1" stop-color="#EEF6FF"/>
     </linearGradient>
-    <linearGradient id="gh-word" x1="120" y1="40" x2="940" y2="270" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F2A7A"/>
-      <stop offset="0.48" stop-color="#1497FF"/>
-      <stop offset="1" stop-color="#12C8F4"/>
-    </linearGradient>
-    <linearGradient id="gh-speed" x1="120" y1="0" x2="360" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#12C8F4"/>
-      <stop offset="1" stop-color="#1497FF"/>
+    <linearGradient id="ld-gh-blue" x1="80" y1="42" x2="298" y2="258" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1497FF"/>
+      <stop offset="1" stop-color="#0F6FD8"/>
     </linearGradient>
   </defs>
-  <rect x="20" y="20" width="1240" height="320" rx="40" fill="url(#gh-bg)"/>
+  <rect x="20" y="20" width="1240" height="320" rx="40" fill="url(#ld-gh-panel)"/>
   <rect x="20" y="20" width="1240" height="320" rx="40" stroke="#BED6FF" stroke-width="4"/>
-  <g transform="translate(108 84)">
-    <text x="0" y="128" fill="url(#gh-word)" font-family="'Trebuchet MS', 'Segoe UI', Arial, sans-serif" font-size="132" font-weight="800" letter-spacing="-4">LanDrop</text>
-    <path d="M490 6C511.094 33.4083 532 57.6996 532 84.9625C532 115.34 507.335 138.9 476.75 138.9C446.165 138.9 423 115.702 423 84.9625C423 58.2685 444.372 33.4634 465.679 7.11667C472.458 -1.26757 483.537 -1.6144 490 6Z" fill="url(#gh-speed)" opacity="0.96"/>
-    <path d="M18 160H244" stroke="url(#gh-speed)" stroke-width="18" stroke-linecap="round"/>
-    <path d="M0 188H196" stroke="url(#gh-speed)" stroke-width="12" stroke-linecap="round" opacity="0.82"/>
-    <circle cx="832" cy="148" r="12" fill="#FF9F1A"/>
-    <text x="6" y="212" fill="#45619D" font-family="'Segoe UI', Arial, sans-serif" font-size="32" font-weight="600">Fast local text and file sharing for every device on your home network</text>
+  <g transform="translate(86 48)">
+    <path d="M116 0L214 68L116 136L18 68L116 0Z" fill="url(#ld-gh-blue)"/>
+    <path d="M18 112L116 180L214 112V158L116 226L18 158V112Z" fill="url(#ld-gh-blue)"/>
+    <rect x="58" y="86" width="116" height="56" rx="14" fill="#F8FBFF"/>
+    <rect x="70" y="72" width="14" height="42" rx="4" fill="#F8FBFF"/>
+    <rect x="94" y="58" width="14" height="56" rx="4" fill="#F8FBFF"/>
+    <rect x="118" y="58" width="14" height="56" rx="4" fill="#F8FBFF"/>
+    <rect x="142" y="72" width="14" height="42" rx="4" fill="#F8FBFF"/>
+    <rect x="54" y="154" width="124" height="12" rx="6" fill="#0A62C3" opacity="0.34"/>
   </g>
+  <text x="356" y="236" fill="#1482E8" font-family="'Trebuchet MS', 'Segoe UI', Arial, sans-serif" font-size="164" font-weight="800" letter-spacing="-5">LanDrop</text>
+  <text x="356" y="312" fill="#45619D" font-family="'Segoe UI', Arial, sans-serif" font-size="28" font-weight="600">Fast local text and file sharing for devices on the same home network</text>
 </svg>

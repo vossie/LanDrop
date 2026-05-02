@@ -1,21 +1,19 @@
-<svg width="760" height="200" viewBox="0 0 760 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+<svg width="880" height="220" viewBox="0 0 880 220" fill="none" xmlns="http://www.w3.org/2000/svg">
   <defs>
-    <linearGradient id="wordmark-fill" x1="150" y1="20" x2="620" y2="180" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#0F2A7A"/>
-      <stop offset="0.45" stop-color="#1497FF"/>
-      <stop offset="1" stop-color="#12C8F4"/>
-    </linearGradient>
-    <linearGradient id="speed-fill" x1="0" y1="0" x2="160" y2="0" gradientUnits="userSpaceOnUse">
-      <stop stop-color="#12C8F4"/>
-      <stop offset="1" stop-color="#1497FF"/>
+    <linearGradient id="ld-app-blue" x1="18" y1="18" x2="176" y2="176" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#1497FF"/>
+      <stop offset="1" stop-color="#0F6FD8"/>
     </linearGradient>
   </defs>
-  <rect width="760" height="200" rx="32" fill="none"/>
-  <g transform="translate(24 26)">
-    <text x="0" y="110" fill="url(#wordmark-fill)" font-family="'Trebuchet MS', 'Segoe UI', Arial, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">LanDrop</text>
-    <path d="M354 10C370.16 31.0313 386 49.6692 386 70.6C386 93.9119 366.859 112 343.4 112C319.941 112 302 94.1895 302 70.6C302 50.1095 317.92 31.0737 334.8 10.44C340.025 4.05336 348.947 3.87643 354 10Z" fill="url(#speed-fill)" opacity="0.94"/>
-    <path d="M16 126H136" stroke="url(#speed-fill)" stroke-width="12" stroke-linecap="round"/>
-    <path d="M0 148H110" stroke="url(#speed-fill)" stroke-width="8" stroke-linecap="round" opacity="0.8"/>
-    <circle cx="612" cy="124" r="8" fill="#FF9F1A"/>
+  <g transform="translate(8 18)">
+    <path d="M92 0L166 52L92 104L18 52L92 0Z" fill="url(#ld-app-blue)"/>
+    <path d="M18 84L92 136L166 84V120L92 172L18 120V84Z" fill="url(#ld-app-blue)"/>
+    <rect x="46" y="70" width="92" height="44" rx="10" fill="#F8FBFF"/>
+    <rect x="54" y="60" width="12" height="34" rx="4" fill="#F8FBFF"/>
+    <rect x="74" y="52" width="12" height="42" rx="4" fill="#F8FBFF"/>
+    <rect x="94" y="52" width="12" height="42" rx="4" fill="#F8FBFF"/>
+    <rect x="114" y="60" width="12" height="34" rx="4" fill="#F8FBFF"/>
+    <rect x="42" y="118" width="100" height="10" rx="5" fill="#085CB7" opacity="0.4"/>
   </g>
+  <text x="264" y="145" fill="#1482E8" font-family="'Trebuchet MS', 'Segoe UI', Arial, sans-serif" font-size="126" font-weight="800" letter-spacing="-4">LanDrop</text>
 </svg>
