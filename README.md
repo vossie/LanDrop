@@ -1,5 +1,7 @@
 # LanDrop
 
+![LanDrop wordmark](docs/landrop-wordmark-github.svg)
+
 Browser-based LAN file sharing and local network text sharing for fast device-to-device transfer.
 
 ![LanDrop hero](docs/landrop-hero.svg)

@@ -595,7 +595,7 @@ class AppHandler(BaseHTTPRequestHandler):
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/favicon.ico":
-            self.serve_asset("logo-landrop-v1.png")
+            self.serve_asset("landrop-favicon.svg")
             return
 
         if parsed.path.startswith("/assets/"):
