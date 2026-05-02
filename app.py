@@ -3,6 +3,7 @@ import hashlib
 import hmac
 import html
 import json
+import mimetypes
 import os
 import secrets
 import shutil
@@ -1122,7 +1123,7 @@ INDEX_HTML = """<!doctype html>
 <body>
   <main class="shell">
     <section class="hero">
-      <h1>LanDrop Text And File Sharing.<br>Fast, local, simple.</h1>
+      <h1>LAN-DROP Text And File Sharing.<br>Fast, local, simple.</h1>
       <p class="subhead">
         Share clipboard text and files between devices on the same network with direct LAN links,
         optional passwords, and automatic cleanup after 24 hours.
@@ -2465,8 +2466,10 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
 
+        content_type = mimetypes.guess_type(entry["name"])[0] or "application/octet-stream"
+
         self.send_response(HTTPStatus.OK)
-        self.send_header("Content-Type", "application/octet-stream")
+        self.send_header("Content-Type", content_type)
         self.send_header(
             "Content-Disposition",
             f"attachment; filename*=UTF-8''{urllib.parse.quote(entry['name'])}",

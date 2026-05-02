@@ -320,7 +320,7 @@ class HttpServerTests(unittest.TestCase):
 
         home = self.request("GET", "/")
         self.assertEqual(home["status"], 200)
-        self.assertIn("LAN Text And File Sharing.", home["text"])
+        self.assertIn("<title>LanDrop</title>", home["text"])
 
         text_response = self.request(
             "POST",
@@ -375,6 +375,10 @@ class HttpServerTests(unittest.TestCase):
         latest_file_content_response = self.request("GET", "/api/latest-file/content")
         self.assertEqual(latest_file_content_response["status"], 200)
         self.assertEqual(latest_file_content_response["body"], b"network payload")
+        self.assertEqual(
+            latest_file_content_response["headers"]["Content-Type"],
+            "text/plain",
+        )
 
         shared_text_response = self.request("GET", f"/s/{text_short_code}")
         self.assertEqual(shared_text_response["status"], 200)
@@ -387,10 +391,12 @@ class HttpServerTests(unittest.TestCase):
         shared_file_response = self.request("GET", f"/s/{file_short_code}")
         self.assertEqual(shared_file_response["status"], 200)
         self.assertEqual(shared_file_response["body"], b"network payload")
+        self.assertEqual(shared_file_response["headers"]["Content-Type"], "text/plain")
 
         download_response = self.request("GET", f"/download/{file_id}")
         self.assertEqual(download_response["status"], 200)
         self.assertEqual(download_response["body"], b"network payload")
+        self.assertEqual(download_response["headers"]["Content-Type"], "text/plain")
 
         delete_text_response = self.request("DELETE", f"/api/text/{text_id}")
         self.assertEqual(delete_text_response["status"], 200)
