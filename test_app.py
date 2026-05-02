@@ -1,5 +1,9 @@
+import base64
 import http.client
 import json
+import os
+import socket
+import struct
 import subprocess
 import threading
 import unittest
@@ -16,6 +20,7 @@ def reset_app_state() -> None:
         app.shared_state["files"] = []
     with app.session_lock:
         app.authorized_sessions.clear()
+    app.stop_background_tasks()
 
 
 class AppStateTests(unittest.TestCase):
@@ -254,6 +259,7 @@ class HttpServerTests(unittest.TestCase):
     def start_server(self, access_code: str = "") -> None:
         app.ACCESS_CODE = access_code
         reset_app_state()
+        app.start_background_tasks()
         self.server = app.ThreadingHTTPServer(("127.0.0.1", 0), app.AppHandler)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -275,6 +281,49 @@ class HttpServerTests(unittest.TestCase):
         }
         connection.close()
         return result
+
+    def open_websocket(self, cookie: str | None = None):
+        connection = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        websocket_key = base64.b64encode(os.urandom(16)).decode("ascii")
+        headers = [
+            "GET /ws HTTP/1.1",
+            f"Host: 127.0.0.1:{self.port}",
+            "Upgrade: websocket",
+            "Connection: Upgrade",
+            f"Sec-WebSocket-Key: {websocket_key}",
+            "Sec-WebSocket-Version: 13",
+        ]
+        if cookie:
+            headers.append(f"Cookie: {cookie}")
+        request = "\r\n".join(headers) + "\r\n\r\n"
+        connection.sendall(request.encode("utf-8"))
+        response = b""
+        while b"\r\n\r\n" not in response:
+            chunk = connection.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+        return connection, response.decode("utf-8", errors="replace"), websocket_key
+
+    def read_websocket_frame(self, connection: socket.socket) -> bytes:
+        def read_exact(length: int) -> bytes:
+            data = b""
+            while len(data) < length:
+                chunk = connection.recv(length - len(data))
+                if not chunk:
+                    raise AssertionError("WebSocket connection closed early")
+                data += chunk
+            return data
+
+        header = read_exact(2)
+        first_byte, second_byte = header
+        self.assertEqual(first_byte & 0x0F, 0x1)
+        payload_length = second_byte & 0x7F
+        if payload_length == 126:
+            payload_length = struct.unpack("!H", read_exact(2))[0]
+        elif payload_length == 127:
+            payload_length = struct.unpack("!Q", read_exact(8))[0]
+        return read_exact(payload_length)
 
     def upload_request(
         self,
@@ -609,6 +658,59 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(protected_download["status"], 200)
         self.assertEqual(protected_download["body"], b"secure-data")
+
+    def test_websocket_receives_initial_snapshot_and_live_updates(self) -> None:
+        self.start_server()
+
+        websocket, handshake, websocket_key = self.open_websocket()
+        self.addCleanup(websocket.close)
+
+        self.assertIn("101 Switching Protocols", handshake)
+        expected_accept = app.websocket_accept_value(websocket_key)
+        self.assertIn(f"Sec-WebSocket-Accept: {expected_accept}", handshake)
+
+        initial_snapshot = json.loads(
+            self.read_websocket_frame(websocket).decode("utf-8")
+        )
+        self.assertEqual(initial_snapshot["texts"], [])
+        self.assertEqual(initial_snapshot["files"], [])
+
+        text_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "live update"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(text_response["status"], 200)
+
+        pushed_snapshot = json.loads(
+            self.read_websocket_frame(websocket).decode("utf-8")
+        )
+        self.assertEqual(pushed_snapshot["texts"][0]["content"], "live update")
+
+    def test_websocket_requires_authorization_when_access_code_is_enabled(self) -> None:
+        self.start_server(access_code="secret-code")
+
+        unauthorized_socket, handshake, _ = self.open_websocket()
+        self.addCleanup(unauthorized_socket.close)
+        self.assertIn("401", handshake)
+
+        login = self.request(
+            "POST",
+            "/login",
+            body=json.dumps({"code": "secret-code"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(login["status"], 200)
+        cookie = login["headers"]["Set-Cookie"].split(";", 1)[0]
+
+        authorized_socket, authorized_handshake, websocket_key = self.open_websocket(
+            cookie=cookie
+        )
+        self.addCleanup(authorized_socket.close)
+        self.assertIn("101 Switching Protocols", authorized_handshake)
+        expected_accept = app.websocket_accept_value(websocket_key)
+        self.assertIn(f"Sec-WebSocket-Accept: {expected_accept}", authorized_handshake)
 
     def test_latest_endpoints_return_not_found_when_history_is_empty(self) -> None:
         self.start_server()

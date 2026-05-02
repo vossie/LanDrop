@@ -42,6 +42,8 @@ let copiedTextTimer = null;
 let lastRenderedTexts = [];
 const textAccordionState = new Map();
 const fileAccordionState = new Map();
+let stateSocket = null;
+let websocketRetryTimer = null;
 
 function updateTabIndicators() {
   textTabBtn.classList.toggle("has-update", unreadText);
@@ -691,6 +693,61 @@ async function fetchState() {
   }
 }
 
+function websocketUrl() {
+  const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+  return `${protocol}//${window.location.host}/ws`;
+}
+
+function connectStateSocket() {
+  if (stateSocket && (stateSocket.readyState === WebSocket.OPEN || stateSocket.readyState === WebSocket.CONNECTING)) {
+    return;
+  }
+
+  try {
+    stateSocket = new WebSocket(websocketUrl());
+  } catch (error) {
+    scheduleSocketReconnect();
+    return;
+  }
+
+  stateSocket.addEventListener("open", () => {
+    if (websocketRetryTimer) {
+      window.clearTimeout(websocketRetryTimer);
+      websocketRetryTimer = null;
+    }
+  });
+
+  stateSocket.addEventListener("message", (event) => {
+    try {
+      renderSnapshot(JSON.parse(event.data));
+    } catch (error) {
+      textStatus.textContent = "Could not read live updates.";
+    }
+  });
+
+  stateSocket.addEventListener("error", () => {
+    if (stateSocket) {
+      stateSocket.close();
+    }
+  });
+
+  stateSocket.addEventListener("close", () => {
+    stateSocket = null;
+    scheduleSocketReconnect();
+  });
+}
+
+function scheduleSocketReconnect() {
+  if (websocketRetryTimer) {
+    return;
+  }
+  websocketRetryTimer = window.setTimeout(() => {
+    websocketRetryTimer = null;
+    fetchState();
+    connectStateSocket();
+  }, 1500);
+}
+
 async function saveText() {
   const content = getEditorText();
   if (!content) {
@@ -819,6 +876,6 @@ dropZone.addEventListener("drop", (event) => {
 });
 
 fetchState();
+connectStateSocket();
 updateHiddenOptions();
 syncTabs();
-setInterval(fetchState, 2000);

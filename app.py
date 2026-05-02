@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import base64
 import hashlib
 import hmac
 import html
@@ -7,6 +8,7 @@ import mimetypes
 import os
 import secrets
 import shutil
+import struct
 import threading
 import time
 import urllib.parse
@@ -29,12 +31,17 @@ SHARE_BASE_URL = os.environ.get("SHARE_BASE_URL", "").strip()
 
 state_lock = threading.Lock()
 session_lock = threading.Lock()
+websocket_lock = threading.Lock()
 authorized_sessions = set()
+websocket_clients = set()
+janitor_thread: threading.Thread | None = None
+janitor_stop_event = threading.Event()
 shared_state = {
     "updated_at": 0.0,
     "texts": [],
     "files": [],
 }
+WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
 
 
 def ensure_upload_dir() -> None:
@@ -169,6 +176,16 @@ def trim_history_limits_locked() -> None:
     recompute_updated_at_locked()
     if overflow_files:
         persist_files_locked()
+
+
+def prune_expired_entries() -> bool:
+    with state_lock:
+        before_texts = len(shared_state["texts"])
+        before_files = len(shared_state["files"])
+        prune_expired_locked()
+        return before_texts != len(shared_state["texts"]) or before_files != len(
+            shared_state["files"]
+        )
 
 
 def load_persisted_files() -> None:
@@ -577,6 +594,109 @@ def json_bytes(payload: dict) -> bytes:
     return json.dumps(payload).encode("utf-8")
 
 
+def websocket_accept_value(key: str) -> str:
+    digest = hashlib.sha1(f"{key}{WEBSOCKET_GUID}".encode("utf-8")).digest()
+    return base64.b64encode(digest).decode("ascii")
+
+
+def websocket_frame(opcode: int, payload: bytes = b"") -> bytes:
+    first_byte = 0x80 | (opcode & 0x0F)
+    payload_len = len(payload)
+    if payload_len < 126:
+        header = bytes([first_byte, payload_len])
+    elif payload_len < 65536:
+        header = bytes([first_byte, 126]) + struct.pack("!H", payload_len)
+    else:
+        header = bytes([first_byte, 127]) + struct.pack("!Q", payload_len)
+    return header + payload
+
+
+class WebSocketClient:
+    def __init__(self, connection) -> None:
+        self.connection = connection
+        self.write_lock = threading.Lock()
+        self.closed = False
+
+    def send_frame(self, opcode: int, payload: bytes = b"") -> bool:
+        with self.write_lock:
+            if self.closed:
+                return False
+            try:
+                self.connection.sendall(websocket_frame(opcode, payload))
+                return True
+            except OSError:
+                self.closed = True
+                return False
+
+    def send_json(self, payload: dict) -> bool:
+        return self.send_frame(0x1, json.dumps(payload).encode("utf-8"))
+
+    def close(self) -> None:
+        with self.write_lock:
+            if self.closed:
+                return
+            self.closed = True
+            try:
+                self.connection.close()
+            except OSError:
+                pass
+
+
+def register_websocket_client(client: WebSocketClient) -> None:
+    with websocket_lock:
+        websocket_clients.add(client)
+
+
+def unregister_websocket_client(client: WebSocketClient) -> None:
+    with websocket_lock:
+        websocket_clients.discard(client)
+    client.close()
+
+
+def broadcast_snapshot(snapshot: dict | None = None) -> None:
+    payload = snapshot or get_snapshot()
+    with websocket_lock:
+        clients = list(websocket_clients)
+
+    failed_clients = []
+    for client in clients:
+        if not client.send_json(payload):
+            failed_clients.append(client)
+
+    for client in failed_clients:
+        unregister_websocket_client(client)
+
+
+def start_background_tasks() -> None:
+    global janitor_thread
+    if janitor_thread and janitor_thread.is_alive():
+        return
+
+    janitor_stop_event.clear()
+
+    def run_janitor() -> None:
+        while not janitor_stop_event.wait(1.0):
+            if prune_expired_entries():
+                broadcast_snapshot()
+
+    janitor_thread = threading.Thread(target=run_janitor, daemon=True)
+    janitor_thread.start()
+
+
+def stop_background_tasks() -> None:
+    global janitor_thread
+    janitor_stop_event.set()
+    if janitor_thread is not None:
+        janitor_thread.join(timeout=2)
+    janitor_thread = None
+
+    with websocket_lock:
+        clients = list(websocket_clients)
+        websocket_clients.clear()
+    for client in clients:
+        client.close()
+
+
 def get_share_base_url() -> str:
     return SHARE_BASE_URL.rstrip("/")
 
@@ -617,6 +737,10 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if ACCESS_CODE and not is_authorized(self):
             self.send_error(HTTPStatus.UNAUTHORIZED, "Access code required")
+            return
+
+        if parsed.path == "/ws":
+            self.handle_websocket()
             return
 
         if parsed.path == "/api/state":
@@ -761,7 +885,9 @@ class AppHandler(BaseHTTPRequestHandler):
             sharer_name=sharer_name.strip(),
             sharer_ip=self.client_address[0],
         )
-        self.send_json(get_snapshot())
+        snapshot = get_snapshot()
+        self.send_json(snapshot)
+        broadcast_snapshot(snapshot)
 
     def handle_text_reveal(self, entry_id: str) -> None:
         entry = find_text_entry(entry_id)
@@ -845,13 +971,17 @@ class AppHandler(BaseHTTPRequestHandler):
         if not delete_text_entry(entry_id):
             self.send_error(HTTPStatus.NOT_FOUND, "Text entry not found")
             return
-        self.send_json(get_snapshot())
+        snapshot = get_snapshot()
+        self.send_json(snapshot)
+        broadcast_snapshot(snapshot)
 
     def handle_file_delete(self, file_id: str) -> None:
         if not delete_file_entry(file_id):
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
-        self.send_json(get_snapshot())
+        snapshot = get_snapshot()
+        self.send_json(snapshot)
+        broadcast_snapshot(snapshot)
 
     def handle_file_upload(self) -> None:
         content_type = self.headers.get("Content-Type", "")
@@ -901,7 +1031,9 @@ class AppHandler(BaseHTTPRequestHandler):
             sharer_name=sharer_name,
             sharer_ip=self.client_address[0],
         )
-        self.send_json(get_snapshot())
+        snapshot = get_snapshot()
+        self.send_json(snapshot)
+        broadcast_snapshot(snapshot)
 
     def parse_multipart_file(self, body: bytes, boundary: bytes):
         marker = b"--" + boundary
@@ -942,6 +1074,89 @@ class AppHandler(BaseHTTPRequestHandler):
                 fields[field_name] = payload.decode("utf-8", errors="ignore")
 
         return upload_name, upload_payload, fields
+
+    def handle_websocket(self) -> None:
+        upgrade = self.headers.get("Upgrade", "")
+        connection = self.headers.get("Connection", "")
+        websocket_key = self.headers.get("Sec-WebSocket-Key", "")
+        websocket_version = self.headers.get("Sec-WebSocket-Version", "")
+
+        if upgrade.lower() != "websocket" or "upgrade" not in connection.lower():
+            self.send_error(HTTPStatus.BAD_REQUEST, "Expected WebSocket upgrade")
+            return
+        if not websocket_key or websocket_version != "13":
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid WebSocket headers")
+            return
+
+        accept_value = websocket_accept_value(websocket_key)
+        self.send_response(HTTPStatus.SWITCHING_PROTOCOLS)
+        self.send_header("Upgrade", "websocket")
+        self.send_header("Connection", "Upgrade")
+        self.send_header("Sec-WebSocket-Accept", accept_value)
+        self.end_headers()
+
+        client = WebSocketClient(self.connection)
+        register_websocket_client(client)
+        client.send_json(get_snapshot())
+
+        try:
+            while True:
+                opcode, payload = self.read_websocket_frame()
+                if opcode is None:
+                    break
+                if opcode == 0x8:
+                    client.send_frame(0x8, payload[:2] if payload else b"")
+                    break
+                if opcode == 0x9:
+                    client.send_frame(0xA, payload)
+        finally:
+            unregister_websocket_client(client)
+
+    def read_exact(self, length: int) -> bytes | None:
+        remaining = length
+        chunks = []
+        while remaining > 0:
+            chunk = self.rfile.read(remaining)
+            if not chunk:
+                return None
+            chunks.append(chunk)
+            remaining -= len(chunk)
+        return b"".join(chunks)
+
+    def read_websocket_frame(self) -> tuple[int | None, bytes]:
+        header = self.read_exact(2)
+        if not header:
+            return (None, b"")
+
+        first_byte, second_byte = header
+        opcode = first_byte & 0x0F
+        masked = bool(second_byte & 0x80)
+        payload_length = second_byte & 0x7F
+
+        if payload_length == 126:
+            extended = self.read_exact(2)
+            if extended is None:
+                return (None, b"")
+            payload_length = struct.unpack("!H", extended)[0]
+        elif payload_length == 127:
+            extended = self.read_exact(8)
+            if extended is None:
+                return (None, b"")
+            payload_length = struct.unpack("!Q", extended)[0]
+
+        masking_key = self.read_exact(4) if masked else b""
+        if masked and masking_key is None:
+            return (None, b"")
+
+        payload = self.read_exact(payload_length) if payload_length else b""
+        if payload is None:
+            return (None, b"")
+
+        if masked:
+            payload = bytes(
+                byte ^ masking_key[index % 4] for index, byte in enumerate(payload)
+            )
+        return (opcode, payload)
 
     def serve_download(self, file_id: str, password: str = "") -> None:
         entry = find_file_entry(file_id)
@@ -1026,6 +1241,7 @@ class AppHandler(BaseHTTPRequestHandler):
 def main() -> None:
     ensure_upload_dir()
     load_persisted_files()
+    start_background_tasks()
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
     server = ThreadingHTTPServer((host, port), AppHandler)
