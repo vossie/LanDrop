@@ -28,7 +28,6 @@ let pendingTextPush = false;
 let activeTab = "text";
 const revealedTextIds = new Set();
 const revealedTextContent = new Map();
-const revealedTextHtml = new Map();
 let snapshotInitialized = false;
 let latestTextId = null;
 let latestFileId = null;
@@ -164,6 +163,8 @@ function buildShareLinkCell(url, path, statusNode, passwordRequired = false) {
   shareLink.href = path;
   shareLink.textContent = url;
   shareLink.title = "Open this item directly over the LAN";
+  shareLink.target = "_blank";
+  shareLink.rel = "noopener noreferrer";
   shareLink.addEventListener("click", (event) => {
     event.stopPropagation();
     if (passwordRequired) {
@@ -213,15 +214,11 @@ function isTextFormActive() {
 }
 
 function getEditorText() {
-  return sharedText.innerText.replace(/\u00a0/g, " ").trim();
-}
-
-function getEditorHtml() {
-  return sharedText.innerHTML.trim();
+  return sharedText.value.trim();
 }
 
 function clearEditor() {
-  sharedText.innerHTML = "";
+  sharedText.value = "";
 }
 
 function fallbackCopyText(content) {
@@ -301,7 +298,6 @@ async function revealProtectedText(entry) {
   if (!entry.password_required) {
     const content = entry.content ?? "";
     revealedTextContent.set(entry.id, content);
-    revealedTextHtml.set(entry.id, entry.content_html ?? "");
     revealedTextIds.add(entry.id);
     return true;
   }
@@ -322,7 +318,6 @@ async function revealProtectedText(entry) {
     }
     const payload = await response.json();
     revealedTextContent.set(entry.id, payload.content);
-    revealedTextHtml.set(entry.id, payload.content_html ?? "");
     revealedTextIds.add(entry.id);
     textStatus.textContent = "Text revealed.";
     return true;
@@ -340,7 +335,7 @@ function openProtectedPath(path, statusElement) {
   if (statusElement) {
     statusElement.textContent = "Opening protected item…";
   }
-  window.location.href = withPassword(path, password);
+  window.open(withPassword(path, password), "_blank", "noopener");
 }
 
 async function deleteFile(id) {
@@ -457,7 +452,6 @@ function renderTextHistory(texts) {
         if (revealedTextIds.has(entry.id)) {
           revealedTextIds.delete(entry.id);
           revealedTextContent.delete(entry.id);
-          revealedTextHtml.delete(entry.id);
         } else {
           const revealed = await revealProtectedText(entry);
           if (!revealed) {
@@ -505,8 +499,6 @@ function renderTextHistory(texts) {
     }
     if (isMasked) {
       body.textContent = entry.masked_content || maskText(entry.content || "");
-    } else if (entry.rich && entry.content_html) {
-      body.innerHTML = revealedTextHtml.get(entry.id) || entry.content_html;
     } else {
       body.textContent = revealedTextContent.get(entry.id) ?? entry.content ?? "";
     }
@@ -651,6 +643,8 @@ function renderFiles(files) {
     link.className = "file-link";
     link.href = `/download/${encodeURIComponent(file.id)}`;
     link.textContent = "Download";
+    link.target = "_blank";
+    link.rel = "noopener noreferrer";
     link.addEventListener("click", () => {
       clearActiveTabIndicator();
     });
@@ -808,7 +802,6 @@ async function saveText() {
     return;
   }
   const submittedText = content;
-  const submittedHtml = getEditorHtml();
   const submittedHidden = hiddenText.checked;
   const submittedPassword = textPassword.value.trim();
 
@@ -820,7 +813,6 @@ async function saveText() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         text: submittedText,
-        html: submittedHtml,
         hidden: submittedHidden,
         password: textPassword.value,
         name: sharerName.value

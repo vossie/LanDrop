@@ -30,10 +30,13 @@ class AppStateTests(unittest.TestCase):
         self.original_access_code = app.ACCESS_CODE
         self.original_share_base_url = app.SHARE_BASE_URL
         self.original_now_ts = app.now_ts
+        self.original_version_file = app.VERSION_FILE
         app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         app.ACCESS_CODE = ""
         app.SHARE_BASE_URL = ""
         app.now_ts = self.fake_now
+        app.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
+        app.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
         self.current_time = 1_700_000_000.0
         app.ensure_upload_dir()
         reset_app_state()
@@ -44,6 +47,7 @@ class AppStateTests(unittest.TestCase):
         app.ACCESS_CODE = self.original_access_code
         app.SHARE_BASE_URL = self.original_share_base_url
         app.now_ts = self.original_now_ts
+        app.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
 
     def fake_now(self) -> float:
@@ -76,6 +80,18 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(len(snapshot["files"][0]["short_code"]), 4)
         self.assertEqual(snapshot["expires_after_seconds"], app.EXPIRY_SECONDS)
 
+    def test_app_version_comes_from_version_file_or_env(self) -> None:
+        self.assertEqual(app.get_app_version(), "9.9.9")
+        original_value = os.environ.get("APP_VERSION")
+        os.environ["APP_VERSION"] = "2.3.4"
+        try:
+            self.assertEqual(app.get_app_version(), "2.3.4")
+        finally:
+            if original_value is None:
+                os.environ.pop("APP_VERSION", None)
+            else:
+                os.environ["APP_VERSION"] = original_value
+
     def test_text_entries_can_be_marked_hidden(self) -> None:
         app.add_text_entry("secret", hidden=True)
 
@@ -95,22 +111,15 @@ class AppStateTests(unittest.TestCase):
         self.assertIsNone(snapshot["texts"][0]["content"])
         self.assertEqual(snapshot["texts"][0]["masked_content"], "****** *****")
 
-    def test_rich_text_is_sanitized_in_snapshot(self) -> None:
-        sanitized = app.sanitize_rich_text(
-            '<p><strong>Hello</strong> <a href="https://example.com">world</a></p><script>alert(1)</script>'
-        )
-        app.add_text_entry(
-            "Hello world",
-            content_html=sanitized,
-            sharer_name="Alice",
-        )
+    def test_text_snapshot_contains_plain_text_only(self) -> None:
+        app.add_text_entry("Hello world", sharer_name="Alice")
 
         snapshot = app.get_snapshot()
 
-        self.assertTrue(snapshot["texts"][0]["rich"])
-        self.assertIn("<strong>Hello</strong>", snapshot["texts"][0]["content_html"])
-        self.assertIn('href="https://example.com"', snapshot["texts"][0]["content_html"])
-        self.assertNotIn("<script>", snapshot["texts"][0]["content_html"])
+        self.assertEqual(snapshot["texts"][0]["content"], "Hello world")
+        self.assertEqual(snapshot["texts"][0]["sharer_name"], "Alice")
+        self.assertNotIn("rich", snapshot["texts"][0])
+        self.assertNotIn("content_html", snapshot["texts"][0])
 
     def test_delete_file_entry_removes_file_from_disk(self) -> None:
         target = app.UPLOAD_DIR / "stored.txt"
@@ -231,10 +240,13 @@ class HttpServerTests(unittest.TestCase):
         self.original_access_code = app.ACCESS_CODE
         self.original_share_base_url = app.SHARE_BASE_URL
         self.original_now_ts = app.now_ts
+        self.original_version_file = app.VERSION_FILE
         self.current_time = 1_700_100_000.0
         app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         app.SHARE_BASE_URL = ""
         app.now_ts = self.fake_now
+        app.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
+        app.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
         app.ensure_upload_dir()
         reset_app_state()
         self.server = None
@@ -251,6 +263,7 @@ class HttpServerTests(unittest.TestCase):
         app.ACCESS_CODE = self.original_access_code
         app.SHARE_BASE_URL = self.original_share_base_url
         app.now_ts = self.original_now_ts
+        app.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
 
     def fake_now(self) -> float:
@@ -374,6 +387,7 @@ class HttpServerTests(unittest.TestCase):
         home = self.request("GET", "/")
         self.assertEqual(home["status"], 200)
         self.assertIn("<title>LanDrop</title>", home["text"])
+        self.assertIn("v9.9.9", home["text"])
 
         text_response = self.request(
             "POST",
@@ -471,40 +485,31 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(home["status"], 200)
         self.assertIn('const configuredShareBaseUrl = "http://192.168.1.24:8000";', home["text"])
 
-    def test_rich_text_share_renders_html_page(self) -> None:
+    def test_text_share_returns_plain_text(self) -> None:
         self.start_server()
 
         create_response = self.request(
             "POST",
             "/api/text",
-            body=json.dumps(
-                {
-                    "text": "Hello world",
-                    "html": '<p><strong>Hello</strong> <a href="https://example.com">world</a></p><script>alert(1)</script>',
-                }
-            ).encode("utf-8"),
+            body=json.dumps({"text": "Hello world"}).encode("utf-8"),
             headers={"Content-Type": "application/json"},
         )
         self.assertEqual(create_response["status"], 200)
         created_entry = json.loads(create_response["body"])["texts"][0]
-        self.assertTrue(created_entry["rich"])
-        self.assertIn("<strong>Hello</strong>", created_entry["content_html"])
-        self.assertNotIn("<script>", created_entry["content_html"])
+        self.assertEqual(created_entry["content"], "Hello world")
 
         latest_text_response = self.request("GET", "/api/latest-text")
         self.assertEqual(latest_text_response["status"], 200)
         latest_text_entry = json.loads(latest_text_response["body"])
-        self.assertTrue(latest_text_entry["rich"])
-        self.assertIn("<strong>Hello</strong>", latest_text_entry["content_html"])
+        self.assertEqual(latest_text_entry["content"], "Hello world")
 
         shared_text_response = self.request("GET", f"/s/{created_entry['short_code']}")
         self.assertEqual(shared_text_response["status"], 200)
         self.assertEqual(
             shared_text_response["headers"]["Content-Type"],
-            "text/html; charset=utf-8",
+            "text/plain; charset=utf-8",
         )
-        self.assertIn("<strong>Hello</strong>", shared_text_response["text"])
-        self.assertNotIn("<script>", shared_text_response["text"])
+        self.assertEqual(shared_text_response["body"], b"Hello world")
 
     def test_text_update_rejects_non_boolean_hidden_flag(self) -> None:
         self.start_server()
@@ -775,6 +780,8 @@ class ScriptTests(unittest.TestCase):
         script = (
             Path(__file__).resolve().parent / "install-ubuntu-service.sh"
         ).read_text(encoding="utf-8")
+        self.assertIn('SCRIPT_DIR}/VERSION', script)
+        self.assertIn('APP_DIR}/VERSION', script)
         self.assertIn('SCRIPT_DIR}/assets', script)
         self.assertIn('APP_DIR}/assets', script)
         self.assertIn('SCRIPT_DIR}/templates', script)

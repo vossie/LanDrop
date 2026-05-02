@@ -20,6 +20,7 @@ HOST_VALUE="${HOST:-0.0.0.0}"
 PORT_VALUE="${PORT:-8000}"
 ACCESS_CODE_VALUE="${ACCESS_CODE:-change-me}"
 SHARE_BASE_URL_VALUE="${SHARE_BASE_URL:-}"
+APP_VERSION_VALUE="${APP_VERSION:-}"
 
 echo "Installing ${SERVICE_NAME}..."
 
@@ -56,6 +57,9 @@ install -m 0644 "${SCRIPT_DIR}/app.py" "${APP_DIR}/app.py"
 if [[ -f "${SCRIPT_DIR}/README.md" ]]; then
   install -m 0644 "${SCRIPT_DIR}/README.md" "${APP_DIR}/README.md"
 fi
+if [[ -f "${SCRIPT_DIR}/VERSION" ]]; then
+  install -m 0644 "${SCRIPT_DIR}/VERSION" "${APP_DIR}/VERSION"
+fi
 if [[ -d "${SCRIPT_DIR}/assets" ]]; then
   rm -rf "${APP_DIR}/assets"
   install -d -m 0755 "${APP_DIR}/assets"
@@ -71,6 +75,9 @@ chown root:root "${APP_DIR}/app.py"
 if [[ -f "${APP_DIR}/README.md" ]]; then
   chown root:root "${APP_DIR}/README.md"
 fi
+if [[ -f "${APP_DIR}/VERSION" ]]; then
+  chown root:root "${APP_DIR}/VERSION"
+fi
 if [[ -d "${APP_DIR}/assets" ]]; then
   chown -R root:root "${APP_DIR}/assets"
 fi
@@ -84,6 +91,7 @@ PORT=${PORT_VALUE}
 UPLOAD_DIR=${DATA_DIR}/uploads
 ACCESS_CODE=${ACCESS_CODE_VALUE}
 SHARE_BASE_URL=${SHARE_BASE_URL_VALUE}
+APP_VERSION=${APP_VERSION_VALUE}
 EOF
 chmod 0640 "${ENV_FILE}"
 chown root:"${SERVICE_GROUP}" "${ENV_FILE}"

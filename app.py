@@ -14,13 +14,13 @@ import time
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
-from html.parser import HTMLParser
 from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent
 ASSETS_DIR = BASE_DIR / "assets"
 TEMPLATES_DIR = BASE_DIR / "templates"
+VERSION_FILE = BASE_DIR / "VERSION"
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads"))).resolve()
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1 GB
 EXPIRY_SECONDS = 24 * 60 * 60
@@ -54,6 +54,17 @@ def uploads_index_path() -> Path:
 
 def now_ts() -> float:
     return time.time()
+
+
+def load_app_version() -> str:
+    configured = os.environ.get("APP_VERSION", "").strip()
+    if configured:
+        return configured
+    try:
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError:
+        version = ""
+    return version or "dev"
 
 
 def sanitize_filename(name: str) -> str:
@@ -248,125 +259,6 @@ def mask_text_value(value: str) -> str:
     return "".join("*" if not char.isspace() else char for char in value)
 
 
-ALLOWED_RICH_TAGS = {
-    "a",
-    "b",
-    "blockquote",
-    "br",
-    "code",
-    "div",
-    "em",
-    "i",
-    "li",
-    "ol",
-    "p",
-    "pre",
-    "s",
-    "span",
-    "strong",
-    "u",
-    "ul",
-}
-SELF_CLOSING_RICH_TAGS = {"br"}
-BLOCK_RICH_TAGS = {"blockquote", "div", "li", "ol", "p", "pre", "ul"}
-
-
-class RichTextSanitizer(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-        self.stack: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag not in ALLOWED_RICH_TAGS:
-            return
-        if tag == "a":
-            href = ""
-            for name, value in attrs:
-                if name == "href" and value:
-                    href = value.strip()
-                    break
-            if href and (
-                href.startswith("http://")
-                or href.startswith("https://")
-                or href.startswith("mailto:")
-                or href.startswith("/")
-                or href.startswith("#")
-            ):
-                safe_href = html.escape(href, quote=True)
-                self.parts.append(
-                    f'<a href="{safe_href}" rel="noopener noreferrer" target="_blank">'
-                )
-                self.stack.append(tag)
-            else:
-                self.parts.append("<span>")
-                self.stack.append("span")
-            return
-        self.parts.append(f"<{tag}>")
-        if tag not in SELF_CLOSING_RICH_TAGS:
-            self.stack.append(tag)
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag not in ALLOWED_RICH_TAGS or tag in SELF_CLOSING_RICH_TAGS:
-            return
-        for index in range(len(self.stack) - 1, -1, -1):
-            if self.stack[index] == tag:
-                while len(self.stack) > index:
-                    closing = self.stack.pop()
-                    self.parts.append(f"</{closing}>")
-                return
-
-    def handle_data(self, data: str) -> None:
-        self.parts.append(html.escape(data))
-
-    def handle_entityref(self, name: str) -> None:
-        self.parts.append(f"&{name};")
-
-    def handle_charref(self, name: str) -> None:
-        self.parts.append(f"&#{name};")
-
-    def get_html(self) -> str:
-        while self.stack:
-            self.parts.append(f"</{self.stack.pop()}>")
-        return "".join(self.parts).strip()
-
-
-class PlainTextExtractor(HTMLParser):
-    def __init__(self) -> None:
-        super().__init__(convert_charrefs=True)
-        self.parts: list[str] = []
-
-    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
-        if tag == "br":
-            self.parts.append("\n")
-
-    def handle_endtag(self, tag: str) -> None:
-        if tag in BLOCK_RICH_TAGS:
-            self.parts.append("\n")
-
-    def handle_data(self, data: str) -> None:
-        self.parts.append(data)
-
-    def get_text(self) -> str:
-        text = "".join(self.parts)
-        lines = [line.rstrip() for line in text.splitlines()]
-        return "\n".join(lines).strip()
-
-
-def sanitize_rich_text(value: str) -> str:
-    parser = RichTextSanitizer()
-    parser.feed(value)
-    parser.close()
-    return parser.get_html()
-
-
-def extract_plain_text_from_html(value: str) -> str:
-    parser = PlainTextExtractor()
-    parser.feed(value)
-    parser.close()
-    return parser.get_text()
-
-
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
@@ -378,7 +270,7 @@ def verify_password(password: str, password_hash: str | None) -> bool:
 
 
 def serialize_text_entry(entry: dict) -> dict:
-    payload = {
+    return {
         "id": entry["id"],
         "hidden": entry["hidden"],
         "password_required": bool(entry.get("password_hash")),
@@ -388,17 +280,10 @@ def serialize_text_entry(entry: dict) -> dict:
         "created_at": entry["created_at"],
         "expires_at": entry["expires_at"],
         "masked_content": mask_text_value(entry["content"]),
-        "rich": bool(entry.get("content_html")),
-    }
-    payload["content"] = (
-        None if entry["hidden"] and entry.get("password_hash") else entry["content"]
-    )
-    payload["content_html"] = (
-        None
+        "content": None
         if entry["hidden"] and entry.get("password_hash")
-        else entry.get("content_html")
-    )
-    return payload
+        else entry["content"],
+    }
 
 
 def serialize_file_entry(entry: dict) -> dict:
@@ -461,7 +346,6 @@ def make_unique_short_code_locked() -> str:
 
 def add_text_entry(
     value: str,
-    content_html: str = "",
     hidden: bool = False,
     password: str = "",
     sharer_name: str = "",
@@ -475,7 +359,6 @@ def add_text_entry(
             {
                 "id": make_id(),
                 "content": value,
-                "content_html": content_html,
                 "hidden": hidden,
                 "password_hash": hash_password(password) if password else None,
                 "sharer_name": sharer_name.strip(),
@@ -701,6 +584,10 @@ def get_share_base_url() -> str:
     return SHARE_BASE_URL.rstrip("/")
 
 
+def get_app_version() -> str:
+    return load_app_version()
+
+
 def render_template(name: str, replacements: dict[str, str] | None = None) -> str:
     template_path = TEMPLATES_DIR / name
     body = template_path.read_text(encoding="utf-8")
@@ -730,7 +617,10 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_html(
                 render_template(
                     "index.html",
-                    {"__SHARE_BASE_URL__": json.dumps(get_share_base_url())},
+                    {
+                        "__SHARE_BASE_URL__": json.dumps(get_share_base_url()),
+                        "__APP_VERSION__": html.escape(get_app_version()),
+                    },
                 )
             )
             return
@@ -852,15 +742,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(text, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Text must be a string")
             return
-        rich_html = payload.get("html", "")
-        if not isinstance(rich_html, str):
-            self.send_error(HTTPStatus.BAD_REQUEST, "HTML must be a string")
-            return
-        sanitized_html = sanitize_rich_text(rich_html)
-        extracted_text = (
-            extract_plain_text_from_html(sanitized_html) if sanitized_html else ""
-        )
-        normalized_text = text.strip() or extracted_text
+        normalized_text = text.strip()
         if not normalized_text:
             self.send_error(HTTPStatus.BAD_REQUEST, "Text cannot be empty")
             return
@@ -879,7 +761,6 @@ class AppHandler(BaseHTTPRequestHandler):
 
         add_text_entry(
             normalized_text,
-            content_html=sanitized_html,
             hidden=hidden,
             password=password.strip(),
             sharer_name=sharer_name.strip(),
@@ -914,8 +795,6 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_json(
             {
                 "content": entry["content"],
-                "content_html": entry.get("content_html"),
-                "rich": bool(entry.get("content_html")),
             }
         )
 
@@ -951,15 +830,7 @@ class AppHandler(BaseHTTPRequestHandler):
             if payload.get("password_hash") and not entry_password_is_valid(payload, password):
                 self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
                 return
-            if payload.get("content_html"):
-                self.send_html(
-                    render_template(
-                        "shared-rich-text.html",
-                        {"__CONTENT_HTML__": payload["content_html"]},
-                    )
-                )
-            else:
-                self.send_text(payload["content"])
+            self.send_text(payload["content"])
             return
 
         if payload.get("password_hash") and not entry_password_is_valid(payload, password):
