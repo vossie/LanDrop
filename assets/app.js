@@ -112,6 +112,9 @@ function formatSize(bytes) {
 function buildAccordionTable(summaryLabel, rows) {
   const details = document.createElement("details");
   details.className = "entry-accordion";
+  details.addEventListener("click", (event) => {
+    event.stopPropagation();
+  });
 
   const summary = document.createElement("summary");
   summary.textContent = summaryLabel;
