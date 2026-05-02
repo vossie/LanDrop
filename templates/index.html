@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LanDrop</title>
+  <link rel="icon" type="image/png" href="/assets/logo-landrop-v1.png">
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <h1>LAN-DROP Text And File Sharing.<br>Fast, local, simple.</h1>
+      <p class="subhead">
+        Share clipboard text and files between devices on the same network with direct LAN links,
+        optional passwords, and automatic cleanup after 24 hours.
+      </p>
+      <div class="hero-input-row">
+        <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Your name or device name">
+      </div>
+    </section>
+
+    <div class="tabs" aria-label="Sections">
+      <button id="textTabBtn" class="tab-btn active" type="button">Text</button>
+      <button id="fileTabBtn" class="tab-btn" type="button">Files</button>
+    </div>
+
+    <section class="grid">
+      <article id="textPanel" class="panel tab-panel">
+        <div class="panel-title">
+          <h2>Shared Text</h2>
+          <div class="meta" id="textMeta">Waiting for updates…</div>
+        </div>
+        <div id="sharedText" class="rich-editor" contenteditable="true" data-placeholder="Paste rich text here"></div>
+        <div class="row stack">
+          <label class="checkbox-row" for="hiddenText">
+            <input id="hiddenText" type="checkbox">
+            <span>Hidden</span>
+          </label>
+          <div class="hidden-options" id="textHiddenOptions">
+            <input id="textPassword" class="inline-input" type="password" placeholder="Optional password to reveal">
+          </div>
+          <button id="saveTextBtn">Just Add</button>
+        </div>
+        <div class="status" id="textStatus"></div>
+        <ul class="history-list" id="textHistory"></ul>
+      </article>
+
+      <article id="filePanel" class="panel tab-panel">
+        <div class="panel-title">
+          <h2>Shared Files</h2>
+          <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
+        </div>
+        <div class="row">
+          <label class="file-label" for="fileInput">Choose File</label>
+          <input id="fileInput" type="file">
+          <button id="uploadBtn" type="button">Upload File</button>
+        </div>
+        <div class="row stack">
+          <label class="checkbox-row" for="hiddenFile">
+            <input id="hiddenFile" type="checkbox">
+            <span>Hidden file</span>
+          </label>
+          <div class="hidden-options" id="fileHiddenOptions">
+            <input id="filePassword" class="inline-input" type="password" placeholder="Password required for hidden files">
+          </div>
+        </div>
+        <div class="dropzone" id="dropZone">Drag and drop a file here</div>
+        <div class="status" id="fileStatus"></div>
+        <ul class="history-list" id="fileList"></ul>
+      </article>
+    </section>
+  </main>
+
+  <script>
+    const configuredShareBaseUrl = __SHARE_BASE_URL__;
+    window.LANDROP_CONFIG = {
+      shareBaseUrl: configuredShareBaseUrl
+    };
+  </script>
+  <script src="/assets/app.js"></script>
+</body>
+</html>
