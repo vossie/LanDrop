@@ -385,6 +385,11 @@ input[type="file"] {
 .entry-table td {
   color: var(--ink);
 }
+.entry-table .link-row th,
+.entry-table .link-row td,
+.entry-table td.link-cell {
+  vertical-align: middle;
+}
 .entry-table a {
   color: var(--accent-strong);
   text-decoration: none;
@@ -392,6 +397,41 @@ input[type="file"] {
 }
 .entry-table a:hover {
   text-decoration: underline;
+}
+.share-link-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+}
+.share-link-copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border-radius: 10px;
+  box-shadow: none;
+  background: #edf5ff;
+  color: var(--accent-strong);
+  border: 1px solid var(--line);
+  flex: 0 0 auto;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+.share-link-copy:hover {
+  background: #e2efff;
+}
+.share-link-row a {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  line-height: 1.35;
+  min-height: 28px;
 }
 .entry-accordion {
   margin-bottom: 12px;

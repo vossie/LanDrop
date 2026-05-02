@@ -141,6 +141,41 @@ function buildAccordionTable(summaryLabel, rows, stateStore, stateKey) {
   return details;
 }
 
+function buildShareLinkCell(url, path, statusNode, passwordRequired = false) {
+  const wrap = document.createElement("div");
+  wrap.className = "share-link-row";
+
+  const copyBtn = document.createElement("button");
+  copyBtn.type = "button";
+  copyBtn.className = "share-link-copy";
+  copyBtn.textContent = "⧉";
+  copyBtn.title = "Copy LAN link";
+  copyBtn.setAttribute("aria-label", "Copy LAN link");
+  copyBtn.addEventListener("click", async (event) => {
+    event.stopPropagation();
+    const copied = await copyText(url);
+    if (copied && statusNode) {
+      statusNode.textContent = "LAN link copied.";
+    }
+  });
+
+  const shareLink = document.createElement("a");
+  shareLink.href = path;
+  shareLink.textContent = url;
+  shareLink.title = "Open this item directly over the LAN";
+  shareLink.addEventListener("click", (event) => {
+    event.stopPropagation();
+    if (passwordRequired) {
+      event.preventDefault();
+      openProtectedPath(path, statusNode);
+    }
+  });
+
+  wrap.appendChild(copyBtn);
+  wrap.appendChild(shareLink);
+  return wrap;
+}
+
 function lanSharePath(shortCode) {
   return `/s/${encodeURIComponent(shortCode)}`;
 }
@@ -393,21 +428,19 @@ function renderTextHistory(texts) {
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
     const linkRow = document.createElement("tr");
+    linkRow.className = "link-row";
     const linkHead = document.createElement("th");
     linkHead.textContent = "LAN link";
     const linkValue = document.createElement("td");
-    const shareLink = document.createElement("a");
-    shareLink.href = lanSharePath(entry.short_code);
-    shareLink.textContent = lanShareUrl(entry.short_code);
-    shareLink.title = "Open this text directly over the LAN";
-    shareLink.addEventListener("click", (event) => {
-      event.stopPropagation();
-      if (entry.password_required) {
-        event.preventDefault();
-        openProtectedPath(lanSharePath(entry.short_code), textStatus);
-      }
-    });
-    linkValue.appendChild(shareLink);
+    linkValue.className = "link-cell";
+    linkValue.appendChild(
+      buildShareLinkCell(
+        lanShareUrl(entry.short_code),
+        lanSharePath(entry.short_code),
+        textStatus,
+        entry.password_required
+      )
+    );
     linkRow.appendChild(linkHead);
     linkRow.appendChild(linkValue);
 
@@ -577,21 +610,19 @@ function renderFiles(files) {
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
     const linkRow = document.createElement("tr");
+    linkRow.className = "link-row";
     const linkHead = document.createElement("th");
     linkHead.textContent = "LAN link";
     const linkValue = document.createElement("td");
-
-    const shareLink = document.createElement("a");
-    shareLink.href = lanSharePath(file.short_code);
-    shareLink.textContent = lanShareUrl(file.short_code);
-    shareLink.title = "Open this file directly over the LAN";
-    if (file.password_required) {
-      shareLink.addEventListener("click", (event) => {
-        event.preventDefault();
-        openProtectedPath(lanSharePath(file.short_code), fileStatus);
-      });
-    }
-    linkValue.appendChild(shareLink);
+    linkValue.className = "link-cell";
+    linkValue.appendChild(
+      buildShareLinkCell(
+        lanShareUrl(file.short_code),
+        lanSharePath(file.short_code),
+        fileStatus,
+        file.password_required
+      )
+    );
     linkRow.appendChild(linkHead);
     linkRow.appendChild(linkValue);
 
