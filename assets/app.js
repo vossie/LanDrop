@@ -44,6 +44,7 @@ const textAccordionState = new Map();
 const fileAccordionState = new Map();
 let stateSocket = null;
 let websocketRetryTimer = null;
+let pollingTimer = null;
 
 function updateTabIndicators() {
   textTabBtn.classList.toggle("has-update", unreadText);
@@ -746,6 +747,7 @@ function connectStateSocket() {
       window.clearTimeout(websocketRetryTimer);
       websocketRetryTimer = null;
     }
+    stopPollingFallback();
   });
 
   stateSocket.addEventListener("message", (event) => {
@@ -764,6 +766,7 @@ function connectStateSocket() {
 
   stateSocket.addEventListener("close", () => {
     stateSocket = null;
+    startPollingFallback();
     scheduleSocketReconnect();
   });
 }
@@ -777,6 +780,25 @@ function scheduleSocketReconnect() {
     fetchState();
     connectStateSocket();
   }, 1500);
+}
+
+function startPollingFallback() {
+  if (pollingTimer) {
+    return;
+  }
+  pollingTimer = window.setInterval(() => {
+    if (!stateSocket || stateSocket.readyState !== WebSocket.OPEN) {
+      fetchState();
+    }
+  }, 2000);
+}
+
+function stopPollingFallback() {
+  if (!pollingTimer) {
+    return;
+  }
+  window.clearInterval(pollingTimer);
+  pollingTimer = null;
 }
 
 async function saveText() {
@@ -907,6 +929,7 @@ dropZone.addEventListener("drop", (event) => {
 });
 
 fetchState();
+startPollingFallback();
 connectStateSocket();
 updateHiddenOptions();
 syncTabs();
