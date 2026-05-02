@@ -6,6 +6,40 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+PORT_OVERRIDE=""
+
+usage() {
+  cat <<'EOF'
+Usage: github-install-upgrade.sh [--port PORT]
+
+Options:
+  --port PORT   Set the LanDrop listen port for install or upgrade.
+  --help        Show this help.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --port)
+      if [[ $# -lt 2 ]]; then
+        echo "--port requires a value."
+        exit 1
+      fi
+      PORT_OVERRIDE="$2"
+      shift 2
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
+done
+
 REPO_URL="${REPO_URL:-https://github.com/vossie/LanDrop}"
 REPO_OWNER="${REPO_OWNER:-vossie}"
 REPO_NAME="${REPO_NAME:-LanDrop}"
@@ -78,6 +112,10 @@ if [[ -z "${SOURCE_DIR}" || ! -f "${SOURCE_DIR}/install-ubuntu-service.sh" ]]; t
 fi
 
 load_existing_config
+
+if [[ -n "${PORT_OVERRIDE}" ]]; then
+  export PORT="${PORT_OVERRIDE}"
+fi
 
 bash "${SOURCE_DIR}/install-ubuntu-service.sh"
 

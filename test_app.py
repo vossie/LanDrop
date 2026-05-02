@@ -899,6 +899,7 @@ class ScriptTests(unittest.TestCase):
         script = (
             Path(__file__).resolve().parent / "github-install-upgrade.sh"
         ).read_text(encoding="utf-8")
+        self.assertIn("--port", script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
         self.assertIn('bash "${SOURCE_DIR}/install-ubuntu-service.sh"', script)
         self.assertIn('if [[ ! -f "${ENV_FILE}" ]]; then', script)
@@ -918,6 +919,7 @@ class ScriptTests(unittest.TestCase):
         script = (
             Path(__file__).resolve().parent / "install-ubuntu-service.sh"
         ).read_text(encoding="utf-8")
+        self.assertIn("--port", script)
         self.assertIn('SCRIPT_DIR}/VERSION', script)
         self.assertIn('APP_DIR}/VERSION', script)
         self.assertIn('SCRIPT_DIR}/assets', script)

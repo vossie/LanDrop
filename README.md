@@ -194,6 +194,12 @@ Override defaults during install:
 sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./install-ubuntu-service.sh
 ```
 
+Or use the explicit setup flag:
+
+```bash
+sudo bash ./install-ubuntu-service.sh --port 8080
+```
+
 You can also set the share link base address during install:
 
 ```bash
@@ -204,6 +210,12 @@ The GitHub helper also supports overrides, and on upgrade it reuses values from 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+```
+
+Or use the explicit setup flag:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo bash -s -- --port 8080
 ```
 
 Useful service commands:

@@ -6,6 +6,40 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
+PORT_OVERRIDE=""
+
+usage() {
+  cat <<'EOF'
+Usage: install-ubuntu-service.sh [--port PORT]
+
+Options:
+  --port PORT   Set the LanDrop listen port for this install.
+  --help        Show this help.
+EOF
+}
+
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --port)
+      if [[ $# -lt 2 ]]; then
+        echo "--port requires a value."
+        exit 1
+      fi
+      PORT_OVERRIDE="$2"
+      shift 2
+      ;;
+    --help)
+      usage
+      exit 0
+      ;;
+    *)
+      echo "Unknown option: $1"
+      usage
+      exit 1
+      ;;
+  esac
+done
+
 SERVICE_NAME="${SERVICE_NAME:-landrop}"
 SERVICE_USER="${SERVICE_USER:-landrop}"
 SERVICE_GROUP="${SERVICE_GROUP:-landrop}"
@@ -21,6 +55,10 @@ PORT_VALUE="${PORT:-8000}"
 ACCESS_CODE_VALUE="${ACCESS_CODE:-change-me}"
 SHARE_BASE_URL_VALUE="${SHARE_BASE_URL:-}"
 APP_VERSION_VALUE="${APP_VERSION:-}"
+
+if [[ -n "${PORT_OVERRIDE}" ]]; then
+  PORT_VALUE="${PORT_OVERRIDE}"
+fi
 
 echo "Installing ${SERVICE_NAME}..."
 
