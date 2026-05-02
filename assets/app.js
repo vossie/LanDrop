@@ -109,6 +109,25 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
+function buildAccordionTable(summaryLabel, rows) {
+  const details = document.createElement("details");
+  details.className = "entry-accordion";
+
+  const summary = document.createElement("summary");
+  summary.textContent = summaryLabel;
+
+  const table = document.createElement("table");
+  table.className = "entry-table entry-table-compact";
+
+  for (const row of rows) {
+    table.appendChild(row);
+  }
+
+  details.appendChild(summary);
+  details.appendChild(table);
+  return details;
+}
+
 function lanSharePath(shortCode) {
   return `/s/${encodeURIComponent(shortCode)}`;
 }
@@ -325,9 +344,6 @@ function renderTextHistory(texts) {
     const head = document.createElement("div");
     head.className = "history-head";
 
-    const infoTable = document.createElement("table");
-    infoTable.className = "entry-table";
-
     const savedRow = document.createElement("tr");
     const savedHead = document.createElement("th");
     savedHead.textContent = "Saved";
@@ -355,6 +371,14 @@ function renderTextHistory(texts) {
     expiresRow.appendChild(expiresHead);
     expiresRow.appendChild(expiresValue);
 
+    const metaAccordion = buildAccordionTable("Details", [
+      savedRow,
+      fromRow,
+      expiresRow
+    ]);
+
+    const infoTable = document.createElement("table");
+    infoTable.className = "entry-table";
     const linkRow = document.createElement("tr");
     const linkHead = document.createElement("th");
     linkHead.textContent = "LAN link";
@@ -374,9 +398,6 @@ function renderTextHistory(texts) {
     linkRow.appendChild(linkHead);
     linkRow.appendChild(linkValue);
 
-    infoTable.appendChild(savedRow);
-    infoTable.appendChild(fromRow);
-    infoTable.appendChild(expiresRow);
     infoTable.appendChild(linkRow);
 
     if (entry.hidden) {
@@ -407,6 +428,7 @@ function renderTextHistory(texts) {
       revealRow.appendChild(revealValue);
       infoTable.appendChild(revealRow);
     }
+    head.appendChild(metaAccordion);
     head.appendChild(infoTable);
 
     const bodyRow = document.createElement("div");
@@ -498,9 +520,6 @@ function renderFiles(files) {
     const name = document.createElement("div");
     name.className = "file-name";
     name.textContent = file.name;
-    const infoTable = document.createElement("table");
-    infoTable.className = "entry-table";
-
     const sizeRow = document.createElement("tr");
     const sizeHead = document.createElement("th");
     sizeHead.textContent = "Size";
@@ -536,6 +555,14 @@ function renderFiles(files) {
     expiresRow.appendChild(expiresHead);
     expiresRow.appendChild(expiresValue);
 
+    const metaAccordion = buildAccordionTable("Details", [
+      fromRow,
+      uploadedRow,
+      expiresRow
+    ]);
+
+    const infoTable = document.createElement("table");
+    infoTable.className = "entry-table";
     const linkRow = document.createElement("tr");
     const linkHead = document.createElement("th");
     linkHead.textContent = "LAN link";
@@ -556,9 +583,6 @@ function renderFiles(files) {
     linkRow.appendChild(linkValue);
 
     infoTable.appendChild(sizeRow);
-    infoTable.appendChild(fromRow);
-    infoTable.appendChild(uploadedRow);
-    infoTable.appendChild(expiresRow);
     infoTable.appendChild(linkRow);
     if (file.password_required) {
       const accessRow = document.createElement("tr");
@@ -572,6 +596,7 @@ function renderFiles(files) {
     }
 
     details.appendChild(name);
+    details.appendChild(metaAccordion);
     details.appendChild(infoTable);
 
     const actions = document.createElement("div");

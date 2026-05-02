@@ -393,6 +393,42 @@ input[type="file"] {
 .entry-table a:hover {
   text-decoration: underline;
 }
+.entry-accordion {
+  margin-bottom: 12px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  background: linear-gradient(180deg, #fbfdff 0%, #f5faff 100%);
+  overflow: hidden;
+}
+.entry-accordion summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  cursor: pointer;
+  list-style: none;
+  padding: 12px 14px;
+  color: var(--muted);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+.entry-accordion summary::-webkit-details-marker {
+  display: none;
+}
+.entry-accordion summary::after {
+  content: "+";
+  color: var(--accent-strong);
+  font-size: 1rem;
+}
+.entry-accordion[open] summary::after {
+  content: "-";
+}
+.entry-table-compact {
+  margin-bottom: 0;
+  border: 0;
+  border-top: 1px solid rgba(190, 214, 255, 0.7);
+  border-radius: 0;
+  background: transparent;
+}
 .text-card {
   min-height: 0;
   max-height: 22rem;
