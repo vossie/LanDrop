@@ -130,6 +130,18 @@ Run the installer as `root` on the target Ubuntu server:
 sudo bash ./install-ubuntu-service.sh
 ```
 
+Or install or upgrade directly from GitHub on the target server:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo bash
+```
+
+If the repository default branch is `main`, use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/main/github-install-upgrade.sh | sudo bash
+```
+
 It will:
 
 - create a system user and group named `landrop`
@@ -148,6 +160,12 @@ You can also set the share link base address during install:
 
 ```bash
 sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./install-ubuntu-service.sh
+```
+
+The GitHub helper also supports overrides, and on upgrade it reuses values from `/etc/landrop/landrop.env` unless you explicitly override them:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
 
 Useful service commands:

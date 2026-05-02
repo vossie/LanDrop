@@ -56,10 +56,26 @@ install -m 0644 "${SCRIPT_DIR}/app.py" "${APP_DIR}/app.py"
 if [[ -f "${SCRIPT_DIR}/README.md" ]]; then
   install -m 0644 "${SCRIPT_DIR}/README.md" "${APP_DIR}/README.md"
 fi
+if [[ -d "${SCRIPT_DIR}/assets" ]]; then
+  rm -rf "${APP_DIR}/assets"
+  install -d -m 0755 "${APP_DIR}/assets"
+  cp -R "${SCRIPT_DIR}/assets/." "${APP_DIR}/assets/"
+fi
+if [[ -d "${SCRIPT_DIR}/templates" ]]; then
+  rm -rf "${APP_DIR}/templates"
+  install -d -m 0755 "${APP_DIR}/templates"
+  cp -R "${SCRIPT_DIR}/templates/." "${APP_DIR}/templates/"
+fi
 
 chown root:root "${APP_DIR}/app.py"
 if [[ -f "${APP_DIR}/README.md" ]]; then
   chown root:root "${APP_DIR}/README.md"
+fi
+if [[ -d "${APP_DIR}/assets" ]]; then
+  chown -R root:root "${APP_DIR}/assets"
+fi
+if [[ -d "${APP_DIR}/templates" ]]; then
+  chown -R root:root "${APP_DIR}/templates"
 fi
 
 cat > "${ENV_FILE}" <<EOF

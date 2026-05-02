@@ -303,16 +303,20 @@ class HttpServerTests(unittest.TestCase):
             if not chunk:
                 break
             response += chunk
-        return connection, response.decode("utf-8", errors="replace"), websocket_key
+        header_blob, _, remainder = response.partition(b"\r\n\r\n")
+        return connection, header_blob.decode("utf-8", errors="replace"), websocket_key, remainder
 
-    def read_websocket_frame(self, connection: socket.socket) -> bytes:
+    def read_websocket_frame(self, connection: socket.socket, buffered: bytes = b"") -> tuple[bytes, bytes]:
+        pending = bytearray(buffered)
+
         def read_exact(length: int) -> bytes:
-            data = b""
-            while len(data) < length:
-                chunk = connection.recv(length - len(data))
+            while len(pending) < length:
+                chunk = connection.recv(4096)
                 if not chunk:
                     raise AssertionError("WebSocket connection closed early")
-                data += chunk
+                pending.extend(chunk)
+            data = bytes(pending[:length])
+            del pending[:length]
             return data
 
         header = read_exact(2)
@@ -323,7 +327,7 @@ class HttpServerTests(unittest.TestCase):
             payload_length = struct.unpack("!H", read_exact(2))[0]
         elif payload_length == 127:
             payload_length = struct.unpack("!Q", read_exact(8))[0]
-        return read_exact(payload_length)
+        return read_exact(payload_length), bytes(pending)
 
     def upload_request(
         self,
@@ -662,16 +666,15 @@ class HttpServerTests(unittest.TestCase):
     def test_websocket_receives_initial_snapshot_and_live_updates(self) -> None:
         self.start_server()
 
-        websocket, handshake, websocket_key = self.open_websocket()
+        websocket, handshake, websocket_key, buffered = self.open_websocket()
         self.addCleanup(websocket.close)
 
         self.assertIn("101 Switching Protocols", handshake)
         expected_accept = app.websocket_accept_value(websocket_key)
         self.assertIn(f"Sec-WebSocket-Accept: {expected_accept}", handshake)
 
-        initial_snapshot = json.loads(
-            self.read_websocket_frame(websocket).decode("utf-8")
-        )
+        initial_frame, buffered = self.read_websocket_frame(websocket, buffered)
+        initial_snapshot = json.loads(initial_frame.decode("utf-8"))
         self.assertEqual(initial_snapshot["texts"], [])
         self.assertEqual(initial_snapshot["files"], [])
 
@@ -683,15 +686,14 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(text_response["status"], 200)
 
-        pushed_snapshot = json.loads(
-            self.read_websocket_frame(websocket).decode("utf-8")
-        )
+        pushed_frame, buffered = self.read_websocket_frame(websocket, buffered)
+        pushed_snapshot = json.loads(pushed_frame.decode("utf-8"))
         self.assertEqual(pushed_snapshot["texts"][0]["content"], "live update")
 
     def test_websocket_requires_authorization_when_access_code_is_enabled(self) -> None:
         self.start_server(access_code="secret-code")
 
-        unauthorized_socket, handshake, _ = self.open_websocket()
+        unauthorized_socket, handshake, _, _ = self.open_websocket()
         self.addCleanup(unauthorized_socket.close)
         self.assertIn("401", handshake)
 
@@ -704,7 +706,7 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(login["status"], 200)
         cookie = login["headers"]["Set-Cookie"].split(";", 1)[0]
 
-        authorized_socket, authorized_handshake, websocket_key = self.open_websocket(
+        authorized_socket, authorized_handshake, websocket_key, _ = self.open_websocket(
             cookie=cookie
         )
         self.addCleanup(authorized_socket.close)
@@ -750,6 +752,34 @@ class HttpServerTests(unittest.TestCase):
 
 
 class ScriptTests(unittest.TestCase):
+    def test_github_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
+        script = (
+            Path(__file__).resolve().parent / "github-install-upgrade.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
+        self.assertIn('bash "${SOURCE_DIR}/install-ubuntu-service.sh"', script)
+        self.assertIn('if [[ ! -f "${ENV_FILE}" ]]; then', script)
+        self.assertIn('export "${key}=${value}"', script)
+
+    def test_github_install_upgrade_script_has_valid_bash_syntax(self) -> None:
+        result = subprocess.run(
+            ["bash", "-n", "github-install-upgrade.sh"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_install_script_deploys_assets_and_templates(self) -> None:
+        script = (
+            Path(__file__).resolve().parent / "install-ubuntu-service.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn('SCRIPT_DIR}/assets', script)
+        self.assertIn('APP_DIR}/assets', script)
+        self.assertIn('SCRIPT_DIR}/templates', script)
+        self.assertIn('APP_DIR}/templates', script)
+
     def test_install_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "install-ubuntu-service.sh"],

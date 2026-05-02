@@ -1116,7 +1116,10 @@ class AppHandler(BaseHTTPRequestHandler):
         remaining = length
         chunks = []
         while remaining > 0:
-            chunk = self.rfile.read(remaining)
+            try:
+                chunk = self.rfile.read(remaining)
+            except OSError:
+                return None
             if not chunk:
                 return None
             chunks.append(chunk)
