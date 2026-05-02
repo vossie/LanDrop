@@ -588,6 +588,44 @@ def get_app_version() -> str:
     return load_app_version()
 
 
+def base_url_from_request(handler: BaseHTTPRequestHandler) -> str:
+    configured = get_share_base_url()
+    if configured:
+        return configured
+
+    forwarded_proto = handler.headers.get("X-Forwarded-Proto", "").strip()
+    proto = forwarded_proto or ("https" if getattr(handler.server, "server_port", 0) == 443 else "http")
+    host = handler.headers.get("Host", "").strip()
+    if host:
+        return f"{proto}://{host}".rstrip("/")
+
+    server_host, server_port = handler.server.server_address[:2]
+    return f"http://{server_host}:{server_port}"
+
+
+def share_payload(entry_type: str, entry: dict, base_url: str) -> dict:
+    path = f"/s/{urllib.parse.quote(entry['short_code'])}"
+    payload = {
+        "type": entry_type,
+        "id": entry["id"],
+        "short_code": entry["short_code"],
+        "share_path": path,
+        "share_url": f"{base_url.rstrip('/')}{path}",
+        "hidden": bool(entry.get("hidden", False)),
+        "password_required": bool(entry.get("password_hash")),
+        "created_at": entry["created_at"],
+        "expires_at": entry["expires_at"],
+    }
+    if entry_type == "text":
+        payload["content"] = entry["content"]
+    else:
+        payload["name"] = entry["name"]
+        payload["size"] = entry["size"]
+        payload["download_path"] = f"/download/{urllib.parse.quote(entry['id'])}"
+        payload["download_url"] = f"{base_url.rstrip('/')}{payload['download_path']}"
+    return payload
+
+
 def render_template(name: str, replacements: dict[str, str] | None = None) -> str:
     template_path = TEMPLATES_DIR / name
     body = template_path.read_text(encoding="utf-8")
@@ -677,6 +715,10 @@ class AppHandler(BaseHTTPRequestHandler):
             self.handle_text_update()
             return
 
+        if parsed.path == "/api/share-text":
+            self.handle_text_share()
+            return
+
         if parsed.path.startswith("/api/text/") and parsed.path.endswith("/reveal"):
             entry_id = urllib.parse.unquote(
                 parsed.path.removeprefix("/api/text/").removesuffix("/reveal")
@@ -686,6 +728,10 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/upload":
             self.handle_file_upload()
+            return
+
+        if parsed.path == "/api/share-file":
+            self.handle_file_share()
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -730,6 +776,42 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_json({"ok": True}, cookie=session_cookie(session_id))
 
     def handle_text_update(self) -> None:
+        entry = self.parse_text_request()
+        if entry is None:
+            return
+
+        add_text_entry(
+            entry["text"],
+            hidden=entry["hidden"],
+            password=entry["password"],
+            sharer_name=entry["name"],
+            sharer_ip=self.client_address[0],
+        )
+        snapshot = get_snapshot()
+        self.send_json(snapshot)
+        broadcast_snapshot(snapshot)
+
+    def handle_text_share(self) -> None:
+        entry = self.parse_text_request()
+        if entry is None:
+            return
+
+        add_text_entry(
+            entry["text"],
+            hidden=entry["hidden"],
+            password=entry["password"],
+            sharer_name=entry["name"],
+            sharer_ip=self.client_address[0],
+        )
+        created = find_text_entry(get_snapshot()["texts"][0]["id"])
+        if created is None:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not create text entry")
+            return
+        snapshot = get_snapshot()
+        self.send_json(share_payload("text", created, base_url_from_request(self)))
+        broadcast_snapshot(snapshot)
+
+    def parse_text_request(self) -> dict | None:
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         try:
@@ -757,18 +839,14 @@ class AppHandler(BaseHTTPRequestHandler):
         sharer_name = payload.get("name", "")
         if not isinstance(sharer_name, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Name must be a string")
-            return
+            return None
 
-        add_text_entry(
-            normalized_text,
-            hidden=hidden,
-            password=password.strip(),
-            sharer_name=sharer_name.strip(),
-            sharer_ip=self.client_address[0],
-        )
-        snapshot = get_snapshot()
-        self.send_json(snapshot)
-        broadcast_snapshot(snapshot)
+        return {
+            "text": normalized_text,
+            "hidden": hidden,
+            "password": password.strip(),
+            "name": sharer_name.strip(),
+        }
 
     def handle_text_reveal(self, entry_id: str) -> None:
         entry = find_text_entry(entry_id)
@@ -855,6 +933,29 @@ class AppHandler(BaseHTTPRequestHandler):
         broadcast_snapshot(snapshot)
 
     def handle_file_upload(self) -> None:
+        parsed = self.parse_file_upload_request()
+        if parsed is None:
+            return
+
+        self.store_file_upload(parsed)
+        snapshot = get_snapshot()
+        self.send_json(snapshot)
+        broadcast_snapshot(snapshot)
+
+    def handle_file_share(self) -> None:
+        parsed = self.parse_file_upload_request()
+        if parsed is None:
+            return
+
+        created = self.store_file_upload(parsed)
+        if created is None:
+            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not create file entry")
+            return
+        snapshot = get_snapshot()
+        self.send_json(share_payload("file", created, base_url_from_request(self)))
+        broadcast_snapshot(snapshot)
+
+    def parse_file_upload_request(self) -> dict | None:
         content_type = self.headers.get("Content-Type", "")
         boundary = None
         for item in content_type.split(";"):
@@ -865,46 +966,53 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if not boundary:
             self.send_error(HTTPStatus.BAD_REQUEST, "Missing multipart boundary")
-            return
+            return None
 
         length = int(self.headers.get("Content-Length", "0"))
         if length <= 0:
             self.send_error(HTTPStatus.BAD_REQUEST, "Empty upload")
-            return
+            return None
         if length > MAX_FILE_SIZE:
             self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "File too large")
-            return
+            return None
 
         body = self.rfile.read(length)
         filename, file_bytes, fields = self.parse_multipart_file(body, boundary)
         if filename is None or file_bytes is None:
             self.send_error(HTTPStatus.BAD_REQUEST, "Could not read uploaded file")
-            return
+            return None
         hidden = fields.get("hidden", "false").lower() == "true"
         password = fields.get("password", "").strip()
         sharer_name = fields.get("name", "").strip()
         if hidden and not password:
             self.send_error(HTTPStatus.BAD_REQUEST, "Hidden files require a password")
-            return
+            return None
 
+        return {
+            "filename": filename,
+            "file_bytes": file_bytes,
+            "hidden": hidden,
+            "password": password,
+            "name": sharer_name,
+        }
+
+    def store_file_upload(self, parsed: dict) -> dict | None:
         ensure_upload_dir()
-        stored_name = unique_filename(filename)
+        stored_name = unique_filename(parsed["filename"])
         target = UPLOAD_DIR / stored_name
         with target.open("wb") as handle:
-            handle.write(file_bytes)
+            handle.write(parsed["file_bytes"])
 
         add_file(
-            filename,
+            parsed["filename"],
             stored_name,
-            len(file_bytes),
-            hidden=hidden,
-            password=password,
-            sharer_name=sharer_name,
+            len(parsed["file_bytes"]),
+            hidden=parsed["hidden"],
+            password=parsed["password"],
+            sharer_name=parsed["name"],
             sharer_ip=self.client_address[0],
         )
-        snapshot = get_snapshot()
-        self.send_json(snapshot)
-        broadcast_snapshot(snapshot)
+        return find_file_entry(get_snapshot()["files"][0]["id"])
 
     def parse_multipart_file(self, body: bytes, boundary: bytes):
         marker = b"--" + boundary

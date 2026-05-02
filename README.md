@@ -116,11 +116,15 @@ This is useful when:
 | --- | --- |
 | `GET /api/state` | Full current history snapshot |
 | `GET /api/latest-text` | Newest text entry as JSON |
+| `POST /api/share-text` | Share plain text with a compact automation-friendly JSON response |
 | `POST /api/text/<id>/reveal` | Reveal password-protected hidden text |
 | `GET /api/latest-file` | Newest file metadata as JSON |
 | `GET /api/latest-file/content` | Download the newest file |
+| `POST /api/share-file` | Upload a file with a compact automation-friendly JSON response |
 | `GET /download/<id>` | Download a file by item id |
 | `GET /s/<code>` | Open a short LAN link for text or file |
+
+Bash examples for the API are in [docs/bash-api.md](docs/bash-api.md).
 
 ## Install As An Ubuntu Service
 

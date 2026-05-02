@@ -511,6 +511,64 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(shared_text_response["body"], b"Hello world")
 
+    def test_share_text_endpoint_returns_compact_share_payload(self) -> None:
+        self.start_server()
+
+        response = self.request(
+            "POST",
+            "/api/share-text",
+            body=json.dumps({"text": "shell text", "name": "CLI"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response["status"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["type"], "text")
+        self.assertEqual(payload["content"], "shell text")
+        self.assertEqual(payload["share_path"], f"/s/{payload['short_code']}")
+        self.assertEqual(
+            payload["share_url"],
+            f"http://127.0.0.1:{self.port}{payload['share_path']}",
+        )
+
+    def test_share_file_endpoint_returns_compact_share_payload(self) -> None:
+        self.start_server()
+
+        boundary = "----LanDropShareBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="cli.txt"\r\n'
+            "Content-Type: text/plain\r\n\r\n"
+            "hello from bash"
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="name"\r\n\r\n'
+            "CLI"
+            f"\r\n--{boundary}--\r\n"
+        ).encode("utf-8")
+        response = self.request(
+            "POST",
+            "/api/share-file",
+            body=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+        )
+
+        self.assertEqual(response["status"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["type"], "file")
+        self.assertEqual(payload["name"], "cli.txt")
+        self.assertEqual(payload["share_path"], f"/s/{payload['short_code']}")
+        self.assertEqual(
+            payload["share_url"],
+            f"http://127.0.0.1:{self.port}{payload['share_path']}",
+        )
+        self.assertEqual(
+            payload["download_url"],
+            f"http://127.0.0.1:{self.port}/download/{payload['id']}",
+        )
+
     def test_text_update_rejects_non_boolean_hidden_flag(self) -> None:
         self.start_server()
 
@@ -757,6 +815,14 @@ class HttpServerTests(unittest.TestCase):
 
 
 class ScriptTests(unittest.TestCase):
+    def test_bash_api_help_doc_mentions_share_endpoints(self) -> None:
+        doc = (
+            Path(__file__).resolve().parent / "docs" / "bash-api.md"
+        ).read_text(encoding="utf-8")
+        self.assertIn("/api/share-text", doc)
+        self.assertIn("/api/share-file", doc)
+        self.assertIn("curl", doc)
+
     def test_github_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
             Path(__file__).resolve().parent / "github-install-upgrade.sh"
