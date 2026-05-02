@@ -168,6 +168,14 @@ Run the installer as `root` on the target Ubuntu server:
 sudo bash ./install-ubuntu-service.sh
 ```
 
+Quick install from the command line with download, permissions, and run:
+
+```bash
+curl -fsSLo github-install-upgrade.sh https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh
+chmod +x github-install-upgrade.sh
+sudo ./github-install-upgrade.sh
+```
+
 Or install or upgrade directly from GitHub on the target server:
 
 ```bash
