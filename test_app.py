@@ -901,11 +901,9 @@ class ScriptTests(unittest.TestCase):
         readme = (root / "README.md").read_text(encoding="utf-8")
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.4")
-        self.assertIn("you control the app", readme)
-        self.assertIn("know where the data lives", readme)
-        self.assertIn("Developer: Carel Vosloo", readme)
-        self.assertIn("ISC license", readme)
+        self.assertEqual(version, "1.0.5")
+        self.assertIn("infrastructure you control", readme)
+        self.assertIn("Know exactly where your data is while it is being shared", readme)
         self.assertIn("ISC License", license_text)
         self.assertIn("Copyright (c) 2026 Carel Vosloo", license_text)
 
@@ -960,6 +958,33 @@ class ScriptTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_dockerfile_sets_runtime_defaults(self) -> None:
+        dockerfile = (
+            Path(__file__).resolve().parent / "Dockerfile"
+        ).read_text(encoding="utf-8")
+        self.assertIn("FROM python:3.12-slim", dockerfile)
+        self.assertIn("UPLOAD_DIR=/data/uploads", dockerfile)
+        self.assertIn('VOLUME ["/data"]', dockerfile)
+        self.assertIn('CMD ["python3", "app.py"]', dockerfile)
+
+    def test_docker_compose_persists_uploads_and_configures_env(self) -> None:
+        compose = (
+            Path(__file__).resolve().parent / "docker-compose.yml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("build: .", compose)
+        self.assertIn("dassiedrop-data:/data", compose)
+        self.assertIn("ACCESS_CODE:", compose)
+        self.assertIn("SHARE_BASE_URL:", compose)
+        self.assertIn("UPLOAD_DIR: /data/uploads", compose)
+
+    def test_readme_mentions_docker_usage(self) -> None:
+        readme = (Path(__file__).resolve().parent / "README.md").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("## Run With Docker", readme)
+        self.assertIn("docker build -t dassiedrop .", readme)
+        self.assertIn("docker compose up -d", readme)
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(

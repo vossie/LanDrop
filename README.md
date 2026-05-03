@@ -83,7 +83,7 @@ DassieDrop is about:
 | Fast copy workflow | Shared text cards are clickable and copy directly |
 | Auto cleanup | Items expire after 24 hours |
 | Access gate | Optional global access code for the whole app |
-| Simple deployment | Run directly or install as an Ubuntu `systemd` service |
+| Simple deployment | Run directly, install as an Ubuntu `systemd` service, or run in Docker |
 
 ## Quick Start
 
@@ -110,6 +110,42 @@ http://<this-machine-ip>:8000
 ```bash
 ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
 ```
+
+## Run With Docker
+
+Build the image locally:
+
+```bash
+docker build -t dassiedrop .
+```
+
+Run it with a persistent volume for uploads:
+
+```bash
+docker run -d \
+  --name dassiedrop \
+  -p 8000:8000 \
+  -e ACCESS_CODE=my-secret-code \
+  -e SHARE_BASE_URL=http://192.168.1.24:8000 \
+  -v dassiedrop-data:/data \
+  dassiedrop
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+The container stores uploaded files in the named volume at `/data/uploads`.
+
+If you prefer Compose:
+
+```bash
+ACCESS_CODE=my-secret-code SHARE_BASE_URL=http://192.168.1.24:8000 docker compose up -d
+```
+
+The included [docker-compose.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.yml) maps host port `8000` to the app, keeps uploads in a named volume, and restarts the container automatically.
 
 ## Configure The LAN Link Address
 
@@ -237,3 +273,5 @@ The GitHub helper also supports overrides, and on upgrade it reuses values from 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
+
+Use the Ubuntu service install when you want a native host deployment with `systemd`. Use Docker when you want a more portable containerized runtime with volume-backed uploads.

@@ -157,7 +157,7 @@ h1 {
 }
 textarea, .rich-editor {
   width: 100%;
-  min-height: 220px;
+  min-height: 120px;
   resize: vertical;
   border: 1px solid var(--line);
   border-radius: 14px;
@@ -474,7 +474,7 @@ input[type="file"] {
   border: 2px solid #061a3a;
   border-radius: 28px;
   background: #ffffff;
-  padding: 24px 28px;
+  padding: 14px 18px;
   color: var(--ink);
   box-shadow: none;
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
