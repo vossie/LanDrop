@@ -1,0 +1,16 @@
+.git
+.gitignore
+.venv
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+docs/
+brand/
+test_app.py
+install-ubuntu-service.sh
+uninstall-ubuntu-service.sh
+uninstall-legacy-landrop-service.sh
+github-install-upgrade.sh

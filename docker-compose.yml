@@ -1,0 +1,17 @@
+services:
+  dassiedrop:
+    build: .
+    container_name: dassiedrop
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      ACCESS_CODE: "${ACCESS_CODE:-change-me}"
+      SHARE_BASE_URL: "${SHARE_BASE_URL:-}"
+      APP_VERSION: "${APP_VERSION:-}"
+      UPLOAD_DIR: /data/uploads
+    volumes:
+      - dassiedrop-data:/data
+    restart: unless-stopped
+
+volumes:
+  dassiedrop-data:
