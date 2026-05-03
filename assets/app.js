@@ -117,7 +117,7 @@ function formatTime(ts) {
 function collapsedDetailsMeta(ts, sharerName) {
   const time = formatTime(ts);
   const source = (sharerName || "Anonymous").trim() || "Anonymous";
-  return `Saved on ${time} by ${source}`;
+  return `Posted by ${source} at ${time}`;
 }
 
 function formatSize(bytes) {
