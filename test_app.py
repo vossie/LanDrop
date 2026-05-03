@@ -109,7 +109,7 @@ class AppStateTests(unittest.TestCase):
         self.assertTrue(snapshot["texts"][0]["hidden"])
         self.assertTrue(snapshot["texts"][0]["password_required"])
         self.assertIsNone(snapshot["texts"][0]["content"])
-        self.assertEqual(snapshot["texts"][0]["masked_content"], "****** *****")
+        self.assertEqual(snapshot["texts"][0]["masked_content"], "*****")
 
     def test_text_snapshot_contains_plain_text_only(self) -> None:
         app.add_text_entry("Hello world", sharer_name="Alice")

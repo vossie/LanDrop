@@ -291,7 +291,7 @@ async function deleteText(id) {
 }
 
 function maskText(content) {
-  return content.replace(/[^\s]/g, "*");
+  return content ? "*****" : "";
 }
 
 async function revealProtectedText(entry) {

@@ -262,7 +262,7 @@ def load_persisted_files() -> None:
 
 
 def mask_text_value(value: str) -> str:
-    return "".join("*" if not char.isspace() else char for char in value)
+    return "*****" if value else ""
 
 
 def hash_password(password: str) -> str:
