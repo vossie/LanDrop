@@ -483,6 +483,11 @@ input[type="file"] {
   flex: 0 0 auto;
 }
 .entry-accordion-meta {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   color: var(--muted);
   font-size: 0.86rem;
   font-weight: 500;

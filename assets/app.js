@@ -114,6 +114,12 @@ function formatTime(ts) {
   });
 }
 
+function collapsedDetailsMeta(ts, sharerName) {
+  const time = formatTime(ts);
+  const source = (sharerName || "Anonymous").trim() || "Anonymous";
+  return `Saved on ${time} by ${source}`;
+}
+
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -437,7 +443,7 @@ function renderTextHistory(texts) {
       savedRow,
       fromRow,
       expiresRow
-    ], textAccordionState, entry.id, `Saved ${formatTime(entry.created_at)}`);
+    ], textAccordionState, entry.id, collapsedDetailsMeta(entry.created_at, entry.sharer_name));
 
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
@@ -603,7 +609,7 @@ function renderFiles(files) {
       fromRow,
       uploadedRow,
       expiresRow
-    ], fileAccordionState, file.id, `Uploaded ${formatTime(file.created_at)}`);
+    ], fileAccordionState, file.id, collapsedDetailsMeta(file.created_at, file.sharer_name));
 
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
