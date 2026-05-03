@@ -85,6 +85,12 @@ DassieDrop is about:
 | Access gate | Optional global access code for the whole app |
 | Simple deployment | Run directly, install as an Ubuntu `systemd` service, or run in Docker |
 
+## Copyright And License
+
+Copyright © 2026 DassieDrop contributors.
+
+DassieDrop is released under the ISC License. See [LICENSE](LICENSE) for the full license text.
+
 ## Quick Start
 
 Run DassieDrop:

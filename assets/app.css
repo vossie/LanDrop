@@ -138,6 +138,10 @@ h1 {
   max-width: 920px;
   margin: 0 auto 20px;
 }
+.hero-wordmark-link {
+  display: inline-flex;
+  text-decoration: none;
+}
 .app-footer {
   max-width: 920px;
   margin: 8px auto 0;
