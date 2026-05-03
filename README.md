@@ -29,11 +29,11 @@ DassieDrop is especially good at:
 
 ### Text Sharing
 
-![DassieDrop text sharing UI](docs/dassiedrop-product-text.svg)
+![DassieDrop text sharing UI](docs/text-screenshot.png)
 
 ### File Sharing
 
-![DassieDrop file sharing UI](docs/dassiedrop-product-files.svg)
+![DassieDrop file sharing UI](docs/files-screenshot.png)
 
 ## Why The Name Works
 
