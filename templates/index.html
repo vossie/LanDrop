@@ -4,125 +4,84 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DassieDrop</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/dassiedrop-favicon.svg">
+  <link rel="icon" type="image/png" href="/assets/dassiedrop-dassie-icon.png">
   <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div class="hero-top">
-        <div class="hero-copy">
-          <div class="hero-brand-lockup">
-            <div class="hero-badge">Local-first file sharing</div>
-            <img class="hero-wordmark" src="/assets/dassiedrop-wordmark-app.svg" alt="DassieDrop">
-          </div>
-          <div class="hero-copy-block">
-            <h1>Share instantly across your local network.</h1>
-            <p class="subhead">
-              Fast local transfer for text and files, with direct LAN links and optional password protection.
-            </p>
-            <div class="hero-meta-row">
-              <span class="version-pill">v__APP_VERSION__</span>
-              <span class="hero-meta-copy">Nearby trust. No cloud dependency.</span>
-            </div>
-          </div>
-        </div>
-        <aside class="hero-sidecard" aria-label="Product summary">
-          <div class="hero-sidecard-title">Designed for shared spaces</div>
-          <p>
-            Drop a quick note, send a file, or hand over a private link without pushing anything through the cloud.
-          </p>
-          <div class="hero-sidecard-grid">
-            <div>
-              <strong>Local</strong>
-              <span>Direct LAN sharing</span>
-            </div>
-            <div>
-              <strong>Lightweight</strong>
-              <span>Fast, calm, uncluttered</span>
-            </div>
-          </div>
-        </aside>
-      </div>
-    </section>
-
-    <section class="workspace-intro">
-      <div class="workspace-heading">
-        <span class="eyebrow">Workspace</span>
-        <h2>Share from this device</h2>
-      </div>
-      <div class="workspace-controls">
-        <label class="input-label" for="sharerName">Name this device or sender</label>
-        <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Reception MacBook, Carel, Studio PC">
-      </div>
-    </section>
-
-    <div class="tabs-shell">
-      <div class="tabs" aria-label="Sections">
-        <button id="textTabBtn" class="tab-btn active" type="button">Text</button>
-        <button id="fileTabBtn" class="tab-btn" type="button">Files</button>
+<main class="shell">
+  <section class="hero">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <img class="hero-wordmark" src="/assets/DassieDrop-full-text-logo.png" alt="DassieDrop">
+        <h1 class="sr-only">DassieDrop</h1>
+        <p class="subhead">
+          Share text and files across your network with direct LAN links and optional passwords.<br/>[v__APP_VERSION__]
+        </p>
       </div>
     </div>
+  </section>
 
-    <section class="grid">
-      <article id="textPanel" class="panel tab-panel">
-        <div class="panel-title">
-          <div>
-            <span class="panel-kicker">Quick send</span>
-            <h2>Share Text</h2>
-          </div>
-          <div class="meta" id="textMeta">Waiting for updates…</div>
-        </div>
-        <textarea id="sharedText" placeholder="Paste text here"></textarea>
-        <div class="row stack">
-          <label class="checkbox-row" for="hiddenText">
-            <input id="hiddenText" type="checkbox">
-            <span>Require a password to reveal this text</span>
-          </label>
-          <div class="hidden-options" id="textHiddenOptions">
-            <input id="textPassword" class="inline-input" type="password" placeholder="Set a password for this text">
-          </div>
-          <button id="saveTextBtn">Just Add</button>
-        </div>
-        <div class="status" id="textStatus"></div>
-        <ul class="history-list" id="textHistory"></ul>
-      </article>
+  <div class="tabs" aria-label="Sections">
+    <div class="hero-input-row">
+      <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Your name or device name">
+    </div>
+    <button id="textTabBtn" class="tab-btn active" type="button">Text</button>
+    <button id="fileTabBtn" class="tab-btn" type="button">Files</button>
+  </div>
 
-      <article id="filePanel" class="panel tab-panel">
-        <div class="panel-title">
-          <div>
-            <span class="panel-kicker">Direct transfer</span>
-            <h2>Share Files</h2>
-          </div>
-          <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
+  <section class="grid">
+    <article id="textPanel" class="panel tab-panel">
+      <div class="panel-title">
+        <h2>Share Text</h2>
+        <div class="meta" id="textMeta">Waiting for updates…</div>
+      </div>
+      <textarea id="sharedText" placeholder="Paste text here"></textarea>
+      <div class="row stack">
+        <label class="checkbox-row" for="hiddenText">
+          <input id="hiddenText" type="checkbox">
+          <span>Hidden</span>
+        </label>
+        <div class="hidden-options" id="textHiddenOptions">
+          <input id="textPassword" class="inline-input" type="password" placeholder="Optional password to reveal">
         </div>
-        <div class="row">
-          <label class="file-label" for="fileInput">Choose File</label>
-          <input id="fileInput" type="file">
-          <button id="uploadBtn" type="button">Upload File</button>
-        </div>
-        <div class="row stack">
-          <label class="checkbox-row" for="hiddenFile">
-            <input id="hiddenFile" type="checkbox">
-            <span>Require a password to access this file</span>
-          </label>
-          <div class="hidden-options" id="fileHiddenOptions">
-            <input id="filePassword" class="inline-input" type="password" placeholder="Set a password for this file">
-          </div>
-        </div>
-        <div class="dropzone" id="dropZone">Drag and drop a file here</div>
-        <div class="status" id="fileStatus"></div>
-        <ul class="history-list" id="fileList"></ul>
-      </article>
-    </section>
-  </main>
+        <button id="saveTextBtn">Just Add</button>
+      </div>
+      <div class="status" id="textStatus"></div>
+      <ul class="history-list" id="textHistory"></ul>
+    </article>
 
-  <script>
-    const configuredShareBaseUrl = __SHARE_BASE_URL__;
-    window.LANDROP_CONFIG = {
-      shareBaseUrl: configuredShareBaseUrl
-    };
-  </script>
-  <script src="/assets/app.js"></script>
+    <article id="filePanel" class="panel tab-panel">
+      <div class="panel-title">
+        <h2>Share Files</h2>
+        <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
+      </div>
+      <div class="row">
+        <label class="file-label" for="fileInput">Choose File</label>
+        <input id="fileInput" type="file">
+        <button id="uploadBtn" type="button">Upload File</button>
+      </div>
+      <div class="row stack">
+        <label class="checkbox-row" for="hiddenFile">
+          <input id="hiddenFile" type="checkbox">
+          <span>Hidden file</span>
+        </label>
+        <div class="hidden-options" id="fileHiddenOptions">
+          <input id="filePassword" class="inline-input" type="password" placeholder="Password required for hidden files">
+        </div>
+      </div>
+      <div class="dropzone" id="dropZone">Drag and drop a file here</div>
+      <div class="status" id="fileStatus"></div>
+      <ul class="history-list" id="fileList"></ul>
+    </article>
+  </section>
+</main>
+
+<script>
+  const configuredShareBaseUrl = __SHARE_BASE_URL__;
+  window.LANDROP_CONFIG = {
+    shareBaseUrl: configuredShareBaseUrl
+  };
+</script>
+<script src="/assets/app.js"></script>
 </body>
 </html>

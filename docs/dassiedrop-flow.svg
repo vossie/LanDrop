@@ -1,0 +1,19 @@
+<svg width="1280" height="320" viewBox="0 0 1280 320" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <rect width="1280" height="320" rx="28" fill="#F7F9FC"/>
+  <rect x="40" y="44" width="360" height="232" rx="28" fill="#FFFFFF" stroke="#D7DEEA" stroke-width="2"/>
+  <rect x="460" y="44" width="360" height="232" rx="28" fill="#FFFFFF" stroke="#D7DEEA" stroke-width="2"/>
+  <rect x="880" y="44" width="360" height="232" rx="28" fill="#FFFFFF" stroke="#D7DEEA" stroke-width="2"/>
+  <text x="76" y="98" fill="#061A3A" font-family="Inter, Manrope, Arial, sans-serif" font-size="32" font-weight="700">1. Drop something in</text>
+  <text x="76" y="144" fill="#5B6472" font-family="Inter, Manrope, Arial, sans-serif" font-size="22">Paste text or upload a file</text>
+  <text x="76" y="176" fill="#5B6472" font-family="Inter, Manrope, Arial, sans-serif" font-size="22">from any device on your LAN.</text>
+  <text x="496" y="98" fill="#061A3A" font-family="Inter, Manrope, Arial, sans-serif" font-size="32" font-weight="700">2. Share the local link</text>
+  <text x="496" y="144" fill="#5B6472" font-family="Inter, Manrope, Arial, sans-serif" font-size="22">Each item gets a short LAN URL</text>
+  <text x="496" y="176" fill="#5B6472" font-family="Inter, Manrope, Arial, sans-serif" font-size="22">you can open anywhere nearby.</text>
+  <text x="916" y="98" fill="#061A3A" font-family="Inter, Manrope, Arial, sans-serif" font-size="32" font-weight="700">3. Open, copy, download</text>
+  <text x="916" y="144" fill="#5B6472" font-family="Inter, Manrope, Arial, sans-serif" font-size="22">Use a browser, or push content</text>
+  <text x="916" y="176" fill="#5B6472" font-family="Inter, Manrope, Arial, sans-serif" font-size="22">in from curl and shell scripts.</text>
+  <path d="M400 160H460" stroke="#0B2E63" stroke-width="8" stroke-linecap="round"/>
+  <path d="M820 160H880" stroke="#0B2E63" stroke-width="8" stroke-linecap="round"/>
+  <path d="M442 136L466 160L442 184" stroke="#0B2E63" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M862 136L886 160L862 184" stroke="#0B2E63" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

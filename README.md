@@ -2,19 +2,31 @@
 
 ![DassieDrop wordmark](docs/dassiedrop-wordmark-github.svg)
 
-Browser-based LAN file sharing, local network text sharing, and bash-friendly `curl` sharing for fast device-to-device and server-to-device transfer under your control on your own network.
+Real dassies famously use communal toilet areas and return to the same cliff face for generations. So in a weirdly accurate way, DassieDrop literally references creatures repeatedly dropping things in the same place together.
+
+It is memorable, slightly ridiculous, and exactly the kind of name a local-first sharing tool should have.
+
+DassieDrop is a lightweight Python web app for sharing text and files across your own network. Open it in a browser, paste text or upload a file, and hand the result to another device on the same LAN. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`.
+
+The pitch is simple: if the job is moving data between devices you already control, you do not need a cloud service in the middle.
 
 ![DassieDrop hero](docs/dassiedrop-hero.svg)
 
-DassieDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`. It works well as a local network clipboard sharing tool, a simple LAN file drop, a server-to-phone handoff tool, and a quick browser-based transfer page for phones, tablets, laptops, desktops, and Raspberry Pi boxes.
+## Why It Exists
 
-It is especially useful at home or on a small private network when you want to move something between different operating systems without thinking about apps, cables, cloud sync, or accounts. Open the same page from Windows, macOS, Linux, iPhone, iPad, or Android on your own Wi-Fi and share text or files directly in the browser, or push data into it from a shell script on a Linux server with `curl`.
+Most sharing tools quietly assume the internet should sit in the middle of everything. DassieDrop does not.
 
-The core pitch is simple: you control the app, you control the machine, and you know where the data lives. Your text and files stay on your hardware and your LAN instead of being handed to some server on the internet run by a company you are expected to trust. That matters because every extra cloud hop, vendor account, retention policy, analytics pipeline, and breach headline adds risk. If the job is just getting data from one device you own to another device you own, asking a third party to sit in the middle is often the wrong trade.
+Your text and files stay on your hardware and your local network instead of being handed to a vendor account, retention policy, analytics pipeline, or third-party server you are expected to trust. That makes it useful for quick browser-to-browser sharing, mixed-device households, home labs, and small private networks where speed and control matter more than “platform.”
+
+DassieDrop is especially good at:
+
+- moving text and files between Windows, macOS, Linux, iPhone, iPad, and Android devices on the same network
+- handing data from a Linux shell script or server to a phone or laptop with `curl`
+- keeping local transfers simple, visible, and under your control
 
 ![DassieDrop flow](docs/dassiedrop-flow.svg)
 
-## Product Images
+## Product Views
 
 ### Text Sharing
 
@@ -23,6 +35,17 @@ The core pitch is simple: you control the app, you control the machine, and you 
 ### File Sharing
 
 ![DassieDrop file sharing UI](docs/dassiedrop-product-files.svg)
+
+## Why The Name Works
+
+Dassies are highly social animals. They live in groups, communicate constantly, stay close to their community, and share safe spaces together. That makes them a surprisingly good metaphor for nearby trust and lightweight local sharing.
+
+DassieDrop is about:
+
+- Fast local communication
+- Trust within a shared environment
+- Lightweight movement between nearby devices
+- Community over cloud dependency
 
 ## Why DassieDrop
 
@@ -62,20 +85,6 @@ The core pitch is simple: you control the app, you control the machine, and you 
 | Auto cleanup | Items expire after 24 hours |
 | Access gate | Optional global access code for the whole app |
 | Simple deployment | Run directly or install as an Ubuntu `systemd` service |
-
-## Why Local Control Matters
-
-DassieDrop is for people who do not want to pretend that "someone else’s server" is the same thing as privacy. When you self-host DassieDrop on your own machine or a box on your own network, you decide where the app runs, who can reach it, how long data stays around, and when it gets deleted.
-
-That is a materially different trust model from uploading notes, secrets, links, or files to a vendor platform and hoping their security, logging, retention, and staff access policies line up with your interests. If you care where your data is, who can inspect it, and which systems can leak it, local control is the feature.
-
-## Great For Mixed Devices At Home
-
-DassieDrop is built for the common home setup where devices do not all use the same operating system. If you have a Windows laptop, a MacBook, a Linux desktop, an iPhone, and an Android tablet on the same network, they can all use the same DassieDrop page immediately.
-
-Because everything runs in the browser over your own LAN, there is no need to install matching client apps on every device. That makes it useful for quick household sharing, moving text between workstations, sending downloads to phones, or opening a file from a spare machine in another room.
-
-The same setup also works well for lightweight server automation. A bash script can send plain text or upload a file to DassieDrop over HTTP, then hand a short LAN link to someone on the same network. That makes it useful for server-generated access codes, local deployment notes, exported reports, or one-off file drops from a headless machine.
 
 ## Quick Start
 
@@ -229,58 +238,3 @@ The GitHub helper also supports overrides, and on upgrade it reuses values from 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
-
-Or use the explicit setup flag:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo bash -s -- --port 8080
-```
-
-Useful service commands:
-
-```bash
-sudo systemctl status dassiedrop
-sudo systemctl restart dassiedrop
-sudo journalctl -u dassiedrop -f
-```
-
-Uninstall while keeping uploads and the service user:
-
-```bash
-sudo bash ./uninstall-ubuntu-service.sh
-```
-
-Remove persisted uploads and the service account too:
-
-```bash
-sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./uninstall-ubuntu-service.sh
-```
-
-If you still have an old LanDrop deployment to remove separately, use the legacy cleanup script:
-
-```bash
-sudo bash ./uninstall-legacy-landrop-service.sh
-```
-
-## Notes
-
-- Text history is stored in memory while the process is running.
-- Uploaded files are stored in `uploads/`.
-- Browsers poll for updates every 2 seconds.
-- Maximum upload size is 1 GB.
-- Expired files are removed automatically when the app is used.
-
-## License
-
-DassieDrop is released under the ISC license, the compact permissive license widely associated with OpenBSD.
-
-- Developer: Carel Vosloo
-- Copyright: Copyright (c) 2026 Carel Vosloo
-- Permission is granted to use, copy, modify, and distribute the software with or without fee
-- The software is provided "as is", without warranty
-
-See [LICENSE](LICENSE) for the full text.
-
-## Search-Friendly Summary
-
-If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, a cross-platform home network sharing tool, a bash `curl` file sharing endpoint, a shell-script text sharing API, or a simple self-hosted text and file drop for devices on the same Wi-Fi network where you control the server and know exactly where the data is, DassieDrop is built for that exact workflow.

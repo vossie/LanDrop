@@ -4,37 +4,18 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DassieDrop Login</title>
-  <link rel="icon" type="image/svg+xml" href="/assets/dassiedrop-favicon.svg">
+  <link rel="icon" type="image/png" href="/assets/dassiedrop-dassie-icon.png">
   <link rel="stylesheet" href="/assets/login.css">
 </head>
 <body>
-  <main class="login-shell">
-    <section class="login-story">
-      <span class="login-kicker">Nearby trust</span>
-      <img class="login-brand" src="/assets/dassiedrop-wordmark-app.svg" alt="DassieDrop">
-      <h1>Unlock local sharing.</h1>
-      <p>Enter the shared access code to open DassieDrop from another browser on your network.</p>
-      <div class="login-points">
-        <div>
-          <strong>Direct</strong>
-          <span>LAN-first sharing without cloud dependency</span>
-        </div>
-        <div>
-          <strong>Private</strong>
-          <span>Access stays limited to people who already have the code</span>
-        </div>
-      </div>
-    </section>
-
-    <section class="card">
-      <span class="login-form-label">Access code</span>
-      <h2>Sign in to this shared space</h2>
-      <p class="card-copy">Use the code provided by the host device.</p>
-      <input id="accessCode" type="password" placeholder="Access code" autofocus>
-      <button id="loginBtn" type="button">Unlock</button>
-      <div class="error" id="loginStatus"></div>
-    </section>
-  </main>
-  <script src="/assets/login.js"></script>
+<main class="card">
+  <img class="login-brand" src="/assets/DassieDrop-full-text-logo.png" alt="DassieDrop">
+  <h1>Access Code</h1>
+  <p>Enter the shared access code to use this page from another browser on your network.</p>
+  <input id="accessCode" type="password" placeholder="Access code" autofocus>
+  <button id="loginBtn" type="button">Unlock</button>
+  <div class="error" id="loginStatus"></div>
+</main>
+<script src="/assets/login.js"></script>
 </body>
 </html>

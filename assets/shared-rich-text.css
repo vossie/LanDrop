@@ -1,47 +1,31 @@
 body {
   margin: 0;
-  font-family: Manrope, Inter, "Avenir Next", "Segoe UI", sans-serif;
-  background:
-    radial-gradient(circle at 12% 8%, rgba(11, 46, 99, 0.08), transparent 20rem),
-    linear-gradient(180deg, #fcfdff 0%, #f7f9fc 100%);
+  font-family: Inter, Manrope, "SF Pro Display", "Segoe UI", sans-serif;
+  background: #f7f9fc;
   color: #061a3a;
-}
-
-body::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.52)),
-    linear-gradient(120deg, rgba(6, 26, 58, 0.018) 25%, transparent 25%, transparent 50%, rgba(6, 26, 58, 0.018) 50%, rgba(6, 26, 58, 0.018) 75%, transparent 75%, transparent);
-  background-size: auto, 24px 24px;
 }
 
 main {
-  position: relative;
-  max-width: 900px;
+  max-width: 860px;
   margin: 0 auto;
-  padding: 36px 20px 52px;
+  padding: 28px 20px 48px;
 }
 
 article {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(247, 249, 252, 0.98)),
-    linear-gradient(135deg, rgba(11, 46, 99, 0.02), transparent);
-  border: 1px solid rgba(11, 46, 99, 0.12);
-  border-radius: 30px;
-  padding: 30px 32px;
+  background: #ffffff;
+  border: 2px solid #061a3a;
+  border-radius: 28px;
+  padding: 28px 30px;
   color: #061a3a;
-  line-height: 1.75;
-  box-shadow: 0 22px 60px rgba(6, 26, 58, 0.12);
+  line-height: 1.65;
+  box-shadow: 0 18px 42px rgba(6, 26, 58, 0.12);
   word-break: break-word;
 }
 
 pre {
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+  font-family: "IBM Plex Sans", Inter, "Segoe UI", sans-serif;
 }
 
 a {
