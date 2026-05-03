@@ -48,6 +48,7 @@ DATA_DIR="${DATA_DIR:-/var/lib/dassiedrop}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/dassiedrop}"
 ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
 SYSTEMD_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
+PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 HOST_VALUE="${HOST:-0.0.0.0}"
@@ -62,13 +63,23 @@ fi
 
 echo "Installing ${SERVICE_NAME}..."
 
-if ! command -v python3 >/dev/null 2>&1; then
-  echo "python3 is required but not installed."
+if ! command -v apt-get >/dev/null 2>&1; then
+  echo "apt-get is required but not installed."
   exit 1
 fi
 
 if ! command -v systemctl >/dev/null 2>&1; then
   echo "systemctl is required but not installed."
+  exit 1
+fi
+
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  apt-get update
+  apt-get install -y python3.11
+fi
+
+if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+  echo "${PYTHON_BIN} is required but not installed."
   exit 1
 fi
 
@@ -145,7 +156,7 @@ User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
-ExecStart=/usr/bin/python3 ${APP_DIR}/app.py
+ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true

@@ -250,6 +250,7 @@ curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-ubunt
 
 It will:
 
+- upgrade the runtime to `python3.11`
 - create a system user and group named `dassiedrop`
 - install the app into `/opt/dassiedrop`
 - store uploads in `/var/lib/dassiedrop/uploads`

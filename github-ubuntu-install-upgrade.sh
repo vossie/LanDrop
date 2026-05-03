@@ -47,6 +47,7 @@ REPO_REF="${REPO_REF:-}"
 SERVICE_NAME="${SERVICE_NAME:-dassiedrop}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/dassiedrop}"
 ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
+PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"
 TMP_DIR="$(mktemp -d)"
 ARCHIVE_PATH="${TMP_DIR}/dassiedrop.tar.gz"
 
@@ -60,6 +61,15 @@ require_command() {
   if ! command -v "${name}" >/dev/null 2>&1; then
     echo "${name} is required but not installed."
     exit 1
+  fi
+}
+
+ensure_package() {
+  local binary="$1"
+  local package_name="$2"
+  if ! command -v "${binary}" >/dev/null 2>&1; then
+    apt-get update
+    apt-get install -y "${package_name}"
   fi
 }
 
@@ -85,6 +95,9 @@ load_existing_config() {
 
 require_command curl
 require_command tar
+require_command apt-get
+ensure_package python3.11 python3.11
+require_command "${PYTHON_BIN}"
 
 ACTION="install"
 if systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE_NAME}\\.service"; then

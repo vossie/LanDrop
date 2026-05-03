@@ -916,6 +916,9 @@ class ScriptTests(unittest.TestCase):
             Path(__file__).resolve().parent / "github-ubuntu-install-upgrade.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
+        self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
+        self.assertIn('require_command apt-get', script)
+        self.assertIn('ensure_package python3.11 python3.11', script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
         self.assertIn('bash "${SOURCE_DIR}/install-ubuntu-service.sh"', script)
         self.assertIn('if [[ ! -f "" ]]; then', script)
@@ -958,12 +961,15 @@ class ScriptTests(unittest.TestCase):
             Path(__file__).resolve().parent / "install-ubuntu-service.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
+        self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
         self.assertIn('SCRIPT_DIR}/VERSION', script)
         self.assertIn('APP_DIR}/VERSION', script)
         self.assertIn('SCRIPT_DIR}/assets', script)
         self.assertIn('APP_DIR}/assets', script)
         self.assertIn('SCRIPT_DIR}/templates', script)
         self.assertIn('APP_DIR}/templates', script)
+        self.assertIn('apt-get install -y python3.11', script)
+        self.assertIn('ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py', script)
 
     def test_install_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
