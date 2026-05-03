@@ -444,21 +444,8 @@ function renderTextHistory(texts) {
     head.appendChild(metaAccordion);
     head.appendChild(infoTable);
 
-    const cardWrap = document.createElement("div");
-    cardWrap.className = "text-card-wrap";
-
     const isRevealed = revealedTextIds.has(entry.id);
     const isMasked = entry.hidden && !isRevealed;
-
-    const label = document.createElement("div");
-    label.className = "text-card-label";
-    label.textContent = isMasked ? "Click to reveal" : "Click to copy";
-    if (copiedTextId === entry.id) {
-      const copiedPill = document.createElement("span");
-      copiedPill.className = "copied-pill";
-      copiedPill.textContent = "Copied";
-      label.appendChild(copiedPill);
-    }
 
     const body = document.createElement("div");
     body.className = "history-body text-card";
@@ -474,8 +461,18 @@ function renderTextHistory(texts) {
       body.textContent = revealedTextContent.get(entry.id) ?? entry.content ?? "";
     }
 
-    const contentRow = document.createElement("div");
-    contentRow.className = "text-card-row";
+    const actionRow = document.createElement("div");
+    actionRow.className = "text-card-row";
+
+    const label = document.createElement("div");
+    label.className = "text-card-label";
+    label.textContent = isMasked ? "Click to reveal" : "Click to copy";
+    if (copiedTextId === entry.id) {
+      const copiedPill = document.createElement("span");
+      copiedPill.className = "copied-pill";
+      copiedPill.textContent = "Copied";
+      label.appendChild(copiedPill);
+    }
 
     const deleteWrap = document.createElement("div");
     deleteWrap.className = "text-card-actions";
@@ -512,14 +509,12 @@ function renderTextHistory(texts) {
       deleteText(entry.id);
     });
 
-    cardWrap.appendChild(label);
-    contentRow.appendChild(body);
+    actionRow.appendChild(label);
     deleteWrap.appendChild(deleteBtn);
-    contentRow.appendChild(deleteWrap);
-    cardWrap.appendChild(contentRow);
-
     li.appendChild(head);
-    li.appendChild(cardWrap);
+    li.appendChild(body);
+    actionRow.appendChild(deleteWrap);
+    li.appendChild(actionRow);
     textHistory.appendChild(li);
   }
 }

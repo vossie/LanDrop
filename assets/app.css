@@ -323,12 +323,12 @@ input[type="file"] {
   }
 }
 .delete-btn {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
   padding: 0;
-  border-radius: 18px;
-  font-size: 1.45rem;
+  border-radius: 14px;
+  font-size: 1.1rem;
   background: #fff;
   color: var(--accent);
   border: 0;
@@ -347,27 +347,22 @@ input[type="file"] {
   border-radius: 12px;
   padding: 12px;
 }
-.text-card-wrap {
-  min-width: 0;
-}
 .text-card-row {
   display: flex;
   align-items: center;
-  gap: 18px;
-}
-.text-card-row .text-card {
-  flex: 1 1 auto;
-  min-width: 0;
+  justify-content: flex-start;
+  gap: 8px;
+  margin-top: 2px;
 }
 .text-card-label {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin: 0 0 10px 12px;
+  margin: 0;
+  padding-left: 14px;
   color: var(--ink);
-  font-size: 1rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
+  font-size: 0.92rem;
+  font-weight: 400;
 }
 .copied-pill {
   display: inline-flex;
@@ -415,6 +410,11 @@ input[type="file"] {
 .entry-table td.link-cell {
   vertical-align: middle;
 }
+.entry-table .link-row th,
+.entry-table .link-row td {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
 .entry-table a {
   color: var(--accent);
   text-decoration: none;
@@ -434,10 +434,10 @@ input[type="file"] {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 28px;
-  height: 28px;
-  min-width: 28px;
-  min-height: 28px;
+  width: 26px;
+  height: 26px;
+  min-width: 26px;
+  min-height: 26px;
   padding: 0;
   border-radius: 10px;
   box-shadow: none;
@@ -456,7 +456,7 @@ input[type="file"] {
   align-items: center;
   min-width: 0;
   line-height: 1.35;
-  min-height: 28px;
+  min-height: 26px;
 }
 .entry-accordion {
   margin-bottom: 12px;
@@ -499,10 +499,10 @@ input[type="file"] {
   max-height: 22rem;
   overflow: auto;
   margin-top: 0;
-  border: 2px solid #061a3a;
-  border-radius: 28px;
+  border: 1px solid var(--line);
+  border-radius: 16px;
   background: #fff4a82b;
-  padding: 5px 10px;
+  padding: 10px 14px;
   color: var(--ink);
   box-shadow: none;
   transition: transform 120ms ease, background 120ms ease, border-color 120ms ease;
@@ -534,19 +534,20 @@ input[type="file"] {
   }
   100% {
     background: #fff4a82b;
-    border-color: #061a3a;
+    border-color: var(--line);
     box-shadow: 0 0 0 0 rgba(11, 46, 99, 0);
   }
 }
 .text-card-actions {
   display: flex;
   align-items: center;
-  justify-content: center;
-  gap: 10px;
+  justify-content: flex-end;
+  gap: 6px;
+  margin-left: auto;
   flex: 0 0 auto;
 }
 .visibility-btn {
-  font-size: 1.3rem;
+  font-size: 1rem;
 }
 .file-name {
   font-weight: 600;
@@ -617,15 +618,11 @@ input[type="file"] {
     padding-top: 4px;
   }
   .text-card-row {
-    flex-direction: column;
-    align-items: stretch;
+    align-items: center;
     gap: 12px;
   }
   .text-card-actions {
-    flex-direction: row;
-    justify-content: flex-end;
-    align-items: center;
-    padding-bottom: 0;
+    margin-left: auto;
   }
   .file-card-top {
     flex-direction: column;
