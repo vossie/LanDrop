@@ -138,6 +138,20 @@ h1 {
   max-width: 920px;
   margin: 0 auto 20px;
 }
+.app-footer {
+  max-width: 920px;
+  margin: 8px auto 0;
+  padding: 10px 4px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.footer-line {
+  margin: 0;
+}
+.footer-line + .footer-line {
+  margin-top: 4px;
+}
 .panel h2 {
   margin: 0 0 10px;
   font-size: 1.2rem;
@@ -300,10 +314,13 @@ input[type="file"] {
 }
 .history-item.copyable {
   cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
 }
-.history-item.copyable:hover .text-card {
-  border-color: #0b2e63;
-  background: #fff4a8;
+@media (hover: hover) and (pointer: fine) {
+  .history-item.copyable:hover .text-card {
+    border-color: #0b2e63;
+    background: #fff4a8;
+  }
 }
 .delete-btn {
   width: 56px;
@@ -594,6 +611,10 @@ input[type="file"] {
   }
   .hero-input-row .inline-input {
     width: 100%;
+  }
+  .app-footer {
+    font-size: 0.76rem;
+    padding-top: 4px;
   }
   .text-card-row {
     flex-direction: column;

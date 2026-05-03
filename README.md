@@ -275,3 +275,8 @@ curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ins
 ```
 
 Use the Ubuntu service install when you want a native host deployment with `systemd`. Use Docker when you want a more portable containerized runtime with volume-backed uploads.
+
+## Credits
+
+- Developer: Carel Vosloo
+- Contributor: Mark Levitt

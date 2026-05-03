@@ -900,12 +900,16 @@ class ScriptTests(unittest.TestCase):
         root = Path(__file__).resolve().parent
         readme = (root / "README.md").read_text(encoding="utf-8")
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
+        index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
         self.assertEqual(version, "1.0.5")
         self.assertIn("infrastructure you control", readme)
         self.assertIn("Know exactly where your data is while it is being shared", readme)
+        self.assertIn("Contributor: Mark Levitt", readme)
         self.assertIn("ISC License", license_text)
         self.assertIn("Copyright (c) 2026 Carel Vosloo", license_text)
+        self.assertIn("ISC licensed.", index_template)
+        self.assertIn("If you are not an intended recipient or authorized user", index_template)
 
     def test_github_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
@@ -993,6 +997,13 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('label.textContent = isMasked ? "Click to reveal" : "Click to copy"', script)
         self.assertIn('toggleVisibilityBtn.textContent = isRevealed ? "👁" : "🙈"', script)
         self.assertNotIn('revealHead.textContent = "Reveal"', script)
+
+    def test_live_snapshot_updates_do_not_clear_unsaved_text(self) -> None:
+        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("renderSnapshot(snapshot)", script)
+        self.assertNotIn("if (!pendingTextPush && !isTextFormActive()) {\n    clearEditor();\n  }", script)
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(

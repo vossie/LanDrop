@@ -690,9 +690,6 @@ function renderSnapshot(snapshot) {
     snapshotInitialized = true;
   }
 
-  if (!pendingTextPush && !isTextFormActive()) {
-    clearEditor();
-  }
   textMeta.textContent = `Last update: ${formatDate(snapshot.updated_at)} • Auto-delete after 24 hours`;
   renderTextHistory(snapshot.texts || []);
   renderFiles(snapshot.files || []);
