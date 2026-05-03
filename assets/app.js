@@ -441,43 +441,18 @@ function renderTextHistory(texts) {
     linkRow.appendChild(linkValue);
 
     infoTable.appendChild(linkRow);
-
-    if (entry.hidden) {
-      const toggleBtn = document.createElement("button");
-      toggleBtn.type = "button";
-      const isRevealed = revealedTextIds.has(entry.id);
-      toggleBtn.textContent = isRevealed ? "Hide" : "Reveal";
-      toggleBtn.addEventListener("click", async (event) => {
-        event.stopPropagation();
-        if (revealedTextIds.has(entry.id)) {
-          revealedTextIds.delete(entry.id);
-          revealedTextContent.delete(entry.id);
-        } else {
-          const revealed = await revealProtectedText(entry);
-          if (!revealed) {
-            return;
-          }
-        }
-        renderTextHistory(texts);
-      });
-      const revealRow = document.createElement("tr");
-      const revealHead = document.createElement("th");
-      revealHead.textContent = "Reveal";
-      const revealValue = document.createElement("td");
-      revealValue.appendChild(toggleBtn);
-      revealRow.appendChild(revealHead);
-      revealRow.appendChild(revealValue);
-      infoTable.appendChild(revealRow);
-    }
     head.appendChild(metaAccordion);
     head.appendChild(infoTable);
 
     const cardWrap = document.createElement("div");
     cardWrap.className = "text-card-wrap";
 
+    const isRevealed = revealedTextIds.has(entry.id);
+    const isMasked = entry.hidden && !isRevealed;
+
     const label = document.createElement("div");
     label.className = "text-card-label";
-    label.textContent = "Click to copy...";
+    label.textContent = isMasked ? "Click to reveal" : "Click to copy";
     if (copiedTextId === entry.id) {
       const copiedPill = document.createElement("span");
       copiedPill.className = "copied-pill";
@@ -490,7 +465,6 @@ function renderTextHistory(texts) {
     if (copiedTextId === entry.id) {
       body.classList.add("flash-copy");
     }
-    const isMasked = entry.hidden && !revealedTextIds.has(entry.id);
     if (isMasked) {
       body.classList.add("masked");
     }
@@ -505,6 +479,29 @@ function renderTextHistory(texts) {
 
     const deleteWrap = document.createElement("div");
     deleteWrap.className = "text-card-actions";
+
+    if (entry.hidden) {
+      const toggleVisibilityBtn = document.createElement("button");
+      toggleVisibilityBtn.type = "button";
+      toggleVisibilityBtn.className = "danger delete-btn visibility-btn";
+      toggleVisibilityBtn.textContent = isRevealed ? "👁" : "🙈";
+      toggleVisibilityBtn.title = isRevealed ? "Hide text" : "Reveal text";
+      toggleVisibilityBtn.setAttribute("aria-label", isRevealed ? "Hide text" : "Reveal text");
+      toggleVisibilityBtn.addEventListener("click", async (event) => {
+        event.stopPropagation();
+        if (revealedTextIds.has(entry.id)) {
+          revealedTextIds.delete(entry.id);
+          revealedTextContent.delete(entry.id);
+        } else {
+          const revealed = await revealProtectedText(entry);
+          if (!revealed) {
+            return;
+          }
+        }
+        renderTextHistory(texts);
+      });
+      deleteWrap.appendChild(toggleVisibilityBtn);
+    }
 
     const deleteBtn = document.createElement("button");
     deleteBtn.type = "button";

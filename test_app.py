@@ -986,6 +986,14 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("docker build -t dassiedrop .", readme)
         self.assertIn("docker compose up -d", readme)
 
+    def test_text_history_reveal_ui_is_inline(self) -> None:
+        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('label.textContent = isMasked ? "Click to reveal" : "Click to copy"', script)
+        self.assertIn('toggleVisibilityBtn.textContent = isRevealed ? "👁" : "🙈"', script)
+        self.assertNotIn('revealHead.textContent = "Reveal"', script)
+
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "uninstall-legacy-landrop-service.sh"],
