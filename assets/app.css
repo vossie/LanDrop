@@ -139,7 +139,7 @@ h1 {
   margin: 0 auto 20px;
 }
 .hero-wordmark-link {
-  display: inline-flex;
+  display: contents;
   text-decoration: none;
 }
 .app-footer {
