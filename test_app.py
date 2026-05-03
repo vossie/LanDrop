@@ -902,7 +902,7 @@ class ScriptTests(unittest.TestCase):
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.5")
+        self.assertEqual(version, "1.0.6")
         self.assertIn("infrastructure you control", readme)
         self.assertIn("Know exactly where your data is while it is being shared", readme)
         self.assertIn("Contributor: Mark Levitt", readme)
@@ -911,9 +911,9 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("ISC licensed.", index_template)
         self.assertIn("If you are not an intended recipient or authorized user", index_template)
 
-    def test_github_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
+    def test_github_ubuntu_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
-            Path(__file__).resolve().parent / "github-install-upgrade.sh"
+            Path(__file__).resolve().parent / "github-ubuntu-install-upgrade.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
@@ -921,9 +921,29 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('if [[ ! -f "" ]]; then', script)
         self.assertIn('export "${key}=${value}"', script)
 
-    def test_github_install_upgrade_script_has_valid_bash_syntax(self) -> None:
+    def test_github_ubuntu_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
-            ["bash", "-n", "github-install-upgrade.sh"],
+            ["bash", "-n", "github-ubuntu-install-upgrade.sh"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_github_centos_stream_install_upgrade_script_mentions_dnf_and_env_file(self) -> None:
+        script = (
+            Path(__file__).resolve().parent / "github-centos-stream-install-upgrade.sh"
+        ).read_text(encoding="utf-8")
+        self.assertIn("--port", script)
+        self.assertIn('require_command dnf', script)
+        self.assertIn('dnf -y install "${package_name}"', script)
+        self.assertIn('done < "${ENV_FILE}"', script)
+        self.assertIn('ExecStart=/usr/bin/python3 ${APP_DIR}/app.py', script)
+
+    def test_github_centos_stream_install_upgrade_script_has_valid_bash_syntax(self) -> None:
+        result = subprocess.run(
+            ["bash", "-n", "github-centos-stream-install-upgrade.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
@@ -1004,7 +1024,7 @@ class ScriptTests(unittest.TestCase):
         )
         self.assertIn("function formatTime(ts)", script)
         self.assertIn("function collapsedDetailsMeta(ts, sharerName)", script)
-        self.assertIn("Saved on ${time} by ${source}", script)
+        self.assertIn("Shared at ${time} by ${source}", script)
 
     def test_live_snapshot_updates_do_not_clear_unsaved_text(self) -> None:
         script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(

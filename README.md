@@ -231,21 +231,21 @@ sudo bash ./install-ubuntu-service.sh
 Quick install from the command line with download, permissions, and run:
 
 ```bash
-curl -fsSLo github-install-upgrade.sh https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh
-chmod +x github-install-upgrade.sh
-sudo ./github-install-upgrade.sh
+curl -fsSLo github-ubuntu-install-upgrade.sh https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh
+chmod +x github-ubuntu-install-upgrade.sh
+sudo ./github-ubuntu-install-upgrade.sh
 ```
 
 Or install or upgrade directly from GitHub on the target server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo bash
 ```
 
 If the repository default branch is `main`, use:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-install-upgrade.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-ubuntu-install-upgrade.sh | sudo bash
 ```
 
 It will:
@@ -277,10 +277,32 @@ sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./install-ubuntu-service.sh
 The GitHub helper also supports overrides, and on upgrade it reuses values from `/etc/dassiedrop/dassiedrop.env` unless you explicitly override them:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
 
 Use the Ubuntu service install when you want a native host deployment with `systemd`. Use Docker when you want a more portable containerized runtime with volume-backed uploads.
+
+## Install On CentOS Stream From GitHub
+
+Install or upgrade directly on a CentOS Stream host:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo bash
+```
+
+If the repository default branch is `main`, use:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-centos-stream-install-upgrade.sh | sudo bash
+```
+
+The CentOS Stream helper installs required packages with `dnf`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you explicitly override them.
+
+Override defaults during install or upgrade:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+```
 
 ## Credits
 

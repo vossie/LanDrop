@@ -10,7 +10,7 @@ PORT_OVERRIDE=""
 
 usage() {
   cat <<'EOF'
-Usage: github-install-upgrade.sh [--port PORT]
+Usage: github-ubuntu-install-upgrade.sh [--port PORT]
 
 Options:
   --port PORT   Set the DassieDrop listen port for install or upgrade.
