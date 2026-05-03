@@ -49,7 +49,9 @@ def ensure_upload_dir() -> None:
 
 
 def uploads_index_path() -> Path:
-    return UPLOAD_DIR / ".landrop-files.json"
+    return UPLOAD_DIR / ".dassiedrop-files.json"
+
+
 
 
 def now_ts() -> float:
@@ -639,12 +641,12 @@ def render_template(name: str, replacements: dict[str, str] | None = None) -> st
 
 
 class AppHandler(BaseHTTPRequestHandler):
-    server_version = "LanDrop/1.1"
+    server_version = "DassieDrop/1.1"
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/favicon.ico":
-            self.serve_asset("landrop-favicon.svg")
+            self.serve_asset("dassiedrop-favicon.svg")
             return
 
         if parsed.path.startswith("/assets/"):
@@ -1231,7 +1233,7 @@ def main() -> None:
     host = os.environ.get("HOST", "0.0.0.0")
     port = int(os.environ.get("PORT", "8000"))
     server = ThreadingHTTPServer((host, port), AppHandler)
-    print(f"Serving LanDrop on http://{host}:{port}")
+    print(f"Serving DassieDrop on http://{host}:{port}")
     server.serve_forever()
 
 

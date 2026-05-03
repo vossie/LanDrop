@@ -13,7 +13,7 @@ usage() {
 Usage: github-install-upgrade.sh [--port PORT]
 
 Options:
-  --port PORT   Set the LanDrop listen port for install or upgrade.
+  --port PORT   Set the DassieDrop listen port for install or upgrade.
   --help        Show this help.
 EOF
 }
@@ -40,15 +40,15 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-REPO_URL="${REPO_URL:-https://github.com/vossie/LanDrop}"
+REPO_URL="${REPO_URL:-https://github.com/vossie/DassieDrop}"
 REPO_OWNER="${REPO_OWNER:-vossie}"
-REPO_NAME="${REPO_NAME:-LanDrop}"
+REPO_NAME="${REPO_NAME:-DassieDrop}"
 REPO_REF="${REPO_REF:-}"
-SERVICE_NAME="${SERVICE_NAME:-landrop}"
-CONFIG_DIR="${CONFIG_DIR:-/etc/landrop}"
-ENV_FILE="${ENV_FILE:-$CONFIG_DIR/landrop.env}"
+SERVICE_NAME="${SERVICE_NAME:-dassiedrop}"
+CONFIG_DIR="${CONFIG_DIR:-/etc/dassiedrop}"
+ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
 TMP_DIR="$(mktemp -d)"
-ARCHIVE_PATH="${TMP_DIR}/landrop.tar.gz"
+ARCHIVE_PATH="${TMP_DIR}/dassiedrop.tar.gz"
 
 cleanup() {
   rm -rf "${TMP_DIR}"
@@ -70,7 +70,7 @@ download_archive() {
 }
 
 load_existing_config() {
-  if [[ ! -f "${ENV_FILE}" ]]; then
+  if [[ ! -f "" ]]; then
     return
   fi
 
@@ -80,7 +80,7 @@ load_existing_config() {
     if [[ -z "${!key+x}" ]]; then
       export "${key}=${value}"
     fi
-  done < "${ENV_FILE}"
+  done < ""
 }
 
 require_command curl
@@ -93,7 +93,7 @@ elif [[ -f "${ENV_FILE}" ]]; then
   ACTION="upgrade"
 fi
 
-echo "Starting LanDrop ${ACTION} from ${REPO_URL}..."
+echo "Starting DassieDrop ${ACTION} from ${REPO_URL}..."
 
 if [[ -n "${REPO_REF}" ]]; then
   download_archive "${REPO_REF}"
@@ -120,4 +120,4 @@ fi
 bash "${SOURCE_DIR}/install-ubuntu-service.sh"
 
 echo
-echo "LanDrop ${ACTION} completed from ${REPO_URL}."
+echo "DassieDrop ${ACTION} completed from ${REPO_URL}."

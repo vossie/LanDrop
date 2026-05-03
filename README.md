@@ -1,30 +1,30 @@
-# LanDrop
+# DassieDrop
 
-![LanDrop wordmark](docs/landrop-wordmark-github.svg)
+![DassieDrop wordmark](docs/dassiedrop-wordmark-github.svg)
 
 Browser-based LAN file sharing, local network text sharing, and bash-friendly `curl` sharing for fast device-to-device and server-to-device transfer under your control on your own network.
 
-![LanDrop hero](docs/landrop-hero.svg)
+![DassieDrop hero](docs/dassiedrop-hero.svg)
 
-LanDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`. It works well as a local network clipboard sharing tool, a simple LAN file drop, a server-to-phone handoff tool, and a quick browser-based transfer page for phones, tablets, laptops, desktops, and Raspberry Pi boxes.
+DassieDrop is a lightweight Python web app for sharing pasted text and uploaded files between browsers on the same local network. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`. It works well as a local network clipboard sharing tool, a simple LAN file drop, a server-to-phone handoff tool, and a quick browser-based transfer page for phones, tablets, laptops, desktops, and Raspberry Pi boxes.
 
 It is especially useful at home or on a small private network when you want to move something between different operating systems without thinking about apps, cables, cloud sync, or accounts. Open the same page from Windows, macOS, Linux, iPhone, iPad, or Android on your own Wi-Fi and share text or files directly in the browser, or push data into it from a shell script on a Linux server with `curl`.
 
 The core pitch is simple: you control the app, you control the machine, and you know where the data lives. Your text and files stay on your hardware and your LAN instead of being handed to some server on the internet run by a company you are expected to trust. That matters because every extra cloud hop, vendor account, retention policy, analytics pipeline, and breach headline adds risk. If the job is just getting data from one device you own to another device you own, asking a third party to sit in the middle is often the wrong trade.
 
-![LanDrop flow](docs/landrop-flow.svg)
+![DassieDrop flow](docs/dassiedrop-flow.svg)
 
 ## Product Images
 
 ### Text Sharing
 
-![LanDrop text sharing UI](docs/landrop-product-text.svg)
+![DassieDrop text sharing UI](docs/dassiedrop-product-text.svg)
 
 ### File Sharing
 
-![LanDrop file sharing UI](docs/landrop-product-files.svg)
+![DassieDrop file sharing UI](docs/dassiedrop-product-files.svg)
 
-## Why LanDrop
+## Why DassieDrop
 
 - Share text and files across your local network from any browser
 - Share text and files from bash or shell scripts with simple `curl` commands
@@ -65,21 +65,21 @@ The core pitch is simple: you control the app, you control the machine, and you 
 
 ## Why Local Control Matters
 
-LanDrop is for people who do not want to pretend that "someone else’s server" is the same thing as privacy. When you self-host LanDrop on your own machine or a box on your own network, you decide where the app runs, who can reach it, how long data stays around, and when it gets deleted.
+DassieDrop is for people who do not want to pretend that "someone else’s server" is the same thing as privacy. When you self-host DassieDrop on your own machine or a box on your own network, you decide where the app runs, who can reach it, how long data stays around, and when it gets deleted.
 
 That is a materially different trust model from uploading notes, secrets, links, or files to a vendor platform and hoping their security, logging, retention, and staff access policies line up with your interests. If you care where your data is, who can inspect it, and which systems can leak it, local control is the feature.
 
 ## Great For Mixed Devices At Home
 
-LanDrop is built for the common home setup where devices do not all use the same operating system. If you have a Windows laptop, a MacBook, a Linux desktop, an iPhone, and an Android tablet on the same network, they can all use the same LanDrop page immediately.
+DassieDrop is built for the common home setup where devices do not all use the same operating system. If you have a Windows laptop, a MacBook, a Linux desktop, an iPhone, and an Android tablet on the same network, they can all use the same DassieDrop page immediately.
 
 Because everything runs in the browser over your own LAN, there is no need to install matching client apps on every device. That makes it useful for quick household sharing, moving text between workstations, sending downloads to phones, or opening a file from a spare machine in another room.
 
-The same setup also works well for lightweight server automation. A bash script can send plain text or upload a file to LanDrop over HTTP, then hand a short LAN link to someone on the same network. That makes it useful for server-generated access codes, local deployment notes, exported reports, or one-off file drops from a headless machine.
+The same setup also works well for lightweight server automation. A bash script can send plain text or upload a file to DassieDrop over HTTP, then hand a short LAN link to someone on the same network. That makes it useful for server-generated access codes, local deployment notes, exported reports, or one-off file drops from a headless machine.
 
 ## Quick Start
 
-Run LanDrop:
+Run DassieDrop:
 
 ```bash
 ./.venv/bin/python app.py
@@ -105,7 +105,7 @@ ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
 
 ## Configure The LAN Link Address
 
-By default, LanDrop shows share links using the browser's current origin. If you want every shared text or file link to use a specific address, set `SHARE_BASE_URL`.
+By default, DassieDrop shows share links using the browser's current origin. If you want every shared text or file link to use a specific address, set `SHARE_BASE_URL`.
 
 Example:
 
@@ -116,7 +116,7 @@ SHARE_BASE_URL=http://192.168.1.24:8000 ./.venv/bin/python app.py
 This is useful when:
 
 - you want all devices in your home to see the same fixed LAN address
-- LanDrop is behind a reverse proxy
+- DassieDrop is behind a reverse proxy
 - you do not want links generated from `127.0.0.1` on the host machine
 
 ## Test
@@ -144,7 +144,7 @@ Developer and release workflow notes are in [docs/developer-guide.md](docs/devel
 
 ## Bash And Curl Sharing
 
-LanDrop is not only a browser page. It also works as a simple LAN sharing endpoint for shell scripts and servers.
+DassieDrop is not only a browser page. It also works as a simple LAN sharing endpoint for shell scripts and servers.
 
 Share plain text from bash:
 
@@ -181,7 +181,7 @@ sudo bash ./install-ubuntu-service.sh
 Quick install from the command line with download, permissions, and run:
 
 ```bash
-curl -fsSLo github-install-upgrade.sh https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh
+curl -fsSLo github-install-upgrade.sh https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh
 chmod +x github-install-upgrade.sh
 sudo ./github-install-upgrade.sh
 ```
@@ -189,21 +189,21 @@ sudo ./github-install-upgrade.sh
 Or install or upgrade directly from GitHub on the target server:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo bash
 ```
 
 If the repository default branch is `main`, use:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/main/github-install-upgrade.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-install-upgrade.sh | sudo bash
 ```
 
 It will:
 
-- create a system user and group named `landrop`
-- install the app into `/opt/landrop`
-- store uploads in `/var/lib/landrop/uploads`
-- write config to `/etc/landrop/landrop.env`
+- create a system user and group named `dassiedrop`
+- install the app into `/opt/dassiedrop`
+- store uploads in `/var/lib/dassiedrop/uploads`
+- write config to `/etc/dassiedrop/dassiedrop.env`
 - create and enable a `systemd` service that starts on boot
 
 Override defaults during install:
@@ -224,24 +224,24 @@ You can also set the share link base address during install:
 sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./install-ubuntu-service.sh
 ```
 
-The GitHub helper also supports overrides, and on upgrade it reuses values from `/etc/landrop/landrop.env` unless you explicitly override them:
+The GitHub helper also supports overrides, and on upgrade it reuses values from `/etc/dassiedrop/dassiedrop.env` unless you explicitly override them:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
 
 Or use the explicit setup flag:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/LanDrop/master/github-install-upgrade.sh | sudo bash -s -- --port 8080
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-install-upgrade.sh | sudo bash -s -- --port 8080
 ```
 
 Useful service commands:
 
 ```bash
-sudo systemctl status landrop
-sudo systemctl restart landrop
-sudo journalctl -u landrop -f
+sudo systemctl status dassiedrop
+sudo systemctl restart dassiedrop
+sudo journalctl -u dassiedrop -f
 ```
 
 Uninstall while keeping uploads and the service user:
@@ -256,6 +256,12 @@ Remove persisted uploads and the service account too:
 sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./uninstall-ubuntu-service.sh
 ```
 
+If you still have an old LanDrop deployment to remove separately, use the legacy cleanup script:
+
+```bash
+sudo bash ./uninstall-legacy-landrop-service.sh
+```
+
 ## Notes
 
 - Text history is stored in memory while the process is running.
@@ -266,7 +272,7 @@ sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./uninstall-ubuntu-service.sh
 
 ## License
 
-LanDrop is released under the ISC license, the compact permissive license widely associated with OpenBSD.
+DassieDrop is released under the ISC license, the compact permissive license widely associated with OpenBSD.
 
 - Developer: Carel Vosloo
 - Copyright: Copyright (c) 2026 Carel Vosloo
@@ -277,4 +283,4 @@ See [LICENSE](LICENSE) for the full text.
 
 ## Search-Friendly Summary
 
-If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, a cross-platform home network sharing tool, a bash `curl` file sharing endpoint, a shell-script text sharing API, or a simple self-hosted text and file drop for devices on the same Wi-Fi network where you control the server and know exactly where the data is, LanDrop is built for that exact workflow.
+If you are looking for a LAN file sharing tool, a browser-based local network file transfer app, a local clipboard sharing page, a cross-platform home network sharing tool, a bash `curl` file sharing endpoint, a shell-script text sharing API, or a simple self-hosted text and file drop for devices on the same Wi-Fi network where you control the server and know exactly where the data is, DassieDrop is built for that exact workflow.

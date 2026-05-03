@@ -13,7 +13,7 @@ usage() {
 Usage: install-ubuntu-service.sh [--port PORT]
 
 Options:
-  --port PORT   Set the LanDrop listen port for this install.
+  --port PORT   Set the DassieDrop listen port for this install.
   --help        Show this help.
 EOF
 }
@@ -40,13 +40,13 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-SERVICE_NAME="${SERVICE_NAME:-landrop}"
-SERVICE_USER="${SERVICE_USER:-landrop}"
-SERVICE_GROUP="${SERVICE_GROUP:-landrop}"
-APP_DIR="${APP_DIR:-/opt/landrop}"
-DATA_DIR="${DATA_DIR:-/var/lib/landrop}"
-CONFIG_DIR="${CONFIG_DIR:-/etc/landrop}"
-ENV_FILE="${ENV_FILE:-$CONFIG_DIR/landrop.env}"
+SERVICE_NAME="${SERVICE_NAME:-dassiedrop}"
+SERVICE_USER="${SERVICE_USER:-dassiedrop}"
+SERVICE_GROUP="${SERVICE_GROUP:-dassiedrop}"
+APP_DIR="${APP_DIR:-/opt/dassiedrop}"
+DATA_DIR="${DATA_DIR:-/var/lib/dassiedrop}"
+CONFIG_DIR="${CONFIG_DIR:-/etc/dassiedrop}"
+ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
 SYSTEMD_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -136,7 +136,7 @@ chown root:"${SERVICE_GROUP}" "${ENV_FILE}"
 
 cat > "${SYSTEMD_UNIT}" <<EOF
 [Unit]
-Description=LanDrop web app
+Description=DassieDrop web app
 After=network.target
 
 [Service]

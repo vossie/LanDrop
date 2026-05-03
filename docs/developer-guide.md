@@ -2,7 +2,7 @@
 
 ## Overview
 
-LanDrop is a small Python application with:
+DassieDrop is a small Python application with:
 
 - `app.py` for the HTTP server and API
 - `templates/` for HTML

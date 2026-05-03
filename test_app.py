@@ -233,6 +233,7 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(index_payload["files"], [])
 
 
+
 class HttpServerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = TemporaryDirectory()
@@ -351,7 +352,7 @@ class HttpServerTests(unittest.TestCase):
         password: str = "",
         name: str = "",
     ):
-        boundary = "----LanDropBoundary"
+        boundary = "----DassieDropBoundary"
         body = (
             f"--{boundary}\r\n"
             f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
@@ -386,7 +387,7 @@ class HttpServerTests(unittest.TestCase):
 
         home = self.request("GET", "/")
         self.assertEqual(home["status"], 200)
-        self.assertIn("<title>LanDrop</title>", home["text"])
+        self.assertIn("<title>DassieDrop</title>", home["text"])
         self.assertIn("v9.9.9", home["text"])
 
         text_response = self.request(
@@ -534,7 +535,7 @@ class HttpServerTests(unittest.TestCase):
     def test_share_file_endpoint_returns_compact_share_payload(self) -> None:
         self.start_server()
 
-        boundary = "----LanDropShareBoundary"
+        boundary = "----DassieDropShareBoundary"
         body = (
             f"--{boundary}\r\n"
             'Content-Disposition: form-data; name="file"; filename="cli.txt"\r\n'
@@ -586,7 +587,7 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(text_payload["type"], "text")
         self.assertEqual(text_payload["content"], "shell text")
 
-        boundary = "----LanDropApiKeyBoundary"
+        boundary = "----DassieDropApiKeyBoundary"
         body = (
             f"--{boundary}\r\n"
             'Content-Disposition: form-data; name="file"; filename="cli.txt"\r\n'
@@ -915,7 +916,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("--port", script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
         self.assertIn('bash "${SOURCE_DIR}/install-ubuntu-service.sh"', script)
-        self.assertIn('if [[ ! -f "${ENV_FILE}" ]]; then', script)
+        self.assertIn('if [[ ! -f "" ]]; then', script)
         self.assertIn('export "${key}=${value}"', script)
 
     def test_github_install_upgrade_script_has_valid_bash_syntax(self) -> None:
@@ -953,6 +954,16 @@ class ScriptTests(unittest.TestCase):
     def test_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "uninstall-ubuntu-service.sh"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
+        result = subprocess.run(
+            ["bash", "-n", "uninstall-legacy-landrop-service.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,

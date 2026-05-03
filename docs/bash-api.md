@@ -1,6 +1,6 @@
 # Bash API Help
 
-LanDrop exposes two bash-friendly endpoints for automation:
+DassieDrop exposes two bash-friendly endpoints for automation:
 
 - `POST /api/share-text`
 - `POST /api/share-file`
@@ -96,7 +96,7 @@ curl -sS \
 
 ## Access Code
 
-If LanDrop is protected by an access code, the simplest bash option is to send it as `X-API-Key`:
+If DassieDrop is protected by an access code, the simplest bash option is to send it as `X-API-Key`:
 
 ```bash
 curl -sS \

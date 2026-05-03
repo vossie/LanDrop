@@ -6,13 +6,13 @@ if [[ "${EUID}" -ne 0 ]]; then
   exit 1
 fi
 
-SERVICE_NAME="${SERVICE_NAME:-landrop}"
-SERVICE_USER="${SERVICE_USER:-landrop}"
-SERVICE_GROUP="${SERVICE_GROUP:-landrop}"
-APP_DIR="${APP_DIR:-/opt/landrop}"
-DATA_DIR="${DATA_DIR:-/var/lib/landrop}"
-CONFIG_DIR="${CONFIG_DIR:-/etc/landrop}"
-ENV_FILE="${ENV_FILE:-$CONFIG_DIR/landrop.env}"
+SERVICE_NAME="${SERVICE_NAME:-dassiedrop}"
+SERVICE_USER="${SERVICE_USER:-dassiedrop}"
+SERVICE_GROUP="${SERVICE_GROUP:-dassiedrop}"
+APP_DIR="${APP_DIR:-/opt/dassiedrop}"
+DATA_DIR="${DATA_DIR:-/var/lib/dassiedrop}"
+CONFIG_DIR="${CONFIG_DIR:-/etc/dassiedrop}"
+ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
 SYSTEMD_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
 REMOVE_DATA="${REMOVE_DATA:-0}"
 REMOVE_USER="${REMOVE_USER:-0}"
