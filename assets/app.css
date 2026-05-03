@@ -603,7 +603,7 @@ input[type="file"] {
   padding: 18px;
   text-align: center;
   color: var(--muted);
-  background: rgba(255, 255, 255, 0.85);
+  background: #fff4a82b;
   transition: border-color 120ms ease, background 120ms ease, color 120ms ease;
 }
 .dropzone.active {
