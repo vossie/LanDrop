@@ -181,6 +181,9 @@ textarea, .rich-editor {
   font: inherit;
   color: var(--ink);
 }
+#sharedText {
+  border-color: rgba(6, 26, 58, 0.5);
+}
 .rich-editor {
   overflow: auto;
   white-space: pre-wrap;
