@@ -70,6 +70,7 @@ h1 {
   font-size: 0.94rem;
   line-height: 1.35;
   margin: 0;
+  padding-top: 10px;
 }
 .hero-input-row {
   flex: 0 1 280px;
@@ -494,7 +495,14 @@ input[type="file"] {
   animation: copiedFlash 1.25s ease;
 }
 .text-card.masked {
+  display: flex;
+  align-items: center;
   letter-spacing: 0.04em;
+  min-height: 40px;
+  line-height: 1.65;
+  padding-top: 7px;
+  padding-bottom: 3px;
+  padding-left: 12px;
 }
 @keyframes copiedFlash {
   0% {
