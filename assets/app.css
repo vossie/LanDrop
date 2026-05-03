@@ -281,12 +281,14 @@ input[type="file"] {
   list-style: none;
 }
 .history-item {
-  border-top: 1px solid var(--line);
-  padding: 14px 0;
+  margin-top: 12px;
+  padding: 14px;
+  border: 1px solid rgba(6, 26, 58, 0.5);
+  border-radius: 18px;
+  background: #fbfcfe;
 }
 .history-item:first-child {
-  border-top: 0;
-  padding-top: 0;
+  margin-top: 0;
 }
 .history-head {
   display: block;
@@ -363,6 +365,7 @@ input[type="file"] {
   color: var(--ink);
   font-size: 0.92rem;
   font-weight: 400;
+  font-style: italic;
 }
 .copied-pill {
   display: inline-flex;
@@ -383,7 +386,7 @@ input[type="file"] {
   overflow: hidden;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: #fbfcfe;
+  background: #ffffff;
 }
 .entry-table th,
 .entry-table td {
@@ -462,7 +465,7 @@ input[type="file"] {
   margin-bottom: 12px;
   border: 1px solid var(--line);
   border-radius: 16px;
-  background: #fbfcfe;
+  background: #ffffff;
   overflow: hidden;
 }
 .entry-accordion summary {
@@ -498,7 +501,7 @@ input[type="file"] {
   display: block;
   width: 100%;
   min-height: 0;
-  max-height: 22rem;
+  max-height: 14.5rem;
   overflow: auto;
   margin-top: 0;
   border: 1px solid var(--line);
