@@ -237,6 +237,10 @@ button:hover, .file-label:hover, .file-link:hover {
   align-items: flex-start;
   gap: 12px;
 }
+.text-controls-row {
+  align-items: center;
+  gap: 12px;
+}
 .checkbox-row {
   display: inline-flex;
   align-items: center;
@@ -255,6 +259,13 @@ button:hover, .file-label:hover, .file-link:hover {
 }
 .hidden-options.visible {
   display: block;
+}
+.text-controls-row .hidden-options {
+  width: auto;
+  flex: 1 1 320px;
+}
+.text-controls-row .inline-input {
+  width: 100%;
 }
 .inline-input {
   width: min(100%, 320px);
@@ -635,6 +646,13 @@ input[type="file"] {
     flex-basis: 100%;
   }
   .hero-input-row .inline-input {
+    width: 100%;
+  }
+  .text-controls-row {
+    align-items: stretch;
+  }
+  .text-controls-row .hidden-options {
+    flex-basis: 100%;
     width: 100%;
   }
   .app-footer {
