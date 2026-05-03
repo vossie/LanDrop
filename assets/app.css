@@ -271,6 +271,9 @@ button:hover, .file-label:hover, .file-link:hover {
 .text-controls-row .inline-input {
   width: 100%;
 }
+.text-controls-row .file-label {
+  flex: 0 0 auto;
+}
 .inline-input {
   width: min(100%, 320px);
   border: 1px solid var(--line);

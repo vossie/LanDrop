@@ -57,12 +57,10 @@
         <h2>Share Files</h2>
         <div class="meta">Uploaded files stay available for 24 hours unless deleted earlier.</div>
       </div>
-      <div class="row">
+      <div class="dropzone" id="dropZone">Drag and drop a file here</div>
+      <div class="row text-controls-row">
         <label class="file-label" for="fileInput">Choose File</label>
         <input id="fileInput" type="file">
-        <button id="uploadBtn" type="button">Upload File</button>
-      </div>
-      <div class="row stack">
         <label class="checkbox-row" for="hiddenFile">
           <input id="hiddenFile" type="checkbox">
           <span>Hidden file</span>
@@ -71,7 +69,6 @@
           <input id="filePassword" class="inline-input" type="password" placeholder="Password required for hidden files">
         </div>
       </div>
-      <div class="dropzone" id="dropZone">Drag and drop a file here</div>
       <div class="status" id="fileStatus"></div>
       <ul class="history-list" id="fileList"></ul>
     </article>

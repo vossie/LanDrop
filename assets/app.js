@@ -16,7 +16,6 @@ const fileInput = document.getElementById("fileInput");
 const hiddenFile = document.getElementById("hiddenFile");
 const fileHiddenOptions = document.getElementById("fileHiddenOptions");
 const filePassword = document.getElementById("filePassword");
-const uploadBtn = document.getElementById("uploadBtn");
 const textMeta = document.getElementById("textMeta");
 const textStatus = document.getElementById("textStatus");
 const fileStatus = document.getElementById("fileStatus");
@@ -891,7 +890,6 @@ textTabBtn.addEventListener("click", () => setActiveTab("text"));
 fileTabBtn.addEventListener("click", () => setActiveTab("file"));
 textPanel.addEventListener("click", clearActiveTabIndicator);
 filePanel.addEventListener("click", clearActiveTabIndicator);
-uploadBtn.addEventListener("click", () => uploadFile());
 fileInput.addEventListener("change", () => {
   if (fileInput.files && fileInput.files.length > 0) {
     uploadFile();
