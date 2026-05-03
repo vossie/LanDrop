@@ -1,6 +1,6 @@
 # DassieDrop
 
-![DassieDrop wordmark](docs/dassiedrop-wordmark-github.svg)
+![DassieDrop wordmark](brand/images/DassieDrop-full-text-logo.png)
 
 Real dassies share the same “drop zone” for generations.
 DassieDrop does the same thing, except ours transfers files instead of creating a wildlife documentary problem.
