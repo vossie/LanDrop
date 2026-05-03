@@ -472,9 +472,6 @@ function renderTextHistory(texts) {
     head.appendChild(metaAccordion);
     head.appendChild(infoTable);
 
-    const bodyRow = document.createElement("div");
-    bodyRow.className = "text-row";
-
     const cardWrap = document.createElement("div");
     cardWrap.className = "text-card-wrap";
 
@@ -503,6 +500,9 @@ function renderTextHistory(texts) {
       body.textContent = revealedTextContent.get(entry.id) ?? entry.content ?? "";
     }
 
+    const contentRow = document.createElement("div");
+    contentRow.className = "text-card-row";
+
     const deleteWrap = document.createElement("div");
     deleteWrap.className = "text-card-actions";
 
@@ -515,19 +515,14 @@ function renderTextHistory(texts) {
       deleteText(entry.id);
     });
 
-    const deleteLabel = document.createElement("div");
-    deleteLabel.className = "text-delete-label";
-    deleteLabel.textContent = "Delete";
-
     cardWrap.appendChild(label);
-    cardWrap.appendChild(body);
+    contentRow.appendChild(body);
     deleteWrap.appendChild(deleteBtn);
-    deleteWrap.appendChild(deleteLabel);
-    bodyRow.appendChild(cardWrap);
-    bodyRow.appendChild(deleteWrap);
+    contentRow.appendChild(deleteWrap);
+    cardWrap.appendChild(contentRow);
 
     li.appendChild(head);
-    li.appendChild(bodyRow);
+    li.appendChild(cardWrap);
     textHistory.appendChild(li);
   }
 }
