@@ -471,13 +471,24 @@ input[type="file"] {
 .entry-accordion summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   cursor: pointer;
   list-style: none;
   padding: 12px 14px;
   color: var(--muted);
   font-size: 0.9rem;
   font-weight: 700;
+}
+.entry-accordion-summary {
+  flex: 0 0 auto;
+}
+.entry-accordion-meta {
+  color: var(--muted);
+  font-size: 0.86rem;
+  font-weight: 500;
+}
+.entry-accordion[open] .entry-accordion-meta {
+  display: none;
 }
 .entry-accordion summary::-webkit-details-marker {
   display: none;
@@ -486,6 +497,7 @@ input[type="file"] {
   content: "+";
   color: var(--accent);
   font-size: 1rem;
+  margin-left: auto;
 }
 .entry-accordion[open] summary::after {
   content: "-";

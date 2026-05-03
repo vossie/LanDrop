@@ -106,6 +106,14 @@ function formatDate(ts) {
   return new Date(ts * 1000).toLocaleString();
 }
 
+function formatTime(ts) {
+  if (!ts) return "";
+  return new Date(ts * 1000).toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit"
+  });
+}
+
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
@@ -113,7 +121,7 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(1)} GB`;
 }
 
-function buildAccordionTable(summaryLabel, rows, stateStore, stateKey) {
+function buildAccordionTable(summaryLabel, rows, stateStore, stateKey, collapsedMeta = "") {
   const details = document.createElement("details");
   details.className = "entry-accordion";
   details.addEventListener("click", (event) => {
@@ -127,7 +135,17 @@ function buildAccordionTable(summaryLabel, rows, stateStore, stateKey) {
   });
 
   const summary = document.createElement("summary");
-  summary.textContent = summaryLabel;
+  const summaryText = document.createElement("span");
+  summaryText.className = "entry-accordion-summary";
+  summaryText.textContent = summaryLabel;
+  summary.appendChild(summaryText);
+
+  if (collapsedMeta) {
+    const summaryMeta = document.createElement("span");
+    summaryMeta.className = "entry-accordion-meta";
+    summaryMeta.textContent = collapsedMeta;
+    summary.appendChild(summaryMeta);
+  }
 
   const table = document.createElement("table");
   table.className = "entry-table entry-table-compact";
@@ -419,7 +437,7 @@ function renderTextHistory(texts) {
       savedRow,
       fromRow,
       expiresRow
-    ], textAccordionState, entry.id);
+    ], textAccordionState, entry.id, `Saved ${formatTime(entry.created_at)}`);
 
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";
@@ -585,7 +603,7 @@ function renderFiles(files) {
       fromRow,
       uploadedRow,
       expiresRow
-    ], fileAccordionState, file.id);
+    ], fileAccordionState, file.id, `Uploaded ${formatTime(file.created_at)}`);
 
     const infoTable = document.createElement("table");
     infoTable.className = "entry-table";

@@ -998,6 +998,13 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('toggleVisibilityBtn.textContent = isRevealed ? "👁" : "🙈"', script)
         self.assertNotIn('revealHead.textContent = "Reveal"', script)
 
+    def test_collapsed_details_summary_includes_saved_time(self) -> None:
+        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("function formatTime(ts)", script)
+        self.assertIn('`Saved ${formatTime(entry.created_at)}`', script)
+
     def test_live_snapshot_updates_do_not_clear_unsaved_text(self) -> None:
         script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
             encoding="utf-8"
