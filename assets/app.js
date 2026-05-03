@@ -141,10 +141,12 @@ function buildAccordionTable(summaryLabel, rows, stateStore, stateKey, collapsed
   });
 
   const summary = document.createElement("summary");
-  const summaryText = document.createElement("span");
-  summaryText.className = "entry-accordion-summary";
-  summaryText.textContent = summaryLabel;
-  summary.appendChild(summaryText);
+  if (summaryLabel) {
+    const summaryText = document.createElement("span");
+    summaryText.className = "entry-accordion-summary";
+    summaryText.textContent = summaryLabel;
+    summary.appendChild(summaryText);
+  }
 
   if (collapsedMeta) {
     const summaryMeta = document.createElement("span");
@@ -439,7 +441,7 @@ function renderTextHistory(texts) {
     expiresRow.appendChild(expiresHead);
     expiresRow.appendChild(expiresValue);
 
-    const metaAccordion = buildAccordionTable("Details", [
+    const metaAccordion = buildAccordionTable("", [
       savedRow,
       fromRow,
       expiresRow
@@ -449,10 +451,9 @@ function renderTextHistory(texts) {
     infoTable.className = "entry-table";
     const linkRow = document.createElement("tr");
     linkRow.className = "link-row";
-    const linkHead = document.createElement("th");
-    linkHead.textContent = "LAN link";
     const linkValue = document.createElement("td");
     linkValue.className = "link-cell";
+    linkValue.colSpan = 2;
     linkValue.appendChild(
       buildShareLinkCell(
         lanShareUrl(entry.short_code),
@@ -461,7 +462,6 @@ function renderTextHistory(texts) {
         entry.password_required
       )
     );
-    linkRow.appendChild(linkHead);
     linkRow.appendChild(linkValue);
 
     infoTable.appendChild(linkRow);
@@ -571,11 +571,9 @@ function renderFiles(files) {
     name.className = "file-name";
     name.textContent = file.name;
     const sizeRow = document.createElement("tr");
-    const sizeHead = document.createElement("th");
-    sizeHead.textContent = "Size";
     const sizeValue = document.createElement("td");
+    sizeValue.colSpan = 2;
     sizeValue.textContent = formatSize(file.size);
-    sizeRow.appendChild(sizeHead);
     sizeRow.appendChild(sizeValue);
 
     const fromRow = document.createElement("tr");
@@ -605,7 +603,7 @@ function renderFiles(files) {
     expiresRow.appendChild(expiresHead);
     expiresRow.appendChild(expiresValue);
 
-    const metaAccordion = buildAccordionTable("Details", [
+    const metaAccordion = buildAccordionTable("", [
       fromRow,
       uploadedRow,
       expiresRow
@@ -615,10 +613,9 @@ function renderFiles(files) {
     infoTable.className = "entry-table";
     const linkRow = document.createElement("tr");
     linkRow.className = "link-row";
-    const linkHead = document.createElement("th");
-    linkHead.textContent = "LAN link";
     const linkValue = document.createElement("td");
     linkValue.className = "link-cell";
+    linkValue.colSpan = 2;
     linkValue.appendChild(
       buildShareLinkCell(
         lanShareUrl(file.short_code),
@@ -627,18 +624,15 @@ function renderFiles(files) {
         file.password_required
       )
     );
-    linkRow.appendChild(linkHead);
     linkRow.appendChild(linkValue);
 
     infoTable.appendChild(sizeRow);
     infoTable.appendChild(linkRow);
     if (file.password_required) {
       const accessRow = document.createElement("tr");
-      const accessHead = document.createElement("th");
-      accessHead.textContent = "Access";
       const accessValue = document.createElement("td");
+      accessValue.colSpan = 2;
       accessValue.textContent = "Password protected";
-      accessRow.appendChild(accessHead);
       accessRow.appendChild(accessValue);
       infoTable.appendChild(accessRow);
     }

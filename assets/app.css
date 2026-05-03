@@ -337,6 +337,10 @@ input[type="file"] {
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
+.history-item.copyable .entry-accordion-summary,
+.history-item.copyable .entry-table .link-row th {
+  display: none;
+}
 @media (hover: hover) and (pointer: fine) {
   .history-item.copyable:hover .text-card {
     border-color: #0b2e63;
@@ -604,6 +608,10 @@ input[type="file"] {
   align-items: flex-start;
   gap: 16px;
 }
+.file-card-top > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
 .file-card-actions {
   display: flex;
   align-items: center;
@@ -672,6 +680,19 @@ input[type="file"] {
   }
   .file-card-top {
     flex-direction: column;
+  }
+  .entry-accordion summary {
+    align-items: flex-start;
+  }
+  .file-card .entry-accordion-summary,
+  .file-card .entry-table th {
+    display: none;
+  }
+  .entry-accordion-meta {
+    white-space: normal;
+    overflow: visible;
+    text-overflow: clip;
+    line-height: 1.35;
   }
   .file-card-actions {
     margin-left: 0;
