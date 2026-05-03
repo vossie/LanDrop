@@ -2,9 +2,8 @@
 
 ![DassieDrop wordmark](docs/dassiedrop-wordmark-github.svg)
 
-Real dassies famously use communal toilet areas and return to the same cliff face for generations. So in a weirdly accurate way, DassieDrop literally references creatures repeatedly dropping things in the same place together.
-
-It is memorable, slightly ridiculous, and exactly the kind of name a local-first sharing tool should have.
+Real dassies share the same “drop zone” for generations.
+DassieDrop does the same thing, except ours transfers files instead of creating a wildlife documentary problem.
 
 DassieDrop is a lightweight Python web app for sharing text and files across your own network. Open it in a browser, paste text or upload a file, and hand the result to another device on the same LAN. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`.
 
