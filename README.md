@@ -296,7 +296,7 @@ If the repository default branch is `main`, use:
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-centos-stream-install-upgrade.sh | sudo bash
 ```
 
-The CentOS Stream helper installs required packages with `dnf`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you explicitly override them.
+The CentOS Stream helper installs required packages with `dnf`, upgrades the runtime to `python3.11`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you explicitly override them.
 
 Override defaults during install or upgrade:
 

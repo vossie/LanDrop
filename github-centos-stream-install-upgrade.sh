@@ -52,6 +52,7 @@ DATA_DIR="${DATA_DIR:-/var/lib/dassiedrop}"
 CONFIG_DIR="${CONFIG_DIR:-/etc/dassiedrop}"
 ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
 SYSTEMD_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
+PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"
 TMP_DIR="$(mktemp -d)"
 ARCHIVE_PATH="${TMP_DIR}/dassiedrop.tar.gz"
 
@@ -98,9 +99,10 @@ load_existing_config() {
 
 ensure_package curl curl
 ensure_package tar tar
-ensure_package python3 python3
+ensure_package python3.11 python3.11
 require_command dnf
 require_command systemctl
+require_command "${PYTHON_BIN}"
 
 ACTION="install"
 if systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE_NAME}\\.service"; then
@@ -212,7 +214,7 @@ User=${SERVICE_USER}
 Group=${SERVICE_GROUP}
 WorkingDirectory=${APP_DIR}
 EnvironmentFile=${ENV_FILE}
-ExecStart=/usr/bin/python3 ${APP_DIR}/app.py
+ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py
 Restart=on-failure
 RestartSec=3
 NoNewPrivileges=true
