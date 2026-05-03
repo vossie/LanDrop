@@ -35,17 +35,6 @@ DassieDrop is especially good at:
 
 ![DassieDrop file sharing UI](docs/files-screenshot.png)
 
-## Why The Name Works
-
-Dassies are highly social animals. They live in groups, communicate constantly, stay close to their community, and share safe spaces together. That makes them a surprisingly good metaphor for nearby trust and lightweight local sharing.
-
-DassieDrop is about:
-
-- Fast local communication
-- Trust within a shared environment
-- Lightweight movement between nearby devices
-- Community over cloud dependency
-
 ## Why DassieDrop
 
 - Share text and files across your local network from any browser
