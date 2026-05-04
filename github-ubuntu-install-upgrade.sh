@@ -80,7 +80,7 @@ download_archive() {
 }
 
 load_existing_config() {
-  if [[ ! -f "" ]]; then
+  if [[ ! -f "${ENV_FILE}" ]]; then
     return
   fi
 
@@ -90,7 +90,7 @@ load_existing_config() {
     if [[ -z "${!key+x}" ]]; then
       export "${key}=${value}"
     fi
-  done < ""
+  done < "${ENV_FILE}"
 }
 
 require_command curl

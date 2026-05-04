@@ -1060,7 +1060,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('ensure_package python3.11 python3.11', script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
         self.assertIn('bash "${SOURCE_DIR}/install-ubuntu-service.sh"', script)
-        self.assertIn('if [[ ! -f "" ]]; then', script)
+        self.assertIn('if [[ ! -f "${ENV_FILE}" ]]; then', script)
+        self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('export "${key}=${value}"', script)
 
     def test_github_ubuntu_install_upgrade_script_has_valid_bash_syntax(self) -> None:
