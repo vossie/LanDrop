@@ -15,9 +15,7 @@ import app
 
 def reset_app_state() -> None:
     with app.state_lock:
-        app.shared_state["updated_at"] = 0.0
-        app.shared_state["texts"] = []
-        app.shared_state["files"] = []
+        app.shared_state["workspaces"] = {}
     with app.session_lock:
         app.authorized_sessions.clear()
     app.stop_background_tasks()
@@ -29,11 +27,13 @@ class AppStateTests(unittest.TestCase):
         self.original_upload_dir = app.UPLOAD_DIR
         self.original_access_code = app.ACCESS_CODE
         self.original_share_base_url = app.SHARE_BASE_URL
+        self.original_workspace_super_password = app.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = app.now_ts
         self.original_version_file = app.VERSION_FILE
         app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         app.ACCESS_CODE = ""
         app.SHARE_BASE_URL = ""
+        app.WORKSPACE_SUPER_PASSWORD = ""
         app.now_ts = self.fake_now
         app.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         app.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -46,6 +46,7 @@ class AppStateTests(unittest.TestCase):
         app.UPLOAD_DIR = self.original_upload_dir
         app.ACCESS_CODE = self.original_access_code
         app.SHARE_BASE_URL = self.original_share_base_url
+        app.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
         app.now_ts = self.original_now_ts
         app.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -92,6 +93,10 @@ class AppStateTests(unittest.TestCase):
                 os.environ.pop("APP_VERSION", None)
             else:
                 os.environ["APP_VERSION"] = original_value
+
+    def test_compact_workspace_name_limits_header_label_to_16_characters(self) -> None:
+        self.assertEqual(app.compact_workspace_name("1234567890abcdefXYZ"), "1234567890abcdef")
+        self.assertEqual(app.compact_workspace_name("  Demo Workspace  "), "Demo Workspace")
 
     def test_text_entries_can_be_marked_hidden(self) -> None:
         app.add_text_entry("secret", hidden=True)
@@ -147,6 +152,26 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(snapshot["files"], [])
         self.assertFalse(expired_file.exists())
 
+    def test_inactive_non_default_workspace_is_deleted_after_24_hours(self) -> None:
+        workspace = app.create_workspace("Old Workspace")
+
+        self.current_time += app.EXPIRY_SECONDS + 1
+
+        listed = app.list_workspaces()
+
+        self.assertNotIn(workspace["id"], {item["id"] for item in listed})
+
+    def test_workspace_snapshot_access_keeps_workspace_active(self) -> None:
+        workspace = app.create_workspace("Active Workspace")
+
+        self.current_time += app.EXPIRY_SECONDS - 10
+        app.get_snapshot(workspace["id"])
+        self.current_time += 20
+
+        listed = app.list_workspaces()
+
+        self.assertIn(workspace["id"], {item["id"] for item in listed})
+
     def test_text_history_is_capped_at_200_newest_entries(self) -> None:
         for index in range(app.MAX_TEXT_HISTORY + 5):
             app.add_text_entry(f"text-{index}")
@@ -200,8 +225,7 @@ class AppStateTests(unittest.TestCase):
         original_entry = original_snapshot["files"][0]
 
         with app.state_lock:
-            app.shared_state["files"] = []
-            app.shared_state["updated_at"] = 0.0
+            app.shared_state["workspaces"] = {}
 
         app.load_persisted_files()
 
@@ -224,14 +248,31 @@ class AppStateTests(unittest.TestCase):
         target.unlink()
 
         with app.state_lock:
-            app.shared_state["files"] = []
-            app.shared_state["updated_at"] = 0.0
+            app.shared_state["workspaces"] = {}
 
         app.load_persisted_files()
 
         self.assertEqual(app.get_snapshot()["files"], [])
         index_payload = json.loads(app.uploads_index_path().read_text(encoding="utf-8"))
-        self.assertEqual(index_payload["files"], [])
+        self.assertEqual(index_payload["workspaces"][0]["files"], [])
+
+    def test_can_create_enter_and_delete_workspace_with_super_password(self) -> None:
+        workspace = app.create_workspace("Secure", password="vault")
+        session_id = app.create_authorized_session()
+
+        ok, message = app.enter_workspace(session_id, workspace["id"], password="wrong")
+        self.assertFalse(ok)
+        self.assertEqual(message, "Wrong workspace password")
+
+        ok, message = app.enter_workspace(session_id, workspace["id"], password="vault")
+        self.assertTrue(ok)
+        self.assertEqual(message, "")
+
+        app.WORKSPACE_SUPER_PASSWORD = "override"
+        deleted, delete_message = app.delete_workspace(workspace["id"], password="override")
+        self.assertTrue(deleted)
+        self.assertEqual(delete_message, "")
+        self.assertNotIn(workspace["id"], {item["id"] for item in app.list_workspaces()})
 
 
 
@@ -241,11 +282,13 @@ class HttpServerTests(unittest.TestCase):
         self.original_upload_dir = app.UPLOAD_DIR
         self.original_access_code = app.ACCESS_CODE
         self.original_share_base_url = app.SHARE_BASE_URL
+        self.original_workspace_super_password = app.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = app.now_ts
         self.original_version_file = app.VERSION_FILE
         self.current_time = 1_700_100_000.0
         app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         app.SHARE_BASE_URL = ""
+        app.WORKSPACE_SUPER_PASSWORD = ""
         app.now_ts = self.fake_now
         app.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         app.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -264,6 +307,7 @@ class HttpServerTests(unittest.TestCase):
         app.UPLOAD_DIR = self.original_upload_dir
         app.ACCESS_CODE = self.original_access_code
         app.SHARE_BASE_URL = self.original_share_base_url
+        app.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
         app.now_ts = self.original_now_ts
         app.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -296,6 +340,14 @@ class HttpServerTests(unittest.TestCase):
         }
         connection.close()
         return result
+
+    def select_workspace(self, cookie: str, workspace_id: str = app.DEFAULT_WORKSPACE_ID, password: str = ""):
+        return self.request(
+            "POST",
+            f"/api/workspaces/{workspace_id}/enter",
+            body=json.dumps({"password": password}).encode("utf-8"),
+            headers={"Content-Type": "application/json", "Cookie": cookie},
+        )
 
     def open_websocket(self, cookie: str | None = None):
         connection = socket.create_connection(("127.0.0.1", self.port), timeout=5)
@@ -387,9 +439,8 @@ class HttpServerTests(unittest.TestCase):
         self.start_server()
 
         home = self.request("GET", "/")
-        self.assertEqual(home["status"], 200)
-        self.assertIn("<title>DassieDrop</title>", home["text"])
-        self.assertIn("v9.9.9", home["text"])
+        self.assertEqual(home["status"], 303)
+        self.assertEqual(home["headers"]["Location"], "/workspaces")
 
         text_response = self.request(
             "POST",
@@ -497,8 +548,10 @@ class HttpServerTests(unittest.TestCase):
 
         home = self.request("GET", "/")
 
-        self.assertEqual(home["status"], 200)
-        self.assertIn('const configuredShareBaseUrl = "http://192.168.1.24:8000";', home["text"])
+        self.assertEqual(home["status"], 303)
+        workspace_page = self.request("GET", "/workspaces", headers={"Cookie": home["headers"]["Set-Cookie"].split(";", 1)[0]})
+        self.assertEqual(workspace_page["status"], 200)
+        self.assertIn("Choose a workspace", workspace_page["text"])
 
     def test_text_share_returns_plain_text(self) -> None:
         self.start_server()
@@ -752,6 +805,15 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(login["status"], 200)
         cookie = login["headers"]["Set-Cookie"].split(";", 1)[0]
 
+        workspace_list = self.request("GET", "/api/workspaces", headers={"Cookie": cookie})
+        self.assertEqual(workspace_list["status"], 200)
+
+        authorized_state = self.request("GET", "/api/state", headers={"Cookie": cookie})
+        self.assertEqual(authorized_state["status"], 409)
+
+        enter_response = self.select_workspace(cookie)
+        self.assertEqual(enter_response["status"], 200)
+
         authorized_state = self.request("GET", "/api/state", headers={"Cookie": cookie})
         self.assertEqual(authorized_state["status"], 200)
 
@@ -832,6 +894,8 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(login["status"], 200)
         cookie = login["headers"]["Set-Cookie"].split(";", 1)[0]
+        enter_response = self.select_workspace(cookie)
+        self.assertEqual(enter_response["status"], 200)
 
         authorized_socket, authorized_handshake, websocket_key, _ = self.open_websocket(
             cookie=cookie
@@ -1072,6 +1136,25 @@ class ScriptTests(unittest.TestCase):
         )
         self.assertIn("renderSnapshot(snapshot)", script)
         self.assertNotIn("if (!pendingTextPush && !isTextFormActive()) {\n    clearEditor();\n  }", script)
+
+    def test_workspace_selection_ui_exists(self) -> None:
+        template = (Path(__file__).resolve().parent / "templates" / "workspaces.html").read_text(
+            encoding="utf-8"
+        )
+        script = (Path(__file__).resolve().parent / "assets" / "workspaces.js").read_text(
+            encoding="utf-8"
+        )
+        index = (Path(__file__).resolve().parent / "templates" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn("Create Workspace", template)
+        self.assertIn('fetch("/api/workspaces")', script)
+        self.assertIn('href="/workspaces"', index)
+        self.assertIn("Share text and files across your network in Carel", index)
+        self.assertIn("(v__APP_VERSION__ - __WORKSPACE_NAME__)", index)
+        self.assertNotIn("window.prompt", script)
+        self.assertIn('className = "workspace-auth-row"', script)
+        self.assertLess(template.index("<h2>Create Workspace</h2>"), template.index("<h2>Workspaces</h2>"))
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
