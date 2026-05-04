@@ -102,6 +102,15 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(app.workspace_slug("Carel Workspace"), "carel-workspace")
         self.assertEqual(app.workspace_slug("  Prod / EU West  "), "prod-eu-west")
 
+    def test_workspace_selector_can_resolve_workspace_slug(self) -> None:
+        workspace = app.create_workspace("Ops Desk")
+
+        with app.state_lock:
+            resolved = app.resolve_workspace_selector_locked("ops-desk")
+
+        self.assertIsNotNone(resolved)
+        self.assertEqual(resolved["id"], workspace["id"])
+
     def test_text_entries_can_be_marked_hidden(self) -> None:
         app.add_text_entry("secret", hidden=True)
 
@@ -290,6 +299,19 @@ class AppStateTests(unittest.TestCase):
         self.assertTrue(deleted)
         self.assertEqual(delete_message, "")
         self.assertNotIn(workspace["id"], {item["id"] for item in app.list_workspaces()})
+
+    def test_share_payload_includes_workspace_metadata(self) -> None:
+        workspace = app.create_workspace("Ops Desk")
+        app.add_text_entry("hello", workspace_id=workspace["id"])
+        entry = app.find_text_entry(app.get_snapshot(workspace["id"])["texts"][0]["id"], workspace_id=workspace["id"])
+
+        payload = app.share_payload("text", entry, "http://127.0.0.1:8000")
+
+        self.assertEqual(payload["workspace_id"], workspace["id"])
+        self.assertEqual(payload["workspace_name"], "Ops Desk")
+        self.assertEqual(payload["workspace_slug"], "ops-desk")
+        self.assertEqual(payload["workspace_path"], "/w/ops-desk")
+        self.assertEqual(payload["workspace_url"], "http://127.0.0.1:8000/w/ops-desk")
 
 
 
@@ -663,6 +685,11 @@ class HttpServerTests(unittest.TestCase):
             payload["share_url"],
             f"http://127.0.0.1:{self.port}{payload['share_path']}",
         )
+        self.assertEqual(payload["workspace_id"], app.DEFAULT_WORKSPACE_ID)
+        self.assertEqual(payload["workspace_name"], app.DEFAULT_WORKSPACE_NAME)
+        self.assertEqual(payload["workspace_slug"], app.workspace_slug(app.DEFAULT_WORKSPACE_NAME))
+        self.assertEqual(payload["workspace_path"], f"/w/{payload['workspace_slug']}")
+        self.assertEqual(payload["workspace_url"], f"http://127.0.0.1:{self.port}{payload['workspace_path']}")
 
     def test_share_file_endpoint_returns_compact_share_payload(self) -> None:
         self.start_server()
@@ -701,6 +728,9 @@ class HttpServerTests(unittest.TestCase):
             payload["download_url"],
             f"http://127.0.0.1:{self.port}/download/{payload['id']}",
         )
+        self.assertEqual(payload["workspace_id"], app.DEFAULT_WORKSPACE_ID)
+        self.assertEqual(payload["workspace_name"], app.DEFAULT_WORKSPACE_NAME)
+        self.assertEqual(payload["workspace_slug"], app.workspace_slug(app.DEFAULT_WORKSPACE_NAME))
 
     def test_share_endpoints_accept_x_api_key_when_access_code_is_enabled(self) -> None:
         self.start_server(access_code="secret-code")
@@ -741,6 +771,31 @@ class HttpServerTests(unittest.TestCase):
         file_payload = json.loads(file_response["body"])
         self.assertEqual(file_payload["type"], "file")
         self.assertEqual(file_payload["name"], "cli.txt")
+
+    def test_api_can_target_workspace_by_slug_header(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Ops Desk")
+
+        create_response = self.request(
+            "POST",
+            "/api/share-text",
+            body=json.dumps({"text": "workspace text"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": "ops-desk",
+            },
+        )
+
+        self.assertEqual(create_response["status"], 200)
+        payload = json.loads(create_response["body"])
+        self.assertEqual(payload["workspace_id"], workspace["id"])
+        self.assertEqual(payload["workspace_slug"], "ops-desk")
+
+        state_response = self.request("GET", "/api/state?workspace=ops-desk")
+        self.assertEqual(state_response["status"], 200)
+        snapshot = json.loads(state_response["body"])
+        self.assertEqual(snapshot["workspace"]["id"], workspace["id"])
+        self.assertEqual(snapshot["texts"][0]["content"], "workspace text")
 
     def test_text_update_rejects_non_boolean_hidden_flag(self) -> None:
         self.start_server()

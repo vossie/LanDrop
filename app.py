@@ -193,11 +193,14 @@ def ensure_browser_session(handler: BaseHTTPRequestHandler) -> tuple[str | None,
     return (session_id, session, session_cookie(session_id))
 
 
-def requested_workspace_id(handler: BaseHTTPRequestHandler) -> str:
+def requested_workspace_selector(handler: BaseHTTPRequestHandler) -> str:
     parsed = urllib.parse.urlparse(handler.path)
-    query_value = urllib.parse.parse_qs(parsed.query).get("workspace", [""])[0]
+    query_values = urllib.parse.parse_qs(parsed.query)
+    query_value = query_values.get("workspace", [""])[0]
+    query_name_value = query_values.get("workspace_name", [""])[0]
     header_value = handler.headers.get("X-Workspace-ID", "")
-    value = (header_value or query_value).strip()
+    header_name_value = handler.headers.get("X-Workspace-Name", "")
+    value = (header_value or header_name_value or query_value or query_name_value).strip()
     return value
 
 
@@ -206,6 +209,16 @@ def requested_workspace_password(handler: BaseHTTPRequestHandler) -> str:
     query_value = urllib.parse.parse_qs(parsed.query).get("workspace_password", [""])[0]
     header_value = handler.headers.get("X-Workspace-Password", "")
     return (header_value or query_value).strip()
+
+
+def resolve_workspace_selector_locked(selector: str) -> dict | None:
+    normalized = selector.strip()
+    if not normalized:
+        return None
+    workspace = get_workspace_locked(normalized)
+    if workspace is not None:
+        return workspace
+    return get_workspace_by_slug_locked(normalized)
 
 
 def build_workspace(
@@ -351,6 +364,7 @@ def serialize_workspace_summary(workspace: dict) -> dict:
         "id": workspace["id"],
         "name": workspace["name"],
         "slug": workspace_slug(workspace["name"]),
+        "path": f"/w/{urllib.parse.quote(workspace_slug(workspace['name']))}",
         "password_required": bool(workspace.get("password_hash")),
         "created_at": workspace["created_at"],
         "updated_at": workspace["updated_at"],
@@ -1035,6 +1049,14 @@ def base_url_from_request(handler: BaseHTTPRequestHandler) -> str:
 
 def share_payload(entry_type: str, entry: dict, base_url: str) -> dict:
     path = f"/s/{urllib.parse.quote(entry['short_code'])}"
+    workspace_id = entry.get("workspace_id", DEFAULT_WORKSPACE_ID)
+    workspace_name = DEFAULT_WORKSPACE_NAME
+    workspace_slug_value = workspace_slug(DEFAULT_WORKSPACE_NAME)
+    with state_lock:
+        workspace = get_workspace_locked(workspace_id)
+        if workspace is not None:
+            workspace_name = workspace["name"]
+            workspace_slug_value = workspace_slug(workspace["name"])
     payload = {
         "type": entry_type,
         "id": entry["id"],
@@ -1045,7 +1067,11 @@ def share_payload(entry_type: str, entry: dict, base_url: str) -> dict:
         "password_required": bool(entry.get("password_hash")),
         "created_at": entry["created_at"],
         "expires_at": entry["expires_at"],
-        "workspace_id": entry.get("workspace_id", DEFAULT_WORKSPACE_ID),
+        "workspace_id": workspace_id,
+        "workspace_name": workspace_name,
+        "workspace_slug": workspace_slug_value,
+        "workspace_path": f"/w/{urllib.parse.quote(workspace_slug_value)}",
+        "workspace_url": f"{base_url.rstrip('/')}/w/{urllib.parse.quote(workspace_slug_value)}",
     }
     if entry_type == "text":
         payload["content"] = entry["content"]
@@ -1406,10 +1432,10 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_json(self.workspace_list_payload())
 
     def require_workspace_context(self) -> str | None:
-        explicit_workspace_id = requested_workspace_id(self)
-        if explicit_workspace_id:
+        explicit_workspace_selector = requested_workspace_selector(self)
+        if explicit_workspace_selector:
             with state_lock:
-                workspace = get_workspace_locked(explicit_workspace_id)
+                workspace = resolve_workspace_selector_locked(explicit_workspace_selector)
                 if workspace is None:
                     self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
                     return None

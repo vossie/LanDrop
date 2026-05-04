@@ -5,7 +5,7 @@
 Real dassies share the same “drop zone” for generations.
 DassieDrop does the same thing, except ours transfers files instead of creating a wildlife documentary problem.
 
-DassieDrop is a lightweight Python web app for sharing text and files on your own network. Open it in a browser, paste text or upload a file, and open it from another device on the same LAN. It also exposes simple HTTP endpoints for bash and `curl`.
+DassieDrop is a lightweight Python web app for sharing text and files on your own network. Open it in a browser, paste text or upload a file, and open it from another device on the same LAN. It also exposes simple HTTP endpoints for bash and `curl`, including workspace-aware flows.
 
 ![DassieDrop hero](docs/dassiedrop-hero.svg)
 
@@ -44,6 +44,7 @@ DassieDrop is especially good at:
 - Click any shared text card to copy it instantly
 - Hide sensitive text and optionally require a password to reveal it
 - Hide files behind a required password before download
+- Split sharing into named workspaces with direct `/w/<workspace-slug>` links
 - Automatically expire text and files after 24 hours
 - Run with no external Python dependencies
 
@@ -65,6 +66,7 @@ DassieDrop is especially good at:
 | Local network text sharing | Paste text once and open it anywhere on your LAN |
 | LAN file sharing | Upload files from the browser with drag-and-drop support |
 | Bash and curl sharing | Post text or upload files from shell scripts with compact JSON responses |
+| Workspaces | Keep separate drop zones with optional passwords and direct workspace links |
 | Short share links | Every item gets a short `/s/XXXX` link |
 | Password protection | Hidden text can require a password, and hidden files always do |
 | Fast copy workflow | Shared text cards are clickable and copy directly |
@@ -167,8 +169,34 @@ Use this when:
 | `GET /api/latest-file` | Newest file metadata as JSON |
 | `GET /api/latest-file/content` | Download the newest file |
 | `POST /api/share-file` | Upload a file with a compact automation-friendly JSON response |
+| `GET /api/workspaces` | List workspaces and the current workspace selection |
+| `POST /api/workspaces` | Create a workspace |
+| `POST /api/workspaces/<id>/enter` | Enter or select a workspace for the current browser session |
+| `DELETE /api/workspaces/<id>` | Delete a non-default workspace |
 | `GET /download/<id>` | Download a file by item id |
 | `GET /s/<code>` | Open a short LAN link for text or file |
+| `GET /w/<workspace-slug>` | Open a workspace directly by slug |
+
+Workspace-aware API requests can target a workspace by:
+
+- session selection from the browser UI
+- `X-Workspace-ID: <workspace-id>`
+- `X-Workspace-Name: <workspace-slug>`
+- `?workspace=<workspace-id-or-slug>`
+- `?workspace_name=<workspace-slug>`
+
+Protected workspace API requests can also send:
+
+- `X-Workspace-Password: <workspace-password>`
+- `?workspace_password=<workspace-password>`
+
+Compact share responses now include:
+
+- `workspace_id`
+- `workspace_name`
+- `workspace_slug`
+- `workspace_path`
+- `workspace_url`
 
 Bash examples for the API are in [docs/bash-api.md](docs/bash-api.md).
 Developer and release workflow notes are in [docs/developer-guide.md](docs/developer-guide.md).
@@ -196,6 +224,23 @@ curl -sS \
 ```
 
 Both return compact JSON including a short LAN share URL. More examples are in [docs/bash-api.md](docs/bash-api.md).
+
+Send content into a specific workspace by slug:
+
+```bash
+curl -sS \
+  -H 'Content-Type: application/json' \
+  -H 'X-Workspace-Name: ops-desk' \
+  -X POST \
+  -d '{"text":"deploy complete","name":"server"}' \
+  http://127.0.0.1:8000/api/share-text
+```
+
+Open a workspace directly in the browser:
+
+```text
+http://127.0.0.1:8000/w/ops-desk
+```
 
 If the app uses `ACCESS_CODE`, bash clients can send it directly as `X-API-Key` instead of creating a login session first.
 
