@@ -1,21 +1,19 @@
 # DassieDrop
 
-![DassieDrop wordmark](brand/images/DassieDrop-full-text-logo.png)
+![DassieDrop wordmark](brand/images/dassiedrop_logo.png)
 
 Real dassies share the same “drop zone” for generations.
 DassieDrop does the same thing, except ours transfers files instead of creating a wildlife documentary problem.
 
-DassieDrop is a lightweight Python web app for sharing text and files across your own network. Open it in a browser, paste text or upload a file, and hand the result to another device on the same LAN. It also exposes simple HTTP endpoints for posting text and uploading files from bash with `curl`.
-
-The pitch is simple: if the job is moving data between devices you already control, you do not need a cloud service in the middle.
+DassieDrop is a lightweight Python web app for sharing text and files on your own network. Open it in a browser, paste text or upload a file, and open it from another device on the same LAN. It also exposes simple HTTP endpoints for bash and `curl`.
 
 ![DassieDrop hero](docs/dassiedrop-hero.svg)
 
 ## Why It Exists
 
-Most sharing tools quietly assume the internet should sit in the middle of everything. DassieDrop does not.
+Most sharing tools assume the internet should sit in the middle. DassieDrop does not.
 
-Your text and files stay on your hardware and your local network instead of being handed to a vendor account, retention policy, analytics pipeline, or third-party server you are expected to trust. That makes it useful for quick browser-to-browser sharing, mixed-device households, home labs, and small private networks where speed and control matter more than “platform.”
+Your text and files stay on your hardware and local network. It is useful for quick browser-to-browser sharing, mixed-device homes, home labs, and small private networks where speed and control matter more than accounts and cloud storage.
 
 DassieDrop is especially good at:
 
@@ -82,8 +80,6 @@ DassieDrop is released under the ISC License. See [LICENSE](LICENSE) for the ful
 
 ## Quick Start
 
-Run DassieDrop:
-
 ```bash
 ./.venv/bin/python app.py
 ```
@@ -108,13 +104,15 @@ ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
 
 ## Run With Docker
 
-Build the image locally:
+DassieDrop ships with:
+
+- a `Dockerfile` for local image builds
+- a `docker-compose.yml` for a persistent container setup
+- a writable `/data/uploads` path for uploaded files
 
 ```bash
 docker build -t dassiedrop .
 ```
-
-Run it with a persistent volume for uploads:
 
 ```bash
 docker run -d \
@@ -126,37 +124,31 @@ docker run -d \
   dassiedrop
 ```
 
-Then open:
+Open `http://127.0.0.1:8000`.
 
-```text
-http://127.0.0.1:8000
-```
+The container stores uploads in `/data/uploads`.
 
-The container stores uploaded files in the named volume at `/data/uploads`.
-
-If you prefer Compose:
+Run with Compose:
 
 ```bash
 ACCESS_CODE=my-secret-code SHARE_BASE_URL=http://192.168.1.24:8000 docker compose up -d
 ```
 
-The included [docker-compose.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.yml) maps host port `8000` to the app, keeps uploads in a named volume, and restarts the container automatically.
+The included [docker-compose.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.yml) maps port `8000`, keeps uploads in a named volume, and restarts automatically.
 
 ## Configure The LAN Link Address
 
-By default, DassieDrop shows share links using the browser's current origin. If you want every shared text or file link to use a specific address, set `SHARE_BASE_URL`.
-
-Example:
+By default, DassieDrop uses the browser's current origin for share links. To force a fixed LAN address, set `SHARE_BASE_URL`.
 
 ```bash
 SHARE_BASE_URL=http://192.168.1.24:8000 ./.venv/bin/python app.py
 ```
 
-This is useful when:
+Use this when:
 
-- you want all devices in your home to see the same fixed LAN address
+- all devices should see the same LAN address
 - DassieDrop is behind a reverse proxy
-- you do not want links generated from `127.0.0.1` on the host machine
+- you do not want links generated from `127.0.0.1`
 
 ## Test
 
@@ -182,8 +174,6 @@ Bash examples for the API are in [docs/bash-api.md](docs/bash-api.md).
 Developer and release workflow notes are in [docs/developer-guide.md](docs/developer-guide.md).
 
 ## Bash And Curl Sharing
-
-DassieDrop is not only a browser page. It also works as a simple LAN sharing endpoint for shell scripts and servers.
 
 Share plain text from bash:
 
@@ -211,13 +201,13 @@ If the app uses `ACCESS_CODE`, bash clients can send it directly as `X-API-Key` 
 
 ## Install As An Ubuntu Service
 
-Run the installer as `root` on the target Ubuntu server:
+Run on the target Ubuntu server as `root`:
 
 ```bash
 sudo bash ./install-ubuntu-service.sh
 ```
 
-Quick install from the command line with download, permissions, and run:
+Quick install:
 
 ```bash
 curl -fsSLo github-ubuntu-install-upgrade.sh https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh
@@ -225,16 +215,10 @@ chmod +x github-ubuntu-install-upgrade.sh
 sudo ./github-ubuntu-install-upgrade.sh
 ```
 
-Or install or upgrade directly from GitHub on the target server:
+Or install or upgrade directly from GitHub:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo bash
-```
-
-If the repository default branch is `main`, use:
-
-```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-ubuntu-install-upgrade.sh | sudo bash
 ```
 
 It will:
@@ -244,51 +228,45 @@ It will:
 - install the app into `/opt/dassiedrop`
 - store uploads in `/var/lib/dassiedrop/uploads`
 - write config to `/etc/dassiedrop/dassiedrop.env`
-- create and enable a `systemd` service that starts on boot
+- create and enable a `systemd` service
 
-Override defaults during install:
+Override defaults:
 
 ```bash
 sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./install-ubuntu-service.sh
 ```
 
-Or use the explicit setup flag:
+Or use `--port`:
 
 ```bash
 sudo bash ./install-ubuntu-service.sh --port 8080
 ```
 
-You can also set the share link base address during install:
+Set the share link base address during install:
 
 ```bash
 sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./install-ubuntu-service.sh
 ```
 
-The GitHub helper also supports overrides, and on upgrade it reuses values from `/etc/dassiedrop/dassiedrop.env` unless you explicitly override them:
+The GitHub helper also supports overrides. On upgrade it reuses values from `/etc/dassiedrop/dassiedrop.env` unless you override them:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
 
-Use the Ubuntu service install when you want a native host deployment with `systemd`. Use Docker when you want a more portable containerized runtime with volume-backed uploads.
+Use the Ubuntu service install for a native `systemd` deployment. Use Docker for a portable container runtime.
 
 ## Install On CentOS Stream From GitHub
 
-Install or upgrade directly on a CentOS Stream host:
+Install or upgrade on a CentOS Stream host:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo bash
 ```
 
-If the repository default branch is `main`, use:
+The CentOS Stream helper installs required packages with `dnf`, upgrades to `python3.11`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you override them.
 
-```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/main/github-centos-stream-install-upgrade.sh | sudo bash
-```
-
-The CentOS Stream helper installs required packages with `dnf`, upgrades the runtime to `python3.11`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you explicitly override them.
-
-Override defaults during install or upgrade:
+Override defaults:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
