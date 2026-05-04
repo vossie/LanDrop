@@ -149,7 +149,9 @@ function renderWorkspaces(workspaces, currentWorkspaceId) {
     });
 
     actions.appendChild(enterBtn);
-    actions.appendChild(deleteBtn);
+    if (workspace.id !== "default") {
+      actions.appendChild(deleteBtn);
+    }
     row.appendChild(details);
     row.appendChild(actions);
     li.appendChild(row);

@@ -240,8 +240,8 @@ def ensure_default_workspace_locked() -> dict:
     return workspace
 
 
-def workspace_sort_key(item: dict) -> tuple[float, str]:
-    return (item["created_at"], item["name"].lower())
+def workspace_sort_key(item: dict) -> tuple[int, str]:
+    return (0 if item["id"] == DEFAULT_WORKSPACE_ID else 1, item["name"].lower())
 
 
 def list_workspace_objects_locked() -> list[dict]:

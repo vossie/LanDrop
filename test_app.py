@@ -176,6 +176,19 @@ class AppStateTests(unittest.TestCase):
 
         self.assertIn(workspace["id"], {item["id"] for item in listed})
 
+    def test_default_workspace_is_listed_first_and_others_follow_alphabetically(self) -> None:
+        zebra = app.create_workspace("Zebra")
+        alpha = app.create_workspace("Alpha")
+        middle = app.create_workspace("Middle")
+
+        listed = app.list_workspaces()
+
+        self.assertEqual(listed[0]["id"], app.DEFAULT_WORKSPACE_ID)
+        self.assertEqual(
+            [item["id"] for item in listed[1:]],
+            [alpha["id"], middle["id"], zebra["id"]],
+        )
+
     def test_text_history_is_capped_at_200_newest_entries(self) -> None:
         for index in range(app.MAX_TEXT_HISTORY + 5):
             app.add_text_entry(f"text-{index}")
@@ -1209,6 +1222,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("v__APP_VERSION__ - <strong>__WORKSPACE_NAME__</strong>", index)
         self.assertNotIn("window.prompt", script)
         self.assertIn('className = "workspace-auth-row"', script)
+        self.assertIn('if (workspace.id !== "default") {', script)
         self.assertIn('li.addEventListener("click"', script)
         self.assertIn('if (event.target.closest("button, input, label, a")) {', script)
         self.assertIn('const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || ""', script)
