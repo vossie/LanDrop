@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DassieDrop Workspaces</title>
+  <link rel="icon" type="image/png" href="/assets/DassieDrop-dassie-icon.png">
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<main class="shell">
+  <section class="hero">
+    <div class="hero-top">
+      <div class="hero-copy">
+        <a class="hero-wordmark-link" href="https://github.com/vossie/DassieDrop" target="_blank" rel="noreferrer">
+          <img class="hero-wordmark" src="/assets/DassieDrop-full-text-logo.png" alt="DassieDrop">
+        </a>
+        <h1 class="sr-only">DassieDrop Workspaces</h1>
+        <p class="subhead">
+          Choose a workspace or create a new one to keep separate environments organized (v__APP_VERSION__)
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section class="grid">
+    <article class="panel tab-panel workspace-panel">
+      <div class="panel-title">
+        <h2>Create Workspace</h2>
+        <div class="meta">Public workspaces open directly. Protected workspaces ask for a password.</div>
+      </div>
+      <div class="row stack">
+        <input id="workspaceName" class="inline-input workspace-input" type="text" maxlength="80" placeholder="Workspace name">
+        <div class="row text-controls-row workspace-create-row">
+          <button id="createWorkspaceBtn" type="button">Create Workspace</button>
+        <label class="checkbox-row" for="workspaceProtected">
+          <input id="workspaceProtected" type="checkbox">
+          <span>Password protected</span>
+        </label>
+        <div class="hidden-options" id="workspacePasswordWrap">
+          <input id="workspacePassword" class="inline-input workspace-input" type="password" placeholder="Workspace password">
+        </div>
+        </div>
+      </div>
+    </article>
+
+    <article class="panel tab-panel workspace-panel">
+      <div class="panel-title">
+        <h2>Workspaces</h2>
+        <div class="meta"></div>
+      </div>
+      <ul class="history-list" id="workspaceList"></ul>
+      <div class="status" id="workspaceStatus"></div>
+    </article>
+  </section>
+
+  <footer class="app-footer" aria-label="Licensing and privacy notice">
+    <p class="footer-line">
+      Copyright © 2026 DassieDrop contributors. Released under the ISC License.
+    </p>
+    <p class="footer-line">
+      ISC licensed. DassieDrop is intended only for devices and people you trust on your own network.
+    </p>
+  </footer>
+</main>
+<script src="/assets/workspaces.js"></script>
+</body>
+</html>
