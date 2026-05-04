@@ -1084,6 +1084,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('ensure_package python3.11 python3.11', script)
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py', script)
+        self.assertIn('systemctl restart "${SERVICE_NAME}.service"', script)
 
     def test_github_centos_stream_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
@@ -1109,6 +1110,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('APP_DIR}/templates', script)
         self.assertIn('apt-get install -y python3.11', script)
         self.assertIn('ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py', script)
+        self.assertIn('systemctl restart "${SERVICE_NAME}.service"', script)
 
     def test_install_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(

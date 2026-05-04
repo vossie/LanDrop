@@ -228,7 +228,12 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable --now "${SERVICE_NAME}.service"
+if [[ "${ACTION}" == "upgrade" ]]; then
+  systemctl enable "${SERVICE_NAME}.service"
+  systemctl restart "${SERVICE_NAME}.service"
+else
+  systemctl enable --now "${SERVICE_NAME}.service"
+fi
 
 echo
 echo "DassieDrop ${ACTION} completed from ${REPO_URL}."
