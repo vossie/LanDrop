@@ -5,7 +5,14 @@ const workspaceProtected = document.getElementById("workspaceProtected");
 const workspacePasswordWrap = document.getElementById("workspacePasswordWrap");
 const workspacePassword = document.getElementById("workspacePassword");
 const createWorkspaceBtn = document.getElementById("createWorkspaceBtn");
+const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || "";
 let pendingWorkspaceAction = null;
+
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
 
 function toggleWorkspacePassword() {
   workspacePasswordWrap.classList.toggle("visible", workspaceProtected.checked);
@@ -135,18 +142,26 @@ function renderWorkspaces(workspaces, currentWorkspaceId) {
     row.appendChild(actions);
     li.appendChild(row);
 
-    if (
-      workspace.password_required &&
-      pendingWorkspaceAction &&
-      pendingWorkspaceAction.workspaceId === workspace.id
-    ) {
+    const requestedAction =
+      !pendingWorkspaceAction &&
+      requestedWorkspaceSlug &&
+      workspace.slug === requestedWorkspaceSlug &&
+      workspace.password_required
+        ? "enter"
+        : null;
+    const actionToRender =
+      pendingWorkspaceAction && pendingWorkspaceAction.workspaceId === workspace.id
+        ? pendingWorkspaceAction.action
+        : requestedAction;
+
+    if (workspace.password_required && actionToRender) {
       const authRow = document.createElement("div");
       authRow.className = "workspace-auth-row";
 
       const authLabel = document.createElement("div");
       authLabel.className = "meta workspace-auth-label";
       authLabel.textContent =
-        pendingWorkspaceAction.action === "delete"
+        actionToRender === "delete"
           ? "Enter the workspace password or super password to delete this workspace."
           : "Enter the workspace password to open this workspace.";
 
@@ -155,12 +170,12 @@ function renderWorkspaces(workspaces, currentWorkspaceId) {
       authInput.className = "inline-input workspace-auth-input";
       authInput.placeholder = "Workspace password";
       authInput.autocomplete = "current-password";
-      authInput.enterKeyHint = pendingWorkspaceAction.action === "delete" ? "done" : "go";
+      authInput.enterKeyHint = actionToRender === "delete" ? "done" : "go";
 
       const submitBtn = document.createElement("button");
       submitBtn.type = "button";
-      submitBtn.textContent = pendingWorkspaceAction.action === "delete" ? "Delete Now" : "Open";
-      if (pendingWorkspaceAction.action === "delete") {
+      submitBtn.textContent = actionToRender === "delete" ? "Delete Now" : "Open";
+      if (actionToRender === "delete") {
         submitBtn.className = "danger";
       }
 

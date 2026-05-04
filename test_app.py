@@ -98,6 +98,10 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(app.compact_workspace_name("1234567890abcdefXYZ"), "1234567890abcdef")
         self.assertEqual(app.compact_workspace_name("  Demo Workspace  "), "Demo Workspace")
 
+    def test_workspace_slug_normalizes_name_for_direct_urls(self) -> None:
+        self.assertEqual(app.workspace_slug("Carel Workspace"), "carel-workspace")
+        self.assertEqual(app.workspace_slug("  Prod / EU West  "), "prod-eu-west")
+
     def test_text_entries_can_be_marked_hidden(self) -> None:
         app.add_text_entry("secret", hidden=True)
 
@@ -552,6 +556,54 @@ class HttpServerTests(unittest.TestCase):
         workspace_page = self.request("GET", "/workspaces", headers={"Cookie": home["headers"]["Set-Cookie"].split(";", 1)[0]})
         self.assertEqual(workspace_page["status"], 200)
         self.assertIn("Choose a workspace", workspace_page["text"])
+
+    def test_html_pages_are_not_cacheable(self) -> None:
+        self.start_server()
+
+        workspace_page = self.request("GET", "/workspaces")
+
+        self.assertEqual(workspace_page["status"], 200)
+        self.assertEqual(
+            workspace_page["headers"]["Cache-Control"],
+            "no-store, no-cache, must-revalidate",
+        )
+        self.assertEqual(workspace_page["headers"]["Pragma"], "no-cache")
+        self.assertEqual(workspace_page["headers"]["Expires"], "0")
+
+    def test_public_workspace_can_be_opened_directly_by_slug_url(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Carel Space")
+
+        response = self.request("GET", "/w/carel-space")
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["headers"]["Location"], "/")
+        cookie = response["headers"]["Set-Cookie"].split(";", 1)[0]
+        state = self.request("GET", "/api/state", headers={"Cookie": cookie})
+        self.assertEqual(state["status"], 200)
+        self.assertEqual(json.loads(state["body"])["workspace"]["id"], workspace["id"])
+
+    def test_protected_workspace_slug_redirects_to_workspace_picker_without_password(self) -> None:
+        self.start_server()
+        app.create_workspace("Secure Space", password="vault")
+
+        response = self.request("GET", "/w/secure-space")
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["headers"]["Location"], "/workspaces?workspace=secure-space")
+
+    def test_protected_workspace_can_be_opened_directly_by_slug_url_with_password(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        response = self.request("GET", "/w/secure-space?workspace_password=vault")
+
+        self.assertEqual(response["status"], 303)
+        self.assertEqual(response["headers"]["Location"], "/")
+        cookie = response["headers"]["Set-Cookie"].split(";", 1)[0]
+        state = self.request("GET", "/api/state", headers={"Cookie": cookie})
+        self.assertEqual(state["status"], 200)
+        self.assertEqual(json.loads(state["body"])["workspace"]["id"], workspace["id"])
 
     def test_text_share_returns_plain_text(self) -> None:
         self.start_server()
@@ -1151,9 +1203,12 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('fetch("/api/workspaces")', script)
         self.assertIn('href="/workspaces"', index)
         self.assertIn("Share text and files across your network in Carel", index)
-        self.assertIn("(v__APP_VERSION__ - __WORKSPACE_NAME__)", index)
+        self.assertIn("v__APP_VERSION__ - <strong>__WORKSPACE_NAME__</strong>", index)
         self.assertNotIn("window.prompt", script)
         self.assertIn('className = "workspace-auth-row"', script)
+        self.assertIn('const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || ""', script)
+        self.assertIn('window.addEventListener("pageshow"', script)
+        self.assertIn('window.addEventListener("pageshow"', (Path(__file__).resolve().parent / "assets" / "app.js").read_text(encoding="utf-8"))
         self.assertLess(template.index("<h2>Create Workspace</h2>"), template.index("<h2>Workspaces</h2>"))
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:

@@ -44,6 +44,12 @@ let stateSocket = null;
 let websocketRetryTimer = null;
 let pollingTimer = null;
 
+window.addEventListener("pageshow", (event) => {
+  if (event.persisted) {
+    window.location.reload();
+  }
+});
+
 function updateTabIndicators() {
   textTabBtn.classList.toggle("has-update", unreadText);
   fileTabBtn.classList.toggle("has-update", unreadFiles);

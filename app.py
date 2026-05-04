@@ -83,6 +83,21 @@ def compact_workspace_name(name: str) -> str:
     return sanitize_workspace_name(name)[:16]
 
 
+def workspace_slug(name: str) -> str:
+    normalized = sanitize_workspace_name(name).lower()
+    slug_chars = []
+    last_was_dash = False
+    for char in normalized:
+        if char.isalnum():
+            slug_chars.append(char)
+            last_was_dash = False
+        elif not last_was_dash:
+            slug_chars.append("-")
+            last_was_dash = True
+    slug = "".join(slug_chars).strip("-")
+    return slug or "workspace"
+
+
 def unique_filename(name: str) -> str:
     candidate = sanitize_filename(name)
     path = UPLOAD_DIR / candidate
@@ -239,6 +254,17 @@ def get_workspace_locked(workspace_id: str) -> dict | None:
     return shared_state["workspaces"].get(workspace_id)
 
 
+def get_workspace_by_slug_locked(slug: str) -> dict | None:
+    ensure_default_workspace_locked()
+    target = slug.strip().lower()
+    if not target:
+        return None
+    for workspace in list_workspace_objects_locked():
+        if workspace_slug(workspace["name"]) == target:
+            return workspace
+    return None
+
+
 def get_workspace(workspace_id: str) -> dict | None:
     with state_lock:
         workspace = get_workspace_locked(workspace_id)
@@ -324,6 +350,7 @@ def serialize_workspace_summary(workspace: dict) -> dict:
     return {
         "id": workspace["id"],
         "name": workspace["name"],
+        "slug": workspace_slug(workspace["name"]),
         "password_required": bool(workspace.get("password_hash")),
         "created_at": workspace["created_at"],
         "updated_at": workspace["updated_at"],
@@ -1060,6 +1087,11 @@ class AppHandler(BaseHTTPRequestHandler):
             self.handle_workspaces_page()
             return
 
+        if parsed.path.startswith("/w/"):
+            workspace_slug_value = urllib.parse.unquote(parsed.path.removeprefix("/w/"))
+            self.handle_workspace_shortcut(workspace_slug_value)
+            return
+
         if parsed.path == "/api/workspaces":
             if ACCESS_CODE and not is_authorized(self):
                 self.send_error(HTTPStatus.UNAUTHORIZED, "Access code required")
@@ -1243,6 +1275,38 @@ class AppHandler(BaseHTTPRequestHandler):
             ),
             cookie=cookie,
         )
+
+    def handle_workspace_shortcut(self, workspace_slug_value: str) -> None:
+        if ACCESS_CODE and not is_authorized(self):
+            self.send_html(render_template("login.html"))
+            return
+
+        session_id, session, cookie = ensure_browser_session(self)
+        if session is None or session_id is None:
+            self.send_html(render_template("login.html"))
+            return
+
+        with state_lock:
+            workspace = get_workspace_by_slug_locked(workspace_slug_value)
+            if workspace is None:
+                self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
+                return
+            if workspace.get("password_hash"):
+                current_workspace_id = session.get("workspace_id")
+                password = requested_workspace_password(self)
+                if current_workspace_id != workspace["id"] and not workspace_password_is_valid(
+                    workspace, password
+                ):
+                    self.redirect(
+                        f"/workspaces?workspace={urllib.parse.quote(workspace_slug_value)}",
+                        cookie=cookie,
+                    )
+                    return
+            touch_workspace_locked(workspace, persist_interval=0.0)
+            persist_workspaces_locked()
+
+        set_session_workspace(session_id, workspace["id"])
+        self.redirect("/", cookie=cookie)
 
     def handle_login(self) -> None:
         if not ACCESS_CODE:
@@ -1831,6 +1895,9 @@ class AppHandler(BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", str(len(data)))
@@ -1860,6 +1927,9 @@ class AppHandler(BaseHTTPRequestHandler):
     def redirect(self, location: str, cookie: str | None = None) -> None:
         self.send_response(HTTPStatus.SEE_OTHER)
         self.send_header("Location", location)
+        self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
+        self.send_header("Pragma", "no-cache")
+        self.send_header("Expires", "0")
         if cookie:
             self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", "0")
