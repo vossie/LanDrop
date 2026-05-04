@@ -660,6 +660,12 @@ input[type="file"] {
 }
 .workspace-item {
   background: #fbfcfe;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.workspace-item:hover {
+  background: #f4f8fc;
+  border-color: #bcc8d8;
 }
 .workspace-row {
   display: flex;

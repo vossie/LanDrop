@@ -1206,6 +1206,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("v__APP_VERSION__ - <strong>__WORKSPACE_NAME__</strong>", index)
         self.assertNotIn("window.prompt", script)
         self.assertIn('className = "workspace-auth-row"', script)
+        self.assertIn('li.addEventListener("click"', script)
+        self.assertIn('if (event.target.closest("button, input, label, a")) {', script)
         self.assertIn('const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || ""', script)
         self.assertIn('window.addEventListener("pageshow"', script)
         self.assertIn('window.addEventListener("pageshow"', (Path(__file__).resolve().parent / "assets" / "app.js").read_text(encoding="utf-8"))
