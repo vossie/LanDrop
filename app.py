@@ -265,6 +265,10 @@ def mask_text_value(value: str) -> str:
     return "*****" if value else ""
 
 
+def guess_content_type(filename: str) -> str:
+    return mimetypes.guess_type(filename)[0] or "application/octet-stream"
+
+
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode("utf-8")).hexdigest()
 
@@ -297,6 +301,7 @@ def serialize_file_entry(entry: dict) -> dict:
         "id": entry["id"],
         "name": entry["name"],
         "stored_name": entry["stored_name"],
+        "content_type": guess_content_type(entry["name"]),
         "size": entry["size"],
         "hidden": entry.get("hidden", False),
         "password_required": bool(entry.get("password_hash")),
@@ -703,6 +708,12 @@ class AppHandler(BaseHTTPRequestHandler):
             file_id = urllib.parse.unquote(parsed.path.removeprefix("/download/"))
             password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
             self.serve_download(file_id, password)
+            return
+
+        if parsed.path.startswith("/preview/"):
+            file_id = urllib.parse.unquote(parsed.path.removeprefix("/preview/"))
+            password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
+            self.serve_preview(file_id, password)
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -1155,21 +1166,33 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
 
-        self.serve_download_entry(entry)
+        self.serve_file_entry(entry, as_attachment=True)
 
-    def serve_download_entry(self, entry: dict) -> None:
+    def serve_preview(self, file_id: str, password: str = "") -> None:
+        entry = find_file_entry(file_id)
+        if entry is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "File not found")
+            return
+        if entry.get("password_hash") and not entry_password_is_valid(entry, password):
+            self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
+            return
+
+        self.serve_file_entry(entry, as_attachment=False)
+
+    def serve_file_entry(self, entry: dict, as_attachment: bool) -> None:
         target = UPLOAD_DIR / entry["stored_name"]
         if not target.exists() or not target.is_file():
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
 
-        content_type = mimetypes.guess_type(entry["name"])[0] or "application/octet-stream"
+        content_type = guess_content_type(entry["name"])
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
+        disposition = "attachment" if as_attachment else "inline"
         self.send_header(
             "Content-Disposition",
-            f"attachment; filename*=UTF-8''{urllib.parse.quote(entry['name'])}",
+            f"{disposition}; filename*=UTF-8''{urllib.parse.quote(entry['name'])}",
         )
         self.send_header("Content-Length", str(target.stat().st_size))
         self.end_headers()
@@ -1183,7 +1206,7 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.NOT_FOUND, "Asset not found")
             return
 
-        content_type = mimetypes.guess_type(target.name)[0] or "application/octet-stream"
+        content_type = guess_content_type(target.name)
 
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)

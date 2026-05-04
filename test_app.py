@@ -75,6 +75,7 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(len(snapshot["texts"][0]["short_code"]), 4)
         self.assertEqual(len(snapshot["files"]), 1)
         self.assertEqual(snapshot["files"][0]["name"], "hello.txt")
+        self.assertEqual(snapshot["files"][0]["content_type"], "text/plain")
         self.assertEqual(snapshot["files"][0]["sharer_name"], "Bob")
         self.assertEqual(snapshot["files"][0]["sharer_ip"], "192.168.1.11")
         self.assertEqual(len(snapshot["files"][0]["short_code"]), 4)
@@ -465,6 +466,19 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(download_response["status"], 200)
         self.assertEqual(download_response["body"], b"network payload")
         self.assertEqual(download_response["headers"]["Content-Type"], "text/plain")
+        self.assertEqual(
+            download_response["headers"]["Content-Disposition"],
+            "attachment; filename*=UTF-8''note.txt",
+        )
+
+        preview_response = self.request("GET", f"/preview/{file_id}")
+        self.assertEqual(preview_response["status"], 200)
+        self.assertEqual(preview_response["body"], b"network payload")
+        self.assertEqual(preview_response["headers"]["Content-Type"], "text/plain")
+        self.assertEqual(
+            preview_response["headers"]["Content-Disposition"],
+            "inline; filename*=UTF-8''note.txt",
+        )
 
         delete_text_response = self.request("DELETE", f"/api/text/{text_id}")
         self.assertEqual(delete_text_response["status"], 200)
@@ -702,6 +716,15 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(allowed_share["status"], 200)
         self.assertEqual(allowed_share["body"], b"secret")
 
+        blocked_preview = self.request("GET", f"/preview/{file_entry['id']}")
+        self.assertEqual(blocked_preview["status"], 403)
+
+        allowed_preview = self.request(
+            "GET", f"/preview/{file_entry['id']}?password=vault"
+        )
+        self.assertEqual(allowed_preview["status"], 200)
+        self.assertEqual(allowed_preview["body"], b"secret")
+
     def test_access_code_is_enforced_and_login_unlocks_api(self) -> None:
         self.start_server(access_code="secret-code")
 
@@ -902,7 +925,7 @@ class ScriptTests(unittest.TestCase):
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.6")
+        self.assertEqual(version, "1.0.8")
         self.assertIn("infrastructure you control", readme)
         self.assertIn("Know exactly where your data is while it is being shared", readme)
         self.assertIn("Contributor: Mark Levitt", readme)
@@ -1025,6 +1048,15 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('label.textContent = isMasked ? "Click to reveal" : "Click to copy"', script)
         self.assertIn('toggleVisibilityBtn.textContent = isRevealed ? "👁" : "🙈"', script)
         self.assertNotIn('revealHead.textContent = "Reveal"', script)
+
+    def test_file_history_preview_ui_is_limited_to_known_image_mime_types(self) -> None:
+        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('function isKnownImageMimeType(contentType)', script)
+        self.assertIn('contentType.startsWith("image/")', script)
+        self.assertIn('previewLink.textContent = "Preview"', script)
+        self.assertIn('previewLink.href = `/preview/${encodeURIComponent(file.id)}`', script)
 
     def test_collapsed_details_summary_includes_saved_time(self) -> None:
         script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(

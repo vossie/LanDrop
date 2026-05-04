@@ -363,6 +363,10 @@ function openProtectedPath(path, statusElement) {
   window.open(withPassword(path, password), "_blank", "noopener");
 }
 
+function isKnownImageMimeType(contentType) {
+  return typeof contentType === "string" && contentType.startsWith("image/");
+}
+
 async function deleteFile(id) {
   try {
     const response = await fetch(`/api/file/${encodeURIComponent(id)}`, {
@@ -642,6 +646,23 @@ function renderFiles(files) {
 
     const actions = document.createElement("div");
     actions.className = "file-card-actions";
+
+    if (isKnownImageMimeType(file.content_type)) {
+      const previewLink = document.createElement("a");
+      previewLink.className = "file-link";
+      previewLink.href = `/preview/${encodeURIComponent(file.id)}`;
+      previewLink.textContent = "Preview";
+      previewLink.target = "_blank";
+      previewLink.rel = "noopener noreferrer";
+      previewLink.addEventListener("click", (event) => {
+        clearActiveTabIndicator();
+        if (file.password_required) {
+          event.preventDefault();
+          openProtectedPath(`/preview/${encodeURIComponent(file.id)}`, fileStatus);
+        }
+      });
+      actions.appendChild(previewLink);
+    }
 
     const link = document.createElement("a");
     link.className = "file-link";
