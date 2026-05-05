@@ -1299,7 +1299,9 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('/assets/cloud_1434863.png', index)
         self.assertIn('const pasteSendBtn = document.getElementById("pasteSendBtn");', script)
         self.assertIn("async function pasteAndSendText()", script)
+        self.assertIn("window.isSecureContext", script)
         self.assertIn("navigator.clipboard.readText()", script)
+        self.assertIn("Clipboard read requires HTTPS or localhost.", script)
         self.assertIn('pasteSendBtn.addEventListener("click", pasteAndSendText);', script)
         self.assertIn(".paste-send-btn", css)
 

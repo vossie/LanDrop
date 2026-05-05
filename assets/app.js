@@ -912,20 +912,31 @@ async function uploadFile(file = fileInput.files[0]) {
 }
 
 async function pasteAndSendText() {
+  if (!window.isSecureContext) {
+    sharedText.focus();
+    setTextStatus("Clipboard read requires HTTPS or localhost. Paste into the box with Ctrl+V or Cmd+V.");
+    return;
+  }
   if (!navigator.clipboard || !navigator.clipboard.readText) {
-    textStatus.textContent = "Clipboard paste is not available here.";
+    sharedText.focus();
+    setTextStatus("This browser cannot read the clipboard here. Paste into the box with Ctrl+V or Cmd+V.");
     return;
   }
   try {
     const pastedText = (await navigator.clipboard.readText()).trim();
     if (!pastedText) {
-      textStatus.textContent = "Clipboard is empty.";
+      setTextStatus("Clipboard is empty.");
       return;
     }
     sharedText.value = pastedText;
     await saveText();
   } catch (error) {
-    textStatus.textContent = "Clipboard paste failed.";
+    sharedText.focus();
+    if (error && (error.name === "NotAllowedError" || error.name === "SecurityError")) {
+      setTextStatus("Clipboard access was blocked. Paste into the box with Ctrl+V or Cmd+V.");
+      return;
+    }
+    setTextStatus("Clipboard paste failed.");
   }
 }
 
