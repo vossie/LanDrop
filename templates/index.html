@@ -8,35 +8,39 @@
   <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<main class="shell">
-  <section class="hero">
-    <div class="hero-top">
-      <div class="hero-copy">
-        <div class="hero-title-row hero-title-row-workspace">
-          <div class="hero-brand-row">
-            <a class="hero-brand-link" href="https://github.com/vossie/DassieDrop" target="_blank" rel="noreferrer">
-              <img class="hero-mark" src="/assets/DassieDrop-dassie-icon.png" alt="">
-              <span class="hero-title-text">DassieDrop</span>
-            </a>
+<div class="header-bar">
+  <main class="shell shell-header">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <div class="hero-title-row hero-title-row-workspace">
+            <div class="hero-brand-row">
+              <a class="hero-brand-link" href="https://github.com/vossie/DassieDrop" target="_blank" rel="noreferrer">
+                <img class="hero-mark" src="/assets/DassieDrop-dassie-icon.png" alt="">
+                <span class="hero-title-text">DassieDrop</span>
+              </a>
+            </div>
+            <div class="workspace-selector-wrap">
+              <a
+                id="workspaceSelector"
+                class="workspace-pill"
+                href="/workspaces"
+                aria-label="Current workspace: __WORKSPACE_NAME__"
+                title="Current workspace: __WORKSPACE_NAME__"
+              >
+                <span class="workspace-pill-label">__WORKSPACE_NAME__</span><span aria-hidden="true">▾</span>
+              </a>
+            </div>
           </div>
-          <div class="workspace-selector-wrap">
-            <a
-              id="workspaceSelector"
-              class="workspace-pill"
-              href="/workspaces"
-              aria-label="Current workspace: __WORKSPACE_NAME__"
-              title="Current workspace: __WORKSPACE_NAME__"
-            >
-              <span class="workspace-pill-label">__WORKSPACE_NAME__</span><span aria-hidden="true">▾</span>
-            </a>
-          </div>
+          <h1 class="sr-only">DassieDrop</h1>
         </div>
-        <h1 class="sr-only">DassieDrop</h1>
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
+</div>
 
-  <div class="tabs" aria-label="Sections">
+<main class="shell">
+  <div class="tabs panel tabs-panel" aria-label="Sections">
     <div class="hero-input-row">
       <input id="sharerName" class="inline-input" type="text" maxlength="60" placeholder="Your name or device name">
     </div>

@@ -8,20 +8,32 @@
   <link rel="stylesheet" href="/assets/app.css">
 </head>
 <body>
-<main class="shell">
-  <section class="hero">
-    <div class="hero-top">
-      <div class="hero-copy">
-        <div class="hero-title-row">
-          <a class="hero-brand-link" href="https://github.com/vossie/DassieDrop" target="_blank" rel="noreferrer">
-            <img class="hero-mark" src="/assets/DassieDrop-dassie-icon.png" alt="">
-            <span class="hero-title-text">DassieDrop</span>
-          </a>
+<div class="header-bar">
+  <main class="shell shell-header">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <div class="hero-title-row hero-title-row-workspace">
+            <div class="hero-brand-row">
+              <a class="hero-brand-link" href="https://github.com/vossie/DassieDrop" target="_blank" rel="noreferrer">
+                <img class="hero-mark" src="/assets/DassieDrop-dassie-icon.png" alt="">
+                <span class="hero-title-text">DassieDrop</span>
+              </a>
+            </div>
+            <div class="workspace-selector-wrap">
+              <a class="workspace-pill" href="/" aria-label="Back to main share page" title="Back to main share page">
+                <span class="workspace-pill-label">Back to Share</span>
+              </a>
+            </div>
+          </div>
+          <h1 class="sr-only">DassieDrop Workspaces</h1>
         </div>
-        <h1 class="sr-only">DassieDrop Workspaces</h1>
       </div>
-    </div>
-  </section>
+    </section>
+  </main>
+</div>
+
+<main class="shell">
 
   <section class="grid">
     <article class="panel tab-panel workspace-panel">
