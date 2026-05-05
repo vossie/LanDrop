@@ -13,6 +13,8 @@ from tempfile import TemporaryDirectory
 import app
 from dassiedrop import config, state
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 def reset_app_state() -> None:
     with state.state_lock:
@@ -1182,18 +1184,14 @@ class HttpServerTests(unittest.TestCase):
 
 class ScriptTests(unittest.TestCase):
     def test_bash_api_help_doc_mentions_share_endpoints(self) -> None:
-        doc = (
-            Path(__file__).resolve().parent / "docs" / "bash-api.md"
-        ).read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs" / "bash-api.md").read_text(encoding="utf-8")
         self.assertIn("/api/share-text", doc)
         self.assertIn("/api/share-file", doc)
         self.assertIn("openapi.yaml", doc)
         self.assertIn("curl", doc)
 
     def test_openapi_schema_documents_core_http_api(self) -> None:
-        doc = (
-            Path(__file__).resolve().parent / "docs" / "openapi.yaml"
-        ).read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs" / "openapi.yaml").read_text(encoding="utf-8")
         self.assertIn("openapi: 3.1.0", doc)
         self.assertIn("/login:", doc)
         self.assertIn("/api/state:", doc)
@@ -1204,19 +1202,17 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("X-API-Key", doc)
 
     def test_developer_guide_mentions_versioning_and_main_rule(self) -> None:
-        doc = (
-            Path(__file__).resolve().parent / "docs" / "developer-guide.md"
-        ).read_text(encoding="utf-8")
+        doc = (REPO_ROOT / "docs" / "developer-guide.md").read_text(encoding="utf-8")
         self.assertIn("VERSION", doc)
         self.assertIn("Versions roll up when committing to `main`.", doc)
 
     def test_readme_and_license_cover_local_control_and_isc_license(self) -> None:
-        root = Path(__file__).resolve().parent
+        root = REPO_ROOT
         readme = (root / "README.md").read_text(encoding="utf-8")
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.17")
+        self.assertEqual(version, app.get_app_version())
         self.assertIn("No third-party services", readme)
         self.assertIn("docs/api-usage.md", readme)
         self.assertIn("Why not Flask?", readme)
@@ -1228,7 +1224,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("docs/installation.md", readme)
 
     def test_security_doc_covers_lan_only_deployment(self) -> None:
-        security = (Path(__file__).resolve().parent / "SECURITY.md").read_text(encoding="utf-8")
+        security = (REPO_ROOT / "SECURITY.md").read_text(encoding="utf-8")
         self.assertIn("trusted local networks", security)
         self.assertIn("Do not expose", security)
         self.assertIn("reverse proxy", security)
@@ -1236,9 +1232,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("24 hours", security)
 
     def test_github_ubuntu_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
-        script = (
-            Path(__file__).resolve().parent / "scripts" / "github-ubuntu-install-upgrade.sh"
-        ).read_text(encoding="utf-8")
+        script = (REPO_ROOT / "scripts" / "github-ubuntu-install-upgrade.sh").read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("--https-port", script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
@@ -1254,7 +1248,7 @@ class ScriptTests(unittest.TestCase):
     def test_github_ubuntu_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "scripts/github-ubuntu-install-upgrade.sh"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -1262,9 +1256,7 @@ class ScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_github_centos_stream_install_upgrade_script_mentions_dnf_and_env_file(self) -> None:
-        script = (
-            Path(__file__).resolve().parent / "scripts" / "github-centos-stream-install-upgrade.sh"
-        ).read_text(encoding="utf-8")
+        script = (REPO_ROOT / "scripts" / "github-centos-stream-install-upgrade.sh").read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("--https-port", script)
         self.assertIn('require_command dnf', script)
@@ -1282,7 +1274,7 @@ class ScriptTests(unittest.TestCase):
     def test_github_centos_stream_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "scripts/github-centos-stream-install-upgrade.sh"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -1290,9 +1282,7 @@ class ScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_install_script_deploys_assets_and_templates(self) -> None:
-        script = (
-            Path(__file__).resolve().parent / "scripts" / "install-ubuntu-service.sh"
-        ).read_text(encoding="utf-8")
+        script = (REPO_ROOT / "scripts" / "install-ubuntu-service.sh").read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("--https-port", script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
@@ -1314,7 +1304,7 @@ class ScriptTests(unittest.TestCase):
     def test_install_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "scripts/install-ubuntu-service.sh"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -1324,7 +1314,7 @@ class ScriptTests(unittest.TestCase):
     def test_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "scripts/uninstall-ubuntu-service.sh"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -1334,7 +1324,7 @@ class ScriptTests(unittest.TestCase):
     def test_uninstall_centos_stream_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "scripts/uninstall-centos-stream-service.sh"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
@@ -1342,18 +1332,14 @@ class ScriptTests(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_dockerfile_sets_runtime_defaults(self) -> None:
-        dockerfile = (
-            Path(__file__).resolve().parent / "Dockerfile"
-        ).read_text(encoding="utf-8")
+        dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("FROM python:3.12-slim", dockerfile)
         self.assertIn("UPLOAD_DIR=/data/uploads", dockerfile)
         self.assertIn('VOLUME ["/data"]', dockerfile)
         self.assertIn('CMD ["python3", "app.py"]', dockerfile)
 
     def test_docker_compose_persists_uploads_and_configures_env(self) -> None:
-        compose = (
-            Path(__file__).resolve().parent / "docker-compose.yml"
-        ).read_text(encoding="utf-8")
+        compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
         self.assertIn("build: .", compose)
         self.assertIn("dassiedrop-data:/data", compose)
         self.assertIn("ACCESS_CODE:", compose)
@@ -1361,7 +1347,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("UPLOAD_DIR: /data/uploads", compose)
 
     def test_installation_doc_mentions_docker_and_https_usage(self) -> None:
-        install_doc = (Path(__file__).resolve().parent / "docs" / "installation.md").read_text(
+        install_doc = (REPO_ROOT / "docs" / "installation.md").read_text(
             encoding="utf-8"
         )
         self.assertIn("## Run With Docker", install_doc)
@@ -1380,8 +1366,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("sudo HTTPS=0 bash", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
-        config_source = (Path(__file__).resolve().parent / "dassiedrop" / "config.py").read_text(encoding="utf-8")
-        routes_source = (Path(__file__).resolve().parent / "dassiedrop" / "routes.py").read_text(encoding="utf-8")
+        config_source = (REPO_ROOT / "dassiedrop" / "config.py").read_text(encoding="utf-8")
+        routes_source = (REPO_ROOT / "dassiedrop" / "routes.py").read_text(encoding="utf-8")
         self.assertIn('HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "yes", "on"}', config_source)
         self.assertIn('HTTP_PORT = int(os.environ.get("HTTP_PORT", os.environ.get("PORT", "8000")))', config_source)
         self.assertIn('HTTPS_PORT = int(os.environ.get("HTTPS_PORT", "8443"))', config_source)
@@ -1390,7 +1376,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("context.wrap_socket(server.socket, server_side=True)", routes_source)
 
     def test_text_history_reveal_ui_is_inline(self) -> None:
-        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+        script = (REPO_ROOT / "assets" / "app.js").read_text(
             encoding="utf-8"
         )
         self.assertIn('label.textContent = isMasked ? "Click to reveal" : "Click to copy"', script)
@@ -1398,7 +1384,7 @@ class ScriptTests(unittest.TestCase):
         self.assertNotIn('revealHead.textContent = "Reveal"', script)
 
     def test_file_history_preview_ui_is_limited_to_known_image_mime_types(self) -> None:
-        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+        script = (REPO_ROOT / "assets" / "app.js").read_text(
             encoding="utf-8"
         )
         self.assertIn('function isKnownImageMimeType(contentType)', script)
@@ -1407,7 +1393,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('previewLink.href = `/preview/${encodeURIComponent(file.id)}`', script)
 
     def test_collapsed_details_summary_includes_saved_time(self) -> None:
-        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+        script = (REPO_ROOT / "assets" / "app.js").read_text(
             encoding="utf-8"
         )
         self.assertIn("function formatTime(ts)", script)
@@ -1415,20 +1401,20 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("Shared at ${time} by ${source}", script)
 
     def test_live_snapshot_updates_do_not_clear_unsaved_text(self) -> None:
-        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+        script = (REPO_ROOT / "assets" / "app.js").read_text(
             encoding="utf-8"
         )
         self.assertIn("renderSnapshot(snapshot)", script)
         self.assertNotIn("if (!pendingTextPush && !isTextFormActive()) {\n    clearEditor();\n  }", script)
 
     def test_workspace_selection_ui_exists(self) -> None:
-        template = (Path(__file__).resolve().parent / "templates" / "workspaces.html").read_text(
+        template = (REPO_ROOT / "templates" / "workspaces.html").read_text(
             encoding="utf-8"
         )
-        script = (Path(__file__).resolve().parent / "assets" / "workspaces.js").read_text(
+        script = (REPO_ROOT / "assets" / "workspaces.js").read_text(
             encoding="utf-8"
         )
-        index = (Path(__file__).resolve().parent / "templates" / "index.html").read_text(
+        index = (REPO_ROOT / "templates" / "index.html").read_text(
             encoding="utf-8"
         )
         self.assertIn("Create Workspace", template)
@@ -1455,17 +1441,17 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('if (event.target.closest("button, input, label, a")) {', script)
         self.assertIn('const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || ""', script)
         self.assertIn('window.addEventListener("pageshow"', script)
-        self.assertIn('window.addEventListener("pageshow"', (Path(__file__).resolve().parent / "assets" / "app.js").read_text(encoding="utf-8"))
+        self.assertIn('window.addEventListener("pageshow"', (REPO_ROOT / "assets" / "app.js").read_text(encoding="utf-8"))
         self.assertLess(template.index("<h2>Create Workspace</h2>"), template.index("<h2>Workspaces</h2>"))
 
     def test_text_panel_exposes_paste_and_send_control(self) -> None:
-        index = (Path(__file__).resolve().parent / "templates" / "index.html").read_text(
+        index = (REPO_ROOT / "templates" / "index.html").read_text(
             encoding="utf-8"
         )
-        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+        script = (REPO_ROOT / "assets" / "app.js").read_text(
             encoding="utf-8"
         )
-        css = (Path(__file__).resolve().parent / "assets" / "app.css").read_text(
+        css = (REPO_ROOT / "assets" / "app.css").read_text(
             encoding="utf-8"
         )
         self.assertIn('id="pasteSendBtn"', index)
@@ -1487,7 +1473,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn(".paste-send-btn", css)
         self.assertIn(".workspace-pill", css)
         self.assertIn(".text-editor-wrap.clipboard-read-unavailable .paste-send-btn", css)
-        login_script = (Path(__file__).resolve().parent / "assets" / "login.js").read_text(
+        login_script = (REPO_ROOT / "assets" / "login.js").read_text(
             encoding="utf-8"
         )
         self.assertIn('window.location.href = "/?workspace_hint=1";', login_script)
@@ -1497,7 +1483,7 @@ class ScriptTests(unittest.TestCase):
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
             ["bash", "-n", "scripts/uninstall-legacy-landrop-service.sh"],
-            cwd=Path(__file__).resolve().parent,
+            cwd=REPO_ROOT,
             capture_output=True,
             text=True,
             check=False,
