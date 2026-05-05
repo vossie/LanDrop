@@ -44,6 +44,7 @@ body {
   gap: 12px;
   min-width: 0;
   flex-wrap: nowrap;
+  width: 100%;
 }
 .hero-brand-row {
   display: inline-flex;
@@ -90,8 +91,10 @@ h1 {
   font-size: 0.94rem;
   line-height: 1.35;
   margin: 0;
+  margin-left: auto;
   padding-top: 0;
   white-space: nowrap;
+  text-align: right;
 }
 .hero-input-row {
   flex: 0 1 280px;
@@ -819,6 +822,8 @@ input[type="file"] {
     width: 100%;
     flex-basis: 100%;
     white-space: normal;
+    margin-left: 0;
+    text-align: center;
   }
   .hero-input-row {
     flex-basis: 100%;

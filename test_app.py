@@ -1314,6 +1314,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("Share text and files across your network", index)
         self.assertNotIn("Share text and files across your network in <strong>__WORKSPACE_NAME__</strong>", index)
         self.assertIn("DassieDrop v__APP_VERSION__", index)
+        self.assertIn('class="hero-title-row"', template)
+        self.assertIn('class="hero-brand-link"', template)
         self.assertIn("Choose a workspace or create a new one", template)
         self.assertNotIn("Choose a workspace or create a new one (v__APP_VERSION__)", template)
         self.assertNotIn("window.prompt", script)
