@@ -294,7 +294,6 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(len(reloaded_snapshot["files"]), 1)
         self.assertEqual(reloaded_entry["id"], original_entry["id"])
         self.assertEqual(reloaded_entry["name"], "persisted.txt")
-        self.assertEqual(reloaded_entry["stored_name"], "persisted.txt")
         self.assertTrue(reloaded_entry["hidden"])
         self.assertTrue(reloaded_entry["password_required"])
         self.assertEqual(reloaded_entry["sharer_name"], "Laptop")
@@ -553,7 +552,7 @@ class HttpServerTests(unittest.TestCase):
         file_entry = upload_snapshot["files"][0]
         file_id = file_entry["id"]
 
-        saved_file = config.UPLOAD_DIR / file_entry["stored_name"]
+        saved_file = config.UPLOAD_DIR / app.find_file_entry(file_id)["stored_name"]
         self.assertTrue(saved_file.exists())
 
         latest_file_response = self.request("GET", "/api/latest-file")
@@ -1180,7 +1179,7 @@ class HttpServerTests(unittest.TestCase):
         upload_response = self.upload_request("old.txt", b"old-data")
         self.assertEqual(upload_response["status"], 200)
         file_entry = json.loads(upload_response["body"])["files"][0]
-        saved_file = config.UPLOAD_DIR / file_entry["stored_name"]
+        saved_file = config.UPLOAD_DIR / app.find_file_entry(file_entry["id"])["stored_name"]
         self.assertTrue(saved_file.exists())
 
         self.current_time += app.EXPIRY_SECONDS + 1
@@ -1264,6 +1263,28 @@ class ScriptTests(unittest.TestCase):
             check=False,
         )
         self.assertEqual(result.returncode, 0, result.stderr)
+
+    def test_root_compatibility_wrappers_forward_to_scripts_paths(self) -> None:
+        ubuntu = (REPO_ROOT / "github-ubuntu-install-upgrade.sh").read_text(encoding="utf-8")
+        centos = (REPO_ROOT / "github-centos-stream-install-upgrade.sh").read_text(encoding="utf-8")
+        self.assertIn("/scripts/github-ubuntu-install-upgrade.sh", ubuntu)
+        self.assertIn('exec bash "${TMP_SCRIPT}" "$@"', ubuntu)
+        self.assertIn("/scripts/github-centos-stream-install-upgrade.sh", centos)
+        self.assertIn('exec bash "${TMP_SCRIPT}" "$@"', centos)
+
+    def test_root_compatibility_wrappers_have_valid_bash_syntax(self) -> None:
+        for path in (
+            "github-ubuntu-install-upgrade.sh",
+            "github-centos-stream-install-upgrade.sh",
+        ):
+            result = subprocess.run(
+                ["bash", "-n", path],
+                cwd=REPO_ROOT,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0, result.stderr)
 
     def test_github_centos_stream_install_upgrade_script_mentions_dnf_and_env_file(self) -> None:
         script = (REPO_ROOT / "scripts" / "github-centos-stream-install-upgrade.sh").read_text(encoding="utf-8")
@@ -1397,6 +1418,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("sudo HTTPS=0 bash ./scripts/install-ubuntu-service.sh", install_doc)
         self.assertIn("sudo bash ./scripts/uninstall-centos-stream-service.sh", install_doc)
         self.assertIn("sudo HTTPS=0 bash", install_doc)
+        self.assertIn("master/github-ubuntu-install-upgrade.sh", install_doc)
+        self.assertIn("master/github-centos-stream-install-upgrade.sh", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
         config_source = (REPO_ROOT / "dassiedrop" / "config.py").read_text(encoding="utf-8")

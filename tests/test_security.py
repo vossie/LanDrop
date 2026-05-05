@@ -1,5 +1,6 @@
 import json
 import threading
+from pathlib import Path
 
 import app
 from dassiedrop import auth, config, state, storage
@@ -22,6 +23,20 @@ class SecurityTests(CoreStateTestCase):
         self.assertEqual(app.sanitize_filename("C:\\temp\\report.pdf"), "report.pdf")
         self.assertEqual(app.sanitize_filename("..\\..\\secret.txt\x00.png"), "secret.txt.png")
 
+    def test_password_hashes_are_salted_and_verify(self) -> None:
+        first = storage.hash_password("vault")
+        second = storage.hash_password("vault")
+
+        self.assertNotEqual(first, second)
+        self.assertTrue(storage.verify_password("vault", first))
+        self.assertFalse(storage.verify_password("wrong", first))
+
+    def test_legacy_sha256_hashes_still_verify(self) -> None:
+        legacy = __import__("hashlib").sha256(b"vault").hexdigest()
+
+        self.assertTrue(storage.verify_password("vault", legacy))
+        self.assertFalse(storage.verify_password("wrong", legacy))
+
     def test_file_upload_parser_normalises_dodgy_filename(self) -> None:
         boundary = "----DassieDropBoundary"
         body = (
@@ -43,6 +58,7 @@ class SecurityTests(CoreStateTestCase):
 
         self.assertIsNotNone(parsed)
         self.assertEqual(parsed["filename"], "passwd.txt")
+        Path(parsed["temp_path"]).unlink(missing_ok=True)
 
     def test_parse_json_body_rejects_non_object_payloads(self) -> None:
         handler = make_app_handler(
@@ -94,6 +110,37 @@ class SecurityTests(CoreStateTestCase):
         self.assertTrue(allowed_before)
         self.assertTrue(allowed_after)
 
+    def test_cleanup_throttle_failures_removes_expired_entries(self) -> None:
+        handler = make_app_handler(client_address=("127.0.0.1", 10001))
+        auth.record_throttle_failure(handler, "login")
+
+        self.current_time += config.AUTH_FAILURE_WINDOW_SECONDS + 1
+        auth.cleanup_throttle_failures()
+
+        self.assertEqual(state.auth_attempts, {})
+
+    def test_close_workspace_clients_removes_clients_without_deadlock(self) -> None:
+        class DummyClient:
+            def __init__(self, workspace_id: str) -> None:
+                self.workspace_id = workspace_id
+                self.closed = False
+
+            def close(self) -> None:
+                self.closed = True
+
+        keep = DummyClient("keep")
+        close_one = DummyClient("close")
+        close_two = DummyClient("close")
+        with state.websocket_lock:
+            state.websocket_clients = {keep, close_one, close_two}
+
+        app.close_workspace_clients("close")
+
+        self.assertTrue(close_one.closed)
+        self.assertTrue(close_two.closed)
+        self.assertFalse(keep.closed)
+        self.assertEqual(state.websocket_clients, {keep})
+
     def test_client_ip_ignores_spoofed_forwarded_for_header(self) -> None:
         handler = make_app_handler(
             headers={"X-Forwarded-For": "203.0.113.10"},
@@ -131,10 +178,62 @@ class SecurityHttpTests(CoreHttpTestCase):
 
         self.assertEqual(response["status"], 200)
         file_entry = json.loads(response["body"])["files"][0]
-        saved_path = config.UPLOAD_DIR / file_entry["stored_name"]
+        saved_path = config.UPLOAD_DIR / app.find_file_entry(file_entry["id"])["stored_name"]
         self.assertEqual(file_entry["name"], "escape.txt")
         self.assertTrue(saved_path.exists())
         self.assertEqual(saved_path.parent, config.UPLOAD_DIR)
+
+    def test_persisted_out_of_tree_file_reference_is_ignored(self) -> None:
+        self.start_server()
+        outside = Path(self.temp_dir.name) / "outside.txt"
+        outside.write_text("secret", encoding="utf-8")
+        payload = {
+            "workspaces": [
+                {
+                    "id": "ops123",
+                    "name": "Ops Room",
+                    "created_at": self.current_time,
+                    "updated_at": self.current_time,
+                    "last_used_at": self.current_time,
+                    "files": [
+                        {
+                            "id": "file123",
+                            "name": "outside.txt",
+                            "stored_name": "../outside.txt",
+                            "size": 6,
+                            "hidden": False,
+                            "short_code": "ABCD",
+                            "created_at": self.current_time,
+                            "expires_at": self.current_time + app.EXPIRY_SECONDS,
+                        }
+                    ],
+                }
+            ]
+        }
+        app.uploads_index_path().write_text(json.dumps(payload), encoding="utf-8")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+        app.load_persisted_workspaces()
+
+        snapshot = app.get_snapshot("ops123")
+        self.assertEqual(snapshot["files"], [])
+
+    def test_asset_symlink_outside_assets_dir_is_rejected(self) -> None:
+        outside = Path(self.temp_dir.name) / "outside.txt"
+        outside.write_text("secret", encoding="utf-8")
+        asset_dir = Path(self.temp_dir.name) / "assets"
+        asset_dir.mkdir()
+        link = asset_dir / "escape.txt"
+        link.symlink_to(outside)
+        original_assets_dir = config.ASSETS_DIR
+        config.ASSETS_DIR = asset_dir
+        try:
+            handler = make_app_handler(path="/assets/escape.txt")
+            handler.serve_asset("escape.txt")
+            self.assertEqual(handler.error_status, 404)
+        finally:
+            config.ASSETS_DIR = original_assets_dir
 
     def test_login_is_rate_limited_after_repeated_wrong_access_codes(self) -> None:
         self.start_server(access_code="secret-code")

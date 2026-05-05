@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import app
 
 from tests.support import CoreStateTestCase, make_app_handler
@@ -82,3 +84,5 @@ class InputValidationTests(CoreStateTestCase):
         self.assertIsNone(parsed)
         self.assertEqual(handler.error_status, 400)
         self.assertEqual(handler.error_message, "Hidden files require a password")
+        if parsed is not None:
+            Path(parsed["temp_path"]).unlink(missing_ok=True)

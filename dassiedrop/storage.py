@@ -3,6 +3,7 @@ import hmac
 import json
 import mimetypes
 import secrets
+import tempfile
 from pathlib import Path
 
 from . import config, state
@@ -72,13 +73,44 @@ def make_workspace_id() -> str:
 
 
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode("utf-8")).hexdigest()
+    salt = secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+    return f"{salt.hex()}:{digest.hex()}"
 
 
 def verify_password(password: str, password_hash: str | None) -> bool:
     if password_hash is None:
         return True
-    return hmac.compare_digest(hash_password(password), password_hash)
+    if ":" not in password_hash:
+        legacy = hashlib.sha256(password.encode("utf-8")).hexdigest()
+        return hmac.compare_digest(legacy, password_hash)
+    salt_hex, digest_hex = password_hash.split(":", 1)
+    try:
+        salt = bytes.fromhex(salt_hex)
+        expected = bytes.fromhex(digest_hex)
+    except ValueError:
+        return False
+    actual = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 100_000)
+    return hmac.compare_digest(actual, expected)
+
+
+def path_within_root(root: Path, candidate: Path) -> bool:
+    try:
+        candidate.resolve().relative_to(root.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+def upload_path(stored_name: str) -> Path | None:
+    target = config.UPLOAD_DIR / stored_name
+    if not path_within_root(config.UPLOAD_DIR, target):
+        return None
+    return target
+
+
+def make_upload_spool() -> tempfile.NamedTemporaryFile:
+    return tempfile.NamedTemporaryFile(prefix="dassiedrop-upload-", suffix=".part", delete=False)
 
 
 def build_workspace(
@@ -177,8 +209,8 @@ def trim_workspace_history_locked(workspace: dict) -> None:
         workspace["files"] = workspace["files"][: config.MAX_FILE_HISTORY]
 
     for item in overflow_files:
-        target = config.UPLOAD_DIR / item["stored_name"]
-        if target.exists():
+        target = upload_path(item["stored_name"])
+        if target is not None and target.exists():
             target.unlink(missing_ok=True)
 
     recompute_workspace_updated_at_locked(workspace)
@@ -192,8 +224,8 @@ def prune_workspace_locked(workspace: dict) -> bool:
     workspace["texts"] = [item for item in workspace["texts"] if item["created_at"] >= cutoff]
     workspace["files"] = [item for item in workspace["files"] if item["created_at"] >= cutoff]
     for item in expired_files:
-        target = config.UPLOAD_DIR / item["stored_name"]
-        if target.exists():
+        target = upload_path(item["stored_name"])
+        if target is not None and target.exists():
             target.unlink(missing_ok=True)
     recompute_workspace_updated_at_locked(workspace)
     return before_texts != len(workspace["texts"]) or before_files != len(workspace["files"])
@@ -271,6 +303,31 @@ def load_persisted_workspaces() -> None:
     index_path = uploads_index_path()
     loaded_workspaces = {}
 
+    def restore_file_entry(file_item: dict) -> dict | None:
+        stored_name = file_item.get("stored_name")
+        if not isinstance(stored_name, str):
+            return None
+        target = upload_path(stored_name)
+        if target is None or not target.exists() or not target.is_file():
+            return None
+        return {
+            "id": str(file_item.get("id") or make_id()),
+            "name": sanitize_filename(str(file_item.get("name") or stored_name)),
+            "stored_name": stored_name,
+            "size": int(file_item.get("size") or target.stat().st_size),
+            "hidden": bool(file_item.get("hidden", False)),
+            "password_hash": file_item.get("password_hash")
+            if isinstance(file_item.get("password_hash"), str)
+            else None,
+            "sharer_name": str(file_item.get("sharer_name") or "").strip(),
+            "sharer_ip": str(file_item.get("sharer_ip") or "").strip(),
+            "short_code": str(file_item.get("short_code") or make_short_code()).upper(),
+            "created_at": float(file_item.get("created_at") or config.now_ts()),
+            "expires_at": float(
+                file_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
+            ),
+        }
+
     if index_path.exists():
         try:
             payload = json.loads(index_path.read_text(encoding="utf-8"))
@@ -304,31 +361,9 @@ def load_persisted_workspaces() -> None:
                 for file_item in raw_files:
                     if not isinstance(file_item, dict):
                         continue
-                    stored_name = file_item.get("stored_name")
-                    if not isinstance(stored_name, str):
-                        continue
-                    target = config.UPLOAD_DIR / stored_name
-                    if not target.exists() or not target.is_file():
-                        continue
-                    restored_files.append(
-                        {
-                            "id": str(file_item.get("id") or make_id()),
-                            "name": sanitize_filename(str(file_item.get("name") or stored_name)),
-                            "stored_name": stored_name,
-                            "size": int(file_item.get("size") or target.stat().st_size),
-                            "hidden": bool(file_item.get("hidden", False)),
-                            "password_hash": file_item.get("password_hash")
-                            if isinstance(file_item.get("password_hash"), str)
-                            else None,
-                            "sharer_name": str(file_item.get("sharer_name") or "").strip(),
-                            "sharer_ip": str(file_item.get("sharer_ip") or "").strip(),
-                            "short_code": str(file_item.get("short_code") or make_short_code()).upper(),
-                            "created_at": float(file_item.get("created_at") or config.now_ts()),
-                            "expires_at": float(
-                                file_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
-                            ),
-                        }
-                    )
+                    restored = restore_file_entry(file_item)
+                    if restored is not None:
+                        restored_files.append(restored)
                 restored_files.sort(key=lambda entry: entry["created_at"], reverse=True)
                 workspace["files"] = restored_files
                 trim_workspace_history_locked(workspace)
@@ -346,31 +381,9 @@ def load_persisted_workspaces() -> None:
                 for file_item in raw_files:
                     if not isinstance(file_item, dict):
                         continue
-                    stored_name = file_item.get("stored_name")
-                    if not isinstance(stored_name, str):
-                        continue
-                    target = config.UPLOAD_DIR / stored_name
-                    if not target.exists() or not target.is_file():
-                        continue
-                    restored_files.append(
-                        {
-                            "id": str(file_item.get("id") or make_id()),
-                            "name": sanitize_filename(str(file_item.get("name") or stored_name)),
-                            "stored_name": stored_name,
-                            "size": int(file_item.get("size") or target.stat().st_size),
-                            "hidden": bool(file_item.get("hidden", False)),
-                            "password_hash": file_item.get("password_hash")
-                            if isinstance(file_item.get("password_hash"), str)
-                            else None,
-                            "sharer_name": str(file_item.get("sharer_name") or "").strip(),
-                            "sharer_ip": str(file_item.get("sharer_ip") or "").strip(),
-                            "short_code": str(file_item.get("short_code") or make_short_code()).upper(),
-                            "created_at": float(file_item.get("created_at") or config.now_ts()),
-                            "expires_at": float(
-                                file_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
-                            ),
-                        }
-                    )
+                    restored = restore_file_entry(file_item)
+                    if restored is not None:
+                        restored_files.append(restored)
                 restored_files.sort(key=lambda entry: entry["created_at"], reverse=True)
                 workspace["files"] = restored_files
                 trim_workspace_history_locked(workspace)
@@ -392,8 +405,8 @@ def delete_workspace_artifacts(workspace: dict) -> None:
     from .websocket import close_workspace_clients
 
     for item in workspace["files"]:
-        target = config.UPLOAD_DIR / item["stored_name"]
-        if target.exists():
+        target = upload_path(item["stored_name"])
+        if target is not None and target.exists():
             target.unlink(missing_ok=True)
     clear_workspace_selection_for_deleted_workspace(workspace["id"])
     close_workspace_clients(workspace["id"])
@@ -448,7 +461,6 @@ def serialize_file_entry(entry: dict) -> dict:
     return {
         "id": entry["id"],
         "name": entry["name"],
-        "stored_name": entry["stored_name"],
         "content_type": guess_content_type(entry["name"]),
         "size": entry["size"],
         "hidden": entry.get("hidden", False),
@@ -702,8 +714,8 @@ def delete_file_entry(file_id: str, workspace_id: str = config.DEFAULT_WORKSPACE
     if removed is None:
         return False
 
-    target = config.UPLOAD_DIR / removed["stored_name"]
-    if target.exists():
+    target = upload_path(removed["stored_name"])
+    if target is not None and target.exists():
         target.unlink(missing_ok=True)
     return True
 

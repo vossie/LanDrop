@@ -232,6 +232,12 @@ chmod +x github-ubuntu-install-upgrade.sh
 sudo ./github-ubuntu-install-upgrade.sh
 ```
 
+Legacy root-level URL also still works:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo bash
+```
+
 Or install or upgrade directly from GitHub:
 
 ```bash
@@ -279,6 +285,12 @@ Install or upgrade on a CentOS Stream host:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo bash
+```
+
+Legacy root-level URL also still works:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo bash
 ```
 
 By default, the service install enables:

@@ -6,6 +6,7 @@ import ssl
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from pathlib import Path
 
 from . import auth, config, state, storage, websocket
 
@@ -94,6 +95,14 @@ def render_template(name: str, replacements: dict[str, str] | None = None) -> st
 
 class AppHandler(BaseHTTPRequestHandler):
     server_version = "DassieDrop/1.2"
+    content_security_policy = (
+        "default-src 'self'; "
+        "img-src 'self' data:; "
+        "style-src 'self' 'unsafe-inline'; "
+        "script-src 'self'; "
+        "connect-src 'self' ws: wss:; "
+        "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
+    )
 
     def send_throttled(self, message: str, retry_after: int) -> None:
         data = message.encode("utf-8")
@@ -748,21 +757,22 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "File too large")
             return None
 
-        body = self.rfile.read(length)
-        filename, file_bytes, fields = self.parse_multipart_file(body, boundary)
-        if filename is None or file_bytes is None:
+        filename, temp_path, file_size, fields = self.parse_multipart_file_stream(length, boundary)
+        if filename is None or temp_path is None:
             self.send_error(HTTPStatus.BAD_REQUEST, "Could not read uploaded file")
             return None
         hidden = fields.get("hidden", "false").lower() == "true"
         password = fields.get("password", "").strip()
         sharer_name = fields.get("name", "").strip()
         if hidden and not password:
+            Path(temp_path).unlink(missing_ok=True)
             self.send_error(HTTPStatus.BAD_REQUEST, "Hidden files require a password")
             return None
 
         return {
             "filename": filename,
-            "file_bytes": file_bytes,
+            "temp_path": temp_path,
+            "file_size": file_size,
             "hidden": hidden,
             "password": password,
             "name": sharer_name,
@@ -771,14 +781,16 @@ class AppHandler(BaseHTTPRequestHandler):
     def store_file_upload(self, parsed: dict, workspace_id: str) -> dict | None:
         storage.ensure_upload_dir()
         stored_name = storage.unique_filename(parsed["filename"])
-        target = config.UPLOAD_DIR / stored_name
-        with target.open("wb") as handle:
-            handle.write(parsed["file_bytes"])
+        target = storage.upload_path(stored_name)
+        if target is None:
+            Path(parsed["temp_path"]).unlink(missing_ok=True)
+            return None
+        shutil.move(parsed["temp_path"], target)
 
         storage.add_file(
             parsed["filename"],
             stored_name,
-            len(parsed["file_bytes"]),
+            parsed["file_size"],
             hidden=parsed["hidden"],
             password=parsed["password"],
             sharer_name=parsed["name"],
@@ -787,45 +799,105 @@ class AppHandler(BaseHTTPRequestHandler):
         )
         return storage.find_file_entry(storage.get_snapshot(workspace_id)["files"][0]["id"], workspace_id=workspace_id)
 
-    def parse_multipart_file(self, body: bytes, boundary: bytes):
+    def parse_multipart_file_stream(self, length: int, boundary: bytes):
         marker = b"--" + boundary
-        parts = body.split(marker)
-        fields = {}
+        fields: dict[str, str] = {}
+        temp_path = None
+        file_size = 0
         upload_name = None
-        upload_payload = None
-        for part in parts:
-            if not part or part in (b"--\r\n", b"--"):
-                continue
-            part = part.lstrip(b"\r\n")
-            headers_blob, separator, payload = part.partition(b"\r\n\r\n")
-            if not separator:
-                continue
+        remaining = length
 
-            headers_text = headers_blob.decode("utf-8", errors="ignore")
+        def read_line() -> bytes | None:
+            nonlocal remaining
+            if remaining <= 0:
+                return b""
+            try:
+                line = self.rfile.readline(remaining)
+            except OSError:
+                return None
+            if not line:
+                return None
+            remaining -= len(line)
+            return line
+
+        line = read_line()
+        if line is None or line.rstrip(b"\r\n") != marker:
+            return (None, None, 0, {})
+
+        while True:
+            header_lines = []
+            while True:
+                line = read_line()
+                if line is None:
+                    if temp_path:
+                        Path(temp_path).unlink(missing_ok=True)
+                    return (None, None, 0, {})
+                if line in (b"\r\n", b"\n", b""):
+                    break
+                header_lines.append(line.decode("utf-8", errors="ignore").strip())
+
             field_name = None
             filename = None
-            for line in headers_text.split("\r\n"):
-                lower = line.lower()
-                if lower.startswith("content-disposition:"):
+            for line in header_lines:
+                if line.lower().startswith("content-disposition:"):
                     for piece in line.split(";"):
                         piece = piece.strip()
                         if piece.startswith("name="):
                             field_name = piece.split("=", 1)[1].strip("\"")
-                        if piece.startswith("filename="):
+                        elif piece.startswith("filename="):
                             filename = piece.split("=", 1)[1].strip("\"")
 
-            if payload.endswith(b"\r\n"):
-                payload = payload[:-2]
-            if payload.endswith(b"--"):
-                payload = payload[:-2]
+            if not field_name:
+                if temp_path:
+                    Path(temp_path).unlink(missing_ok=True)
+                return (None, None, 0, {})
 
+            payload_file = None
+            payload_chunks = []
             if field_name == "file":
+                spool = storage.make_upload_spool()
+                temp_path = spool.name
+                payload_file = spool
                 upload_name = storage.sanitize_filename(filename or "upload.bin")
-                upload_payload = payload
-            elif field_name:
-                fields[field_name] = payload.decode("utf-8", errors="ignore")
 
-        return upload_name, upload_payload, fields
+            previous_line = None
+            boundary_line = None
+            while True:
+                line = read_line()
+                if line is None:
+                    if payload_file is not None:
+                        payload_file.close()
+                    if temp_path:
+                        Path(temp_path).unlink(missing_ok=True)
+                    return (None, None, 0, {})
+                stripped = line.rstrip(b"\r\n")
+                if stripped == marker or stripped == marker + b"--":
+                    boundary_line = stripped
+                    if previous_line is not None:
+                        final_chunk = previous_line[:-2] if previous_line.endswith(b"\r\n") else previous_line
+                        if payload_file is not None:
+                            payload_file.write(final_chunk)
+                            file_size += len(final_chunk)
+                        else:
+                            payload_chunks.append(final_chunk)
+                    break
+                if previous_line is not None:
+                    if payload_file is not None:
+                        payload_file.write(previous_line)
+                        file_size += len(previous_line)
+                    else:
+                        payload_chunks.append(previous_line)
+                previous_line = line
+
+            if payload_file is not None:
+                payload_file.close()
+            else:
+                fields[field_name] = b"".join(payload_chunks).decode("utf-8", errors="ignore")
+
+            if boundary_line == marker + b"--":
+                break
+
+        return (upload_name, temp_path, file_size, fields)
 
     def handle_websocket(self) -> None:
         workspace_id = self.require_workspace_context()
@@ -888,6 +960,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return (None, b"")
 
         first_byte, second_byte = header
+        if not (first_byte & 0x80):
+            return (None, b"")
         opcode = first_byte & 0x0F
         masked = bool(second_byte & 0x80)
         payload_length = second_byte & 0x7F
@@ -950,8 +1024,8 @@ class AppHandler(BaseHTTPRequestHandler):
         self.serve_file_entry(entry, as_attachment=False)
 
     def serve_file_entry(self, entry: dict, as_attachment: bool) -> None:
-        target = config.UPLOAD_DIR / entry["stored_name"]
-        if not target.exists() or not target.is_file():
+        target = storage.upload_path(entry["stored_name"])
+        if target is None or not target.exists() or not target.is_file():
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
 
@@ -972,7 +1046,11 @@ class AppHandler(BaseHTTPRequestHandler):
         safe_name = urllib.parse.unquote(asset_name)
         safe_name = safe_name.split("/")[-1]
         target = config.ASSETS_DIR / safe_name
-        if not target.exists() or not target.is_file():
+        if (
+            not storage.path_within_root(config.ASSETS_DIR, target)
+            or not target.exists()
+            or not target.is_file()
+        ):
             self.send_error(HTTPStatus.NOT_FOUND, "Asset not found")
             return
 
@@ -989,6 +1067,7 @@ class AppHandler(BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Security-Policy", self.content_security_policy)
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")

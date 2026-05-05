@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 
 from dassiedrop import config
 
@@ -97,8 +98,43 @@ class ApiTests(CoreStateTestCase):
             },
         )
 
+    def test_upload_parser_spools_file_to_disk_without_returning_bytes(self) -> None:
+        boundary = "----DassieDropBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="note.txt"\r\n'
+            "Content-Type: text/plain\r\n\r\n"
+            "payload"
+            f"\r\n--{boundary}--\r\n"
+        ).encode("utf-8")
+        handler = make_app_handler(
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+            body=body,
+        )
+
+        result = handler.parse_file_upload_request()
+
+        self.assertIsNotNone(result)
+        self.assertNotIn("file_bytes", result)
+        temp_path = Path(result["temp_path"])
+        self.assertTrue(temp_path.exists())
+        self.assertEqual(temp_path.read_bytes(), b"payload")
+        temp_path.unlink(missing_ok=True)
+
 
 class ApiContractHttpTests(CoreHttpTestCase):
+    def test_root_page_sets_content_security_policy_header(self) -> None:
+        self.start_server()
+
+        response = self.request("GET", "/workspaces")
+
+        self.assertEqual(response["status"], 200)
+        self.assertIn("Content-Security-Policy", response["headers"])
+        self.assertIn("default-src 'self'", response["headers"]["Content-Security-Policy"])
+
     def test_api_state_contract_headers_and_keys_are_stable(self) -> None:
         self.start_server()
         self.request(
@@ -156,7 +192,7 @@ class ApiContractHttpTests(CoreHttpTestCase):
         self.assertEqual(response["headers"]["Cache-Control"], "no-store")
         self.assertEqual(
             set(payload.keys()),
-            {"id", "name", "stored_name", "content_type", "size", "hidden", "password_required", "sharer_name", "sharer_ip", "short_code", "created_at", "expires_at"},
+            {"id", "name", "content_type", "size", "hidden", "password_required", "sharer_name", "sharer_ip", "short_code", "created_at", "expires_at"},
         )
 
     def test_download_contract_headers_are_stable(self) -> None:

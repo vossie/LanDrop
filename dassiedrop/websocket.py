@@ -73,8 +73,10 @@ def unregister_websocket_client(client: WebSocketClient) -> None:
 def close_workspace_clients(workspace_id: str) -> None:
     with state.websocket_lock:
         clients = [client for client in state.websocket_clients if client.workspace_id == workspace_id]
+        for client in clients:
+            state.websocket_clients.discard(client)
     for client in clients:
-        unregister_websocket_client(client)
+        client.close()
 
 
 def broadcast_snapshot(workspace_id: str, snapshot: dict | None = None) -> None:
@@ -99,6 +101,9 @@ def start_background_tasks() -> None:
 
     def run_janitor() -> None:
         while not state.janitor_stop_event.wait(1.0):
+            from . import auth
+
+            auth.cleanup_throttle_failures()
             for workspace_id in storage.prune_expired_entries():
                 broadcast_snapshot(workspace_id)
 

@@ -121,6 +121,29 @@ def clear_throttle_failures(handler: BaseHTTPRequestHandler, scope: str, subject
         state.auth_attempts.pop(key, None)
 
 
+def cleanup_throttle_failures() -> None:
+    now = config.now_ts()
+    with state.auth_attempt_lock:
+        expired_keys = []
+        for key, attempt in state.auth_attempts.items():
+            locked_until = float(attempt.get("locked_until", 0.0) or 0.0)
+            failures = [
+                ts
+                for ts in attempt.get("failures", [])
+                if now - float(ts) <= config.AUTH_FAILURE_WINDOW_SECONDS
+            ]
+            if locked_until > now:
+                attempt["failures"] = failures
+                continue
+            if failures:
+                attempt["failures"] = failures
+                attempt["locked_until"] = 0.0
+                continue
+            expired_keys.append(key)
+        for key in expired_keys:
+            state.auth_attempts.pop(key, None)
+
+
 def ensure_browser_session(handler: BaseHTTPRequestHandler) -> tuple[str | None, dict | None, str | None]:
     session_id, session = get_session(handler)
     if session_id is not None and session is not None:
