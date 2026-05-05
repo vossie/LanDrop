@@ -1289,7 +1289,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("Create Workspace", template)
         self.assertIn('fetch("/api/workspaces")', script)
         self.assertIn('href="/workspaces"', index)
-        self.assertIn("Share text and files across your network in Carel", index)
+        self.assertIn("Share text and files across your network", index)
         self.assertIn("v__APP_VERSION__ - <strong>__WORKSPACE_NAME__</strong>", index)
         self.assertNotIn("window.prompt", script)
         self.assertIn('className = "workspace-auth-row"', script)
