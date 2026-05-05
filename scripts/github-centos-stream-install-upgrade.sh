@@ -193,6 +193,11 @@ fi
 if [[ -f "${SOURCE_DIR}/VERSION" ]]; then
   install -m 0644 "${SOURCE_DIR}/VERSION" "${APP_DIR}/VERSION"
 fi
+if [[ -d "${SOURCE_DIR}/dassiedrop" ]]; then
+  rm -rf "${APP_DIR}/dassiedrop"
+  install -d -m 0755 "${APP_DIR}/dassiedrop"
+  cp -R "${SOURCE_DIR}/dassiedrop/." "${APP_DIR}/dassiedrop/"
+fi
 if [[ -d "${SOURCE_DIR}/assets" ]]; then
   rm -rf "${APP_DIR}/assets"
   install -d -m 0755 "${APP_DIR}/assets"
@@ -210,6 +215,9 @@ if [[ -f "${APP_DIR}/README.md" ]]; then
 fi
 if [[ -f "${APP_DIR}/VERSION" ]]; then
   chown root:root "${APP_DIR}/VERSION"
+fi
+if [[ -d "${APP_DIR}/dassiedrop" ]]; then
+  chown -R root:root "${APP_DIR}/dassiedrop"
 fi
 if [[ -d "${APP_DIR}/assets" ]]; then
   chown -R root:root "${APP_DIR}/assets"

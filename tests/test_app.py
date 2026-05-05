@@ -1278,6 +1278,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('HTTPS_PORT_VALUE="${HTTPS_PORT:-8443}"', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
         self.assertIn('done < "${ENV_FILE}"', script)
+        self.assertIn('SOURCE_DIR}/dassiedrop', script)
+        self.assertIn('APP_DIR}/dassiedrop', script)
         self.assertIn('ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py', script)
         self.assertIn('systemctl restart "${SERVICE_NAME}.service"', script)
 
@@ -1298,6 +1300,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
         self.assertIn('REPO_DIR}/VERSION', script)
         self.assertIn('APP_DIR}/VERSION', script)
+        self.assertIn('REPO_DIR}/dassiedrop', script)
+        self.assertIn('APP_DIR}/dassiedrop', script)
         self.assertIn('REPO_DIR}/assets', script)
         self.assertIn('APP_DIR}/assets', script)
         self.assertIn('REPO_DIR}/templates', script)
