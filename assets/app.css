@@ -204,12 +204,46 @@ h1 {
   flex: 0 0 auto;
   max-width: 100%;
 }
+.workspace-selector-wrap {
+  position: relative;
+  display: inline-flex;
+  justify-self: end;
+}
 .workspace-pill-label {
   display: inline-block;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.workspace-selector-hint {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 10px);
+  max-width: 220px;
+  padding: 8px 10px;
+  border-radius: 12px;
+  background: #0b2f66;
+  color: #fff;
+  font-size: 0.82rem;
+  line-height: 1.3;
+  box-shadow: 0 12px 24px rgba(6, 26, 58, 0.22);
+  z-index: 3;
+  transition: opacity 180ms ease, transform 180ms ease;
+}
+.workspace-selector-hint::after {
+  content: "";
+  position: absolute;
+  right: 16px;
+  top: 100%;
+  width: 10px;
+  height: 10px;
+  background: #0b2f66;
+  transform: rotate(45deg) translateY(-4px);
+}
+.workspace-selector-hint.fade-out {
+  opacity: 0;
+  transform: translateY(-4px);
 }
 .workspace-pill:hover {
   background: #e2edff;
@@ -854,6 +888,13 @@ input[type="file"] {
   .workspace-pill {
     margin-left: 0;
     max-width: min(44vw, 180px);
+  }
+  .workspace-selector-wrap {
+    justify-self: auto;
+  }
+  .workspace-selector-hint {
+    right: 0;
+    max-width: min(70vw, 220px);
   }
   .hero-input-row {
     flex-basis: 100%;

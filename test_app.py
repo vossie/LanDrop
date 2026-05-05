@@ -929,12 +929,6 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(workspace_list["status"], 200)
 
         authorized_state = self.request("GET", "/api/state", headers={"Cookie": cookie})
-        self.assertEqual(authorized_state["status"], 409)
-
-        enter_response = self.select_workspace(cookie)
-        self.assertEqual(enter_response["status"], 200)
-
-        authorized_state = self.request("GET", "/api/state", headers={"Cookie": cookie})
         self.assertEqual(authorized_state["status"], 200)
 
         protected_latest_text_missing = self.request(
@@ -1309,6 +1303,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('/assets/DassieDrop-dassie-icon.png', index)
         self.assertIn("DassieDrop</span>", index)
         self.assertIn('class="workspace-pill"', index)
+        self.assertIn('id="workspaceSelector"', index)
+        self.assertIn('class="workspace-selector-wrap"', index)
         self.assertIn('class="workspace-pill-label"', index)
         self.assertIn('aria-label="Current workspace: __WORKSPACE_NAME__"', index)
         self.assertIn('title="Current workspace: __WORKSPACE_NAME__"', index)
@@ -1350,10 +1346,18 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('pasteSendBtn.addEventListener("click", pasteAndSendText);', script)
         self.assertIn(".hero-brand-link", css)
         self.assertIn(".hero-title-text", css)
+        self.assertIn(".workspace-selector-wrap", css)
+        self.assertIn(".workspace-selector-hint", css)
         self.assertIn(".workspace-pill-label", css)
         self.assertIn(".paste-send-btn", css)
         self.assertIn(".workspace-pill", css)
         self.assertIn(".text-editor-wrap.clipboard-read-unavailable .paste-send-btn", css)
+        login_script = (Path(__file__).resolve().parent / "assets" / "login.js").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('window.location.href = "/?workspace_hint=1";', login_script)
+        self.assertIn("Click here to change workspace", script)
+        self.assertIn('params.get("workspace_hint") !== "1"', script)
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(

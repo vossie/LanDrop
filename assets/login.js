@@ -14,7 +14,7 @@ async function login() {
       loginStatus.textContent = "Wrong access code.";
       return;
     }
-    window.location.href = "/workspaces";
+    window.location.href = "/?workspace_hint=1";
   } catch (error) {
     loginStatus.textContent = "Login failed.";
   }

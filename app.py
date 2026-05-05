@@ -1427,7 +1427,7 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def handle_login(self) -> None:
         if not ACCESS_CODE:
-            session_id = create_authorized_session()
+            session_id = create_authorized_session(DEFAULT_WORKSPACE_ID)
             self.send_json(
                 {"ok": True},
                 cookie=session_cookie(session_id, secure=bool(getattr(self.server, "is_https", False))),
@@ -1447,7 +1447,7 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.UNAUTHORIZED, "Wrong access code")
             return
 
-        session_id = create_authorized_session()
+        session_id = create_authorized_session(DEFAULT_WORKSPACE_ID)
         self.send_json(
             {"ok": True},
             cookie=session_cookie(session_id, secure=bool(getattr(self.server, "is_https", False))),

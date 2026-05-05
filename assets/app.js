@@ -23,6 +23,7 @@ const fileStatus = document.getElementById("fileStatus");
 const fileList = document.getElementById("fileList");
 const textHistory = document.getElementById("textHistory");
 const dropZone = document.getElementById("dropZone");
+const workspaceSelector = document.getElementById("workspaceSelector");
 const clipboardReadAvailable = !!(window.isSecureContext && navigator.clipboard && navigator.clipboard.readText);
 
 let pendingTextPush = false;
@@ -59,10 +60,38 @@ if (!clipboardReadAvailable && pasteSendBtn) {
   }
 }
 
+function showWorkspaceSelectorHint() {
+  if (!workspaceSelector) {
+    return;
+  }
+  const params = new URLSearchParams(window.location.search);
+  if (params.get("workspace_hint") !== "1") {
+    return;
+  }
+  const wrap = workspaceSelector.closest(".workspace-selector-wrap");
+  if (!wrap) {
+    return;
+  }
+  const bubble = document.createElement("div");
+  bubble.className = "workspace-selector-hint";
+  bubble.textContent = "Click here to change workspace";
+  wrap.appendChild(bubble);
+  params.delete("workspace_hint");
+  const nextSearch = params.toString();
+  const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+  window.history.replaceState({}, "", nextUrl);
+  window.setTimeout(() => {
+    bubble.classList.add("fade-out");
+    window.setTimeout(() => bubble.remove(), 220);
+  }, 3200);
+}
+
 function updateTabIndicators() {
   textTabBtn.classList.toggle("has-update", unreadText);
   fileTabBtn.classList.toggle("has-update", unreadFiles);
 }
+
+showWorkspaceSelectorHint();
 
 function syncTabs() {
   const showingText = activeTab === "text";
