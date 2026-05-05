@@ -1088,7 +1088,21 @@ class ScriptTests(unittest.TestCase):
         ).read_text(encoding="utf-8")
         self.assertIn("/api/share-text", doc)
         self.assertIn("/api/share-file", doc)
+        self.assertIn("openapi.yaml", doc)
         self.assertIn("curl", doc)
+
+    def test_openapi_schema_documents_core_http_api(self) -> None:
+        doc = (
+            Path(__file__).resolve().parent / "docs" / "openapi.yaml"
+        ).read_text(encoding="utf-8")
+        self.assertIn("openapi: 3.1.0", doc)
+        self.assertIn("/login:", doc)
+        self.assertIn("/api/state:", doc)
+        self.assertIn("/api/share-text:", doc)
+        self.assertIn("/api/share-file:", doc)
+        self.assertIn("/api/workspaces:", doc)
+        self.assertIn("X-Workspace-Name", doc)
+        self.assertIn("X-API-Key", doc)
 
     def test_developer_guide_mentions_versioning_and_main_rule(self) -> None:
         doc = (
@@ -1103,7 +1117,7 @@ class ScriptTests(unittest.TestCase):
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.12")
+        self.assertEqual(version, "1.0.16")
         self.assertIn("infrastructure you control", readme)
         self.assertIn("Know exactly where your data is while it is being shared", readme)
         self.assertIn("Contributor: Mark Levitt", readme)
@@ -1111,6 +1125,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("Copyright (c) 2026 Carel Vosloo", license_text)
         self.assertIn("ISC licensed.", index_template)
         self.assertIn("If you are not an intended recipient or authorized user", index_template)
+        self.assertIn("OpenAPI schema: [docs/openapi.yaml](docs/openapi.yaml).", readme)
 
     def test_github_ubuntu_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (

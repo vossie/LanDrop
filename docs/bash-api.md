@@ -1,5 +1,7 @@
 # Bash API Help
 
+OpenAPI schema: [openapi.yaml](openapi.yaml)
+
 DassieDrop exposes bash-friendly endpoints for automation, including workspace-aware sharing:
 
 - `POST /api/share-text`
