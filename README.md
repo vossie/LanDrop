@@ -14,7 +14,7 @@ No accounts. No syncing. No third-party services. Just open a browser and drop.
 
 ---
 
-## 🚀 Why DassieDrop?
+## Why DassieDrop?
 
 If you’ve ever:
 
@@ -27,18 +27,18 @@ This is for you.
 
 ---
 
-## 🔥 What makes it different
+## What makes it different
 
-- 🌐 Works on anything with a browser
-- 🔒 No cloud / no external services
-- ⚡ Instant sharing over your local network
-- 📄 Supports both files and text snippets
-- 🧠 Dead simple, no setup, no accounts
-- 🧰 Scriptable via curl API
+- Works on anything with a browser
+- No cloud / no external services
+- Instant sharing over your local network
+- Supports both files and text snippets
+- Dead simple, no setup, no accounts
+- Scriptable via curl API
 
 ---
 
-## ⚖️ Why not just use something else?
+## Why not just use something else?
 
 | Tool | Limitation |
 |------|-----------|
@@ -86,7 +86,7 @@ For HTTPS, service installs, and more setup options, see [docs/installation.md](
 
 ---
 
-## 🔐 Privacy & Security
+## Privacy & Security
 
 DassieDrop is local-first by design:
 
@@ -97,17 +97,17 @@ DassieDrop is local-first by design:
 - Optional access code
 - Optional hidden/password-protected items
 
-⚠️ Not intended to be exposed directly to the public internet without proper setup (reverse proxy + TLS).
+Not intended to be exposed directly to the public internet without proper setup (reverse proxy + TLS).
 
 ---
 
-## 🧰 API
+## API
 
 See [docs/api-usage.md](docs/api-usage.md) for API usage examples and quick automation notes.
 
 ---
 
-## 🧠 Use cases
+## Use cases
 
 - Move screenshots from iPhone → Linux instantly
 - Send logs from a server → your phone
@@ -117,25 +117,25 @@ See [docs/api-usage.md](docs/api-usage.md) for API usage examples and quick auto
 
 ---
 
-## ⚙️ Requirements
+## Requirements
 
 - Python 3.x
 - No external dependencies
 
 ---
 
-## 🛠️ Installation
+## Installation
 
 See full instructions in docs/installation.md
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 PRs welcome. Keep it simple, local-first, and dependency-free.
 
 ---
 
-## 🦡 Why “Dassie”?
+## Why “Dassie”?
 
 Because it’s small, local, and surprisingly effective, like the rock hyrax.
