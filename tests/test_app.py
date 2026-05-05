@@ -1418,8 +1418,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("sudo HTTPS=0 bash ./scripts/install-ubuntu-service.sh", install_doc)
         self.assertIn("sudo bash ./scripts/uninstall-centos-stream-service.sh", install_doc)
         self.assertIn("sudo HTTPS=0 bash", install_doc)
-        self.assertIn("master/github-ubuntu-install-upgrade.sh", install_doc)
-        self.assertIn("master/github-centos-stream-install-upgrade.sh", install_doc)
+        self.assertIn("master/scripts/github-ubuntu-install-upgrade.sh", install_doc)
+        self.assertIn("master/scripts/github-centos-stream-install-upgrade.sh", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
         config_source = (REPO_ROOT / "dassiedrop" / "config.py").read_text(encoding="utf-8")
