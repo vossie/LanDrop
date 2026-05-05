@@ -11,44 +11,45 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 import app
+from dassiedrop import config, state
 
 
 def reset_app_state() -> None:
-    with app.state_lock:
-        app.shared_state["workspaces"] = {}
-    with app.session_lock:
-        app.authorized_sessions.clear()
+    with state.state_lock:
+        state.shared_state["workspaces"] = {}
+    with state.session_lock:
+        state.authorized_sessions.clear()
     app.stop_background_tasks()
 
 
 class AppStateTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = TemporaryDirectory()
-        self.original_upload_dir = app.UPLOAD_DIR
-        self.original_access_code = app.ACCESS_CODE
-        self.original_share_base_url = app.SHARE_BASE_URL
-        self.original_workspace_super_password = app.WORKSPACE_SUPER_PASSWORD
-        self.original_now_ts = app.now_ts
-        self.original_version_file = app.VERSION_FILE
-        app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
-        app.ACCESS_CODE = ""
-        app.SHARE_BASE_URL = ""
-        app.WORKSPACE_SUPER_PASSWORD = ""
-        app.now_ts = self.fake_now
-        app.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
-        app.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
+        self.original_upload_dir = config.UPLOAD_DIR
+        self.original_access_code = config.ACCESS_CODE
+        self.original_share_base_url = config.SHARE_BASE_URL
+        self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
+        self.original_now_ts = config.now_ts
+        self.original_version_file = config.VERSION_FILE
+        config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
+        config.ACCESS_CODE = ""
+        config.SHARE_BASE_URL = ""
+        config.WORKSPACE_SUPER_PASSWORD = ""
+        config.now_ts = self.fake_now
+        config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
+        config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
         self.current_time = 1_700_000_000.0
         app.ensure_upload_dir()
         reset_app_state()
 
     def tearDown(self) -> None:
         reset_app_state()
-        app.UPLOAD_DIR = self.original_upload_dir
-        app.ACCESS_CODE = self.original_access_code
-        app.SHARE_BASE_URL = self.original_share_base_url
-        app.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
-        app.now_ts = self.original_now_ts
-        app.VERSION_FILE = self.original_version_file
+        config.UPLOAD_DIR = self.original_upload_dir
+        config.ACCESS_CODE = self.original_access_code
+        config.SHARE_BASE_URL = self.original_share_base_url
+        config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
+        config.now_ts = self.original_now_ts
+        config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
 
     def fake_now(self) -> float:
@@ -102,10 +103,16 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(app.workspace_slug("Carel Workspace"), "carel-workspace")
         self.assertEqual(app.workspace_slug("  Prod / EU West  "), "prod-eu-west")
 
+    def test_filename_sanitisation_strips_paths_and_nulls(self) -> None:
+        self.assertEqual(app.sanitize_filename("../unsafe.txt"), "unsafe.txt")
+        self.assertEqual(app.sanitize_filename("..\\unsafe.txt"), "unsafe.txt")
+        self.assertEqual(app.sanitize_filename("bad\x00name.txt"), "badname.txt")
+        self.assertEqual(app.sanitize_filename(""), "upload.bin")
+
     def test_workspace_selector_can_resolve_workspace_slug(self) -> None:
         workspace = app.create_workspace("Ops Desk")
 
-        with app.state_lock:
+        with state.state_lock:
             resolved = app.resolve_workspace_selector_locked("ops-desk")
 
         self.assertIsNotNone(resolved)
@@ -141,7 +148,7 @@ class AppStateTests(unittest.TestCase):
         self.assertNotIn("content_html", snapshot["texts"][0])
 
     def test_delete_file_entry_removes_file_from_disk(self) -> None:
-        target = app.UPLOAD_DIR / "stored.txt"
+        target = config.UPLOAD_DIR / "stored.txt"
         target.write_text("payload", encoding="utf-8")
         app.add_file("original.txt", "stored.txt", target.stat().st_size)
         file_id = app.get_snapshot()["files"][0]["id"]
@@ -153,7 +160,7 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(app.get_snapshot()["files"], [])
 
     def test_expired_entries_are_removed_and_expired_files_deleted(self) -> None:
-        expired_file = app.UPLOAD_DIR / "old.txt"
+        expired_file = config.UPLOAD_DIR / "old.txt"
         expired_file.write_text("old", encoding="utf-8")
         app.add_text_entry("old text")
         app.add_file("old.txt", "old.txt", expired_file.stat().st_size)
@@ -164,6 +171,29 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(snapshot["texts"], [])
         self.assertEqual(snapshot["files"], [])
         self.assertFalse(expired_file.exists())
+
+    def test_expiry_cleanup_reports_changed_workspace_ids(self) -> None:
+        target = config.UPLOAD_DIR / "cleanup.txt"
+        target.write_text("payload", encoding="utf-8")
+        app.add_text_entry("drop")
+        app.add_file("cleanup.txt", "cleanup.txt", target.stat().st_size)
+
+        self.current_time += app.EXPIRY_SECONDS + 1
+        changed_workspace_ids = app.prune_expired_entries()
+
+        self.assertIn(app.DEFAULT_WORKSPACE_ID, changed_workspace_ids)
+        snapshot = app.get_snapshot()
+        self.assertEqual(snapshot["texts"], [])
+        self.assertEqual(snapshot["files"], [])
+        self.assertFalse(target.exists())
+
+    def test_workspace_creation_sets_password_requirement(self) -> None:
+        workspace = app.create_workspace("Private Ops", password="vault")
+        listed = app.list_workspaces()
+
+        created = next(item for item in listed if item["id"] == workspace["id"])
+        self.assertEqual(created["slug"], "private-ops")
+        self.assertTrue(created["password_required"])
 
     def test_inactive_non_default_workspace_is_deleted_after_24_hours(self) -> None:
         workspace = app.create_workspace("Old Workspace")
@@ -215,7 +245,7 @@ class AppStateTests(unittest.TestCase):
 
         for index in range(app.MAX_FILE_HISTORY + 3):
             stored_name = f"stored-{index}.txt"
-            target = app.UPLOAD_DIR / stored_name
+            target = config.UPLOAD_DIR / stored_name
             target.write_text(f"payload-{index}", encoding="utf-8")
             app.add_file(f"original-{index}.txt", stored_name, target.stat().st_size)
             if index == 0:
@@ -235,7 +265,7 @@ class AppStateTests(unittest.TestCase):
         self.assertTrue(newest_target.exists())
 
     def test_file_metadata_is_persisted_and_reloaded_after_restart(self) -> None:
-        target = app.UPLOAD_DIR / "persisted.txt"
+        target = config.UPLOAD_DIR / "persisted.txt"
         target.write_text("payload", encoding="utf-8")
 
         app.add_file(
@@ -250,8 +280,8 @@ class AppStateTests(unittest.TestCase):
         original_snapshot = app.get_snapshot()
         original_entry = original_snapshot["files"][0]
 
-        with app.state_lock:
-            app.shared_state["workspaces"] = {}
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
 
         app.load_persisted_files()
 
@@ -268,13 +298,13 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(reloaded_entry["short_code"], original_entry["short_code"])
 
     def test_reload_skips_missing_files_and_cleans_index(self) -> None:
-        target = app.UPLOAD_DIR / "gone.txt"
+        target = config.UPLOAD_DIR / "gone.txt"
         target.write_text("payload", encoding="utf-8")
         app.add_file("gone.txt", "gone.txt", target.stat().st_size)
         target.unlink()
 
-        with app.state_lock:
-            app.shared_state["workspaces"] = {}
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
 
         app.load_persisted_files()
 
@@ -294,7 +324,7 @@ class AppStateTests(unittest.TestCase):
         self.assertTrue(ok)
         self.assertEqual(message, "")
 
-        app.WORKSPACE_SUPER_PASSWORD = "override"
+        config.WORKSPACE_SUPER_PASSWORD = "override"
         deleted, delete_message = app.delete_workspace(workspace["id"], password="override")
         self.assertTrue(deleted)
         self.assertEqual(delete_message, "")
@@ -318,19 +348,19 @@ class AppStateTests(unittest.TestCase):
 class HttpServerTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temp_dir = TemporaryDirectory()
-        self.original_upload_dir = app.UPLOAD_DIR
-        self.original_access_code = app.ACCESS_CODE
-        self.original_share_base_url = app.SHARE_BASE_URL
-        self.original_workspace_super_password = app.WORKSPACE_SUPER_PASSWORD
-        self.original_now_ts = app.now_ts
-        self.original_version_file = app.VERSION_FILE
+        self.original_upload_dir = config.UPLOAD_DIR
+        self.original_access_code = config.ACCESS_CODE
+        self.original_share_base_url = config.SHARE_BASE_URL
+        self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
+        self.original_now_ts = config.now_ts
+        self.original_version_file = config.VERSION_FILE
         self.current_time = 1_700_100_000.0
-        app.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
-        app.SHARE_BASE_URL = ""
-        app.WORKSPACE_SUPER_PASSWORD = ""
-        app.now_ts = self.fake_now
-        app.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
-        app.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
+        config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
+        config.SHARE_BASE_URL = ""
+        config.WORKSPACE_SUPER_PASSWORD = ""
+        config.now_ts = self.fake_now
+        config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
+        config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
         app.ensure_upload_dir()
         reset_app_state()
         self.server = None
@@ -343,19 +373,19 @@ class HttpServerTests(unittest.TestCase):
         if self.thread is not None:
             self.thread.join(timeout=5)
         reset_app_state()
-        app.UPLOAD_DIR = self.original_upload_dir
-        app.ACCESS_CODE = self.original_access_code
-        app.SHARE_BASE_URL = self.original_share_base_url
-        app.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
-        app.now_ts = self.original_now_ts
-        app.VERSION_FILE = self.original_version_file
+        config.UPLOAD_DIR = self.original_upload_dir
+        config.ACCESS_CODE = self.original_access_code
+        config.SHARE_BASE_URL = self.original_share_base_url
+        config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
+        config.now_ts = self.original_now_ts
+        config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
 
     def fake_now(self) -> float:
         return self.current_time
 
     def start_server(self, access_code: str = "") -> None:
-        app.ACCESS_CODE = access_code
+        config.ACCESS_CODE = access_code
         reset_app_state()
         app.start_background_tasks()
         self.server = app.ThreadingHTTPServer(("127.0.0.1", 0), app.AppHandler)
@@ -519,7 +549,7 @@ class HttpServerTests(unittest.TestCase):
         file_entry = upload_snapshot["files"][0]
         file_id = file_entry["id"]
 
-        saved_file = app.UPLOAD_DIR / file_entry["stored_name"]
+        saved_file = config.UPLOAD_DIR / file_entry["stored_name"]
         self.assertTrue(saved_file.exists())
 
         latest_file_response = self.request("GET", "/api/latest-file")
@@ -581,8 +611,68 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(json.loads(delete_file_response["body"])["files"], [])
         self.assertFalse(saved_file.exists())
 
+    def test_workspace_creation_endpoint_returns_workspace_summary(self) -> None:
+        self.start_server()
+
+        response = self.request(
+            "POST",
+            "/api/workspaces",
+            body=json.dumps({"name": "QA Room", "password": "vault"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response["status"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["workspace"]["name"], "QA Room")
+        self.assertEqual(payload["workspace"]["slug"], "qa-room")
+        self.assertTrue(payload["workspace"]["password_required"])
+
+    def test_text_drop_endpoint_adds_text_to_history(self) -> None:
+        self.start_server()
+
+        response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "dropped text", "name": "Phone"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response["status"], 200)
+        payload = json.loads(response["body"])
+        self.assertEqual(payload["latest_text"], "dropped text")
+        self.assertEqual(payload["texts"][0]["content"], "dropped text")
+        self.assertEqual(payload["texts"][0]["sharer_name"], "Phone")
+
+    def test_file_upload_rejects_payloads_over_size_limit(self) -> None:
+        self.start_server()
+
+        response = self.request(
+            "POST",
+            "/api/upload",
+            body=b"",
+            headers={
+                "Content-Type": "multipart/form-data; boundary=----TooBig",
+                "Content-Length": str(config.MAX_FILE_SIZE + 1),
+            },
+        )
+
+        self.assertEqual(response["status"], 413)
+
+    def test_delete_flow_removes_entry_from_follow_up_requests(self) -> None:
+        self.start_server()
+
+        upload_response = self.upload_request("delete-me.txt", b"payload")
+        self.assertEqual(upload_response["status"], 200)
+        file_id = json.loads(upload_response["body"])["files"][0]["id"]
+
+        delete_response = self.request("DELETE", f"/api/file/{file_id}")
+        self.assertEqual(delete_response["status"], 200)
+
+        download_response = self.request("GET", f"/download/{file_id}")
+        self.assertEqual(download_response["status"], 404)
+
     def test_configured_share_base_url_is_rendered_into_page(self) -> None:
-        app.SHARE_BASE_URL = "http://192.168.1.24:8000/"
+        config.SHARE_BASE_URL = "http://192.168.1.24:8000/"
         self.start_server()
 
         home = self.request("GET", "/")
@@ -590,7 +680,7 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(home["status"], 303)
         workspace_page = self.request("GET", "/workspaces", headers={"Cookie": home["headers"]["Set-Cookie"].split(";", 1)[0]})
         self.assertEqual(workspace_page["status"], 200)
-        self.assertIn("Choose a workspace", workspace_page["text"])
+        self.assertIn("Create Workspace", workspace_page["text"])
 
     def test_html_pages_are_not_cacheable(self) -> None:
         self.start_server()
@@ -966,6 +1056,15 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(protected_download["status"], 200)
         self.assertEqual(protected_download["body"], b"secure-data")
 
+    def test_access_code_auth_accepts_x_api_key_for_state(self) -> None:
+        self.start_server(access_code="secret-code")
+
+        unauthorized = self.request("GET", "/api/state")
+        self.assertEqual(unauthorized["status"], 401)
+
+        authorized = self.request("GET", "/api/state", headers={"X-API-Key": "secret-code"})
+        self.assertEqual(authorized["status"], 200)
+
     def test_websocket_receives_initial_snapshot_and_live_updates(self) -> None:
         self.start_server()
 
@@ -1069,7 +1168,7 @@ class HttpServerTests(unittest.TestCase):
         upload_response = self.upload_request("old.txt", b"old-data")
         self.assertEqual(upload_response["status"], 200)
         file_entry = json.loads(upload_response["body"])["files"][0]
-        saved_file = app.UPLOAD_DIR / file_entry["stored_name"]
+        saved_file = config.UPLOAD_DIR / file_entry["stored_name"]
         self.assertTrue(saved_file.exists())
 
         self.current_time += app.EXPIRY_SECONDS + 1
@@ -1117,15 +1216,24 @@ class ScriptTests(unittest.TestCase):
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.16")
-        self.assertIn("infrastructure you control", readme)
-        self.assertIn("Know exactly where your data is while it is being shared", readme)
-        self.assertIn("Contributor: Mark Levitt", readme)
+        self.assertEqual(version, "1.0.17")
+        self.assertIn("No third-party services", readme)
+        self.assertIn("docs/api-usage.md", readme)
+        self.assertIn("Why not Flask?", readme)
+        self.assertIn("Python standard library", readme)
         self.assertIn("ISC License", license_text)
         self.assertIn("Copyright (c) 2026 Carel Vosloo", license_text)
         self.assertIn("ISC licensed.", index_template)
         self.assertIn("If you are not an intended recipient or authorized user", index_template)
-        self.assertIn("OpenAPI schema: [docs/openapi.yaml](docs/openapi.yaml).", readme)
+        self.assertIn("docs/installation.md", readme)
+
+    def test_security_doc_covers_lan_only_deployment(self) -> None:
+        security = (Path(__file__).resolve().parent / "SECURITY.md").read_text(encoding="utf-8")
+        self.assertIn("trusted local networks", security)
+        self.assertIn("Do not expose", security)
+        self.assertIn("reverse proxy", security)
+        self.assertIn("TLS", security)
+        self.assertIn("24 hours", security)
 
     def test_github_ubuntu_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
@@ -1272,13 +1380,14 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("sudo HTTPS=0 bash", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
-        source = (Path(__file__).resolve().parent / "app.py").read_text(encoding="utf-8")
-        self.assertIn('HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "yes", "on"}', source)
-        self.assertIn('HTTP_PORT = int(os.environ.get("HTTP_PORT", os.environ.get("PORT", "8000")))', source)
-        self.assertIn('HTTPS_PORT = int(os.environ.get("HTTPS_PORT", "8443"))', source)
-        self.assertIn("def ensure_https_certificate()", source)
-        self.assertIn('"openssl"', source)
-        self.assertIn("context.wrap_socket(server.socket, server_side=True)", source)
+        config_source = (Path(__file__).resolve().parent / "dassiedrop" / "config.py").read_text(encoding="utf-8")
+        routes_source = (Path(__file__).resolve().parent / "dassiedrop" / "routes.py").read_text(encoding="utf-8")
+        self.assertIn('HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "yes", "on"}', config_source)
+        self.assertIn('HTTP_PORT = int(os.environ.get("HTTP_PORT", os.environ.get("PORT", "8000")))', config_source)
+        self.assertIn('HTTPS_PORT = int(os.environ.get("HTTPS_PORT", "8443"))', config_source)
+        self.assertIn("def ensure_https_certificate()", config_source)
+        self.assertIn('"openssl"', config_source)
+        self.assertIn("context.wrap_socket(server.socket, server_side=True)", routes_source)
 
     def test_text_history_reveal_ui_is_inline(self) -> None:
         script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
@@ -1336,7 +1445,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('title="Current workspace: __WORKSPACE_NAME__"', index)
         self.assertNotIn("Share text and files across your network", index)
         self.assertIn("DassieDrop v__APP_VERSION__", index)
-        self.assertIn('class="hero-title-row"', template)
+        self.assertIn('class="hero-title-row hero-title-row-workspace"', template)
         self.assertIn('class="hero-brand-link"', template)
         self.assertNotIn("Choose a workspace or create a new one", template)
         self.assertNotIn("window.prompt", script)

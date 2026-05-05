@@ -122,6 +122,10 @@ See [docs/api-usage.md](docs/api-usage.md) for API usage examples and quick auto
 - Python 3.x
 - No external dependencies
 
+## Why not Flask?
+
+DassieDrop intentionally uses only the Python standard library so it stays easy to run on locked-down machines.
+
 ---
 
 ## Installation
