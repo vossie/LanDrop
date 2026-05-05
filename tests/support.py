@@ -19,6 +19,8 @@ def reset_app_state() -> None:
         state.shared_state["workspaces"] = {}
     with state.session_lock:
         state.authorized_sessions.clear()
+    with state.auth_attempt_lock:
+        state.auth_attempts.clear()
     app.stop_background_tasks()
 
 

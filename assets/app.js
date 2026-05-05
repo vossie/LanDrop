@@ -256,10 +256,6 @@ function lanShareUrl(shortCode) {
   return `${baseUrl}${lanSharePath(shortCode)}`;
 }
 
-function withPassword(path, password) {
-  return `${path}?password=${encodeURIComponent(password)}`;
-}
-
 function updateHiddenOptions() {
   textHiddenOptions.classList.toggle("visible", hiddenText.checked);
   fileHiddenOptions.classList.toggle("visible", hiddenFile.checked);
@@ -396,7 +392,19 @@ async function revealProtectedText(entry) {
   }
 }
 
-function openProtectedPath(path, statusElement) {
+function filenameFromDisposition(disposition) {
+  if (!disposition) {
+    return "";
+  }
+  const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match) {
+    return decodeURIComponent(utf8Match[1]);
+  }
+  const basicMatch = disposition.match(/filename=\"?([^\";]+)\"?/i);
+  return basicMatch ? basicMatch[1] : "";
+}
+
+async function openProtectedPath(path, statusElement) {
   const password = window.prompt("Password required.");
   if (!password) {
     return;
@@ -404,7 +412,40 @@ function openProtectedPath(path, statusElement) {
   if (statusElement) {
     statusElement.textContent = "Opening protected item…";
   }
-  window.open(withPassword(path, password), "_blank", "noopener");
+  try {
+    const response = await fetch(path, {
+      headers: { "X-Entry-Password": password }
+    });
+    if (!response.ok) {
+      throw new Error(`Protected open failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+    const objectUrl = URL.createObjectURL(blob);
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const isDownload = path.startsWith("/download/");
+
+    if (isDownload) {
+      const downloadLink = document.createElement("a");
+      downloadLink.href = objectUrl;
+      downloadLink.download = filenameFromDisposition(disposition) || "download";
+      document.body.appendChild(downloadLink);
+      downloadLink.click();
+      downloadLink.remove();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
+    } else {
+      window.open(objectUrl, "_blank", "noopener");
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 60000);
+    }
+
+    if (statusElement) {
+      statusElement.textContent = isDownload ? "Protected file downloaded." : "Protected item opened.";
+    }
+  } catch (error) {
+    if (statusElement) {
+      statusElement.textContent = "Wrong password.";
+    }
+  }
 }
 
 function isKnownImageMimeType(contentType) {

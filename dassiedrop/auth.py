@@ -56,6 +56,71 @@ def create_authorized_session(workspace_id: str | None = None) -> str:
     return session_id
 
 
+def client_ip(handler: BaseHTTPRequestHandler) -> str:
+    return str(handler.client_address[0])
+
+
+def throttle_scope(scope: str, subject: str = "") -> str:
+    if subject:
+        return f"{scope}:{subject}"
+    return scope
+
+
+def throttle_key(handler: BaseHTTPRequestHandler, scope: str, subject: str = "") -> str:
+    return f"{client_ip(handler)}|{throttle_scope(scope, subject)}"
+
+
+def throttle_status(handler: BaseHTTPRequestHandler, scope: str, subject: str = "") -> tuple[bool, int]:
+    now = config.now_ts()
+    key = throttle_key(handler, scope, subject)
+    with state.auth_attempt_lock:
+        attempt = state.auth_attempts.get(key)
+        if attempt is None:
+            return (True, 0)
+        locked_until = float(attempt.get("locked_until", 0.0) or 0.0)
+        failures = [
+            ts
+            for ts in attempt.get("failures", [])
+            if now - float(ts) <= config.AUTH_FAILURE_WINDOW_SECONDS
+        ]
+        if failures != attempt.get("failures", []):
+            attempt["failures"] = failures
+        if locked_until > now:
+            return (False, max(1, int(locked_until - now)))
+        if not failures:
+            state.auth_attempts.pop(key, None)
+        return (True, 0)
+
+
+def record_throttle_failure(handler: BaseHTTPRequestHandler, scope: str, subject: str = "") -> int:
+    now = config.now_ts()
+    key = throttle_key(handler, scope, subject)
+    with state.auth_attempt_lock:
+        attempt = state.auth_attempts.setdefault(key, {"failures": [], "locked_until": 0.0})
+        locked_until = float(attempt.get("locked_until", 0.0) or 0.0)
+        if locked_until > now:
+            return max(1, int(locked_until - now))
+        failures = [
+            ts
+            for ts in attempt.get("failures", [])
+            if now - float(ts) <= config.AUTH_FAILURE_WINDOW_SECONDS
+        ]
+        failures.append(now)
+        attempt["failures"] = failures
+        if len(failures) >= config.AUTH_MAX_FAILURES:
+            attempt["locked_until"] = now + config.AUTH_LOCKOUT_SECONDS
+            attempt["failures"] = []
+            return config.AUTH_LOCKOUT_SECONDS
+        attempt["locked_until"] = 0.0
+        return 0
+
+
+def clear_throttle_failures(handler: BaseHTTPRequestHandler, scope: str, subject: str = "") -> None:
+    key = throttle_key(handler, scope, subject)
+    with state.auth_attempt_lock:
+        state.auth_attempts.pop(key, None)
+
+
 def ensure_browser_session(handler: BaseHTTPRequestHandler) -> tuple[str | None, dict | None, str | None]:
     session_id, session = get_session(handler)
     if session_id is not None and session is not None:
@@ -84,10 +149,12 @@ def requested_workspace_selector(handler: BaseHTTPRequestHandler) -> str:
 
 
 def requested_workspace_password(handler: BaseHTTPRequestHandler) -> str:
-    parsed = urllib.parse.urlparse(handler.path)
-    query_value = urllib.parse.parse_qs(parsed.query).get("workspace_password", [""])[0]
     header_value = handler.headers.get("X-Workspace-Password", "")
-    return (header_value or query_value).strip()
+    return header_value.strip()
+
+
+def requested_entry_password(handler: BaseHTTPRequestHandler) -> str:
+    return handler.headers.get("X-Entry-Password", "").strip()
 
 
 def set_session_workspace(session_id: str, workspace_id: str | None) -> None:

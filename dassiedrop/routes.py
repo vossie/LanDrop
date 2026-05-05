@@ -1,4 +1,5 @@
 import html
+import hmac
 import json
 import shutil
 import ssl
@@ -94,6 +95,15 @@ def render_template(name: str, replacements: dict[str, str] | None = None) -> st
 class AppHandler(BaseHTTPRequestHandler):
     server_version = "DassieDrop/1.2"
 
+    def send_throttled(self, message: str, retry_after: int) -> None:
+        data = message.encode("utf-8")
+        self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_header("Retry-After", str(retry_after))
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/favicon.ico":
@@ -154,20 +164,17 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if parsed.path.startswith("/s/"):
             short_code = urllib.parse.unquote(parsed.path.removeprefix("/s/"))
-            password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
-            self.handle_short_link(short_code, password)
+            self.handle_short_link(short_code, auth.requested_entry_password(self))
             return
 
         if parsed.path.startswith("/download/"):
             file_id = urllib.parse.unquote(parsed.path.removeprefix("/download/"))
-            password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
-            self.serve_download(file_id, password)
+            self.serve_download(file_id, auth.requested_entry_password(self))
             return
 
         if parsed.path.startswith("/preview/"):
             file_id = urllib.parse.unquote(parsed.path.removeprefix("/preview/"))
-            password = urllib.parse.parse_qs(parsed.query).get("password", [""])[0]
-            self.serve_preview(file_id, password)
+            self.serve_preview(file_id, auth.requested_entry_password(self))
             return
 
         self.send_error(HTTPStatus.NOT_FOUND, "Not found")
@@ -320,14 +327,20 @@ class AppHandler(BaseHTTPRequestHandler):
             if workspace.get("password_hash"):
                 current_workspace_id = session.get("workspace_id")
                 password = auth.requested_workspace_password(self)
+                allowed, retry_after = auth.throttle_status(self, "workspace-shortcut", workspace["id"])
+                if not allowed:
+                    self.send_throttled("Too many password attempts", retry_after)
+                    return
                 if current_workspace_id != workspace["id"] and not storage.workspace_password_is_valid(
                     workspace, password
                 ):
+                    auth.record_throttle_failure(self, "workspace-shortcut", workspace["id"])
                     self.redirect(
                         f"/workspaces?workspace={urllib.parse.quote(workspace_slug_value)}",
                         cookie=cookie,
                     )
                     return
+                auth.clear_throttle_failures(self, "workspace-shortcut", workspace["id"])
             storage.touch_workspace_locked(workspace, persist_interval=0.0)
             storage.persist_workspaces_locked()
 
@@ -343,6 +356,11 @@ class AppHandler(BaseHTTPRequestHandler):
             )
             return
 
+        allowed, retry_after = auth.throttle_status(self, "login")
+        if not allowed:
+            self.send_throttled("Too many access code attempts", retry_after)
+            return
+
         length = int(self.headers.get("Content-Length", "0"))
         body = self.rfile.read(length)
         try:
@@ -352,10 +370,12 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         code = payload.get("code", "")
-        if not isinstance(code, str) or code != config.ACCESS_CODE:
+        if not isinstance(code, str) or not hmac.compare_digest(code, config.ACCESS_CODE):
+            auth.record_throttle_failure(self, "login")
             self.send_error(HTTPStatus.UNAUTHORIZED, "Wrong access code")
             return
 
+        auth.clear_throttle_failures(self, "login")
         session_id = auth.create_authorized_session(config.DEFAULT_WORKSPACE_ID)
         self.send_json(
             {"ok": True},
@@ -410,11 +430,18 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(password, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
             return
+        allowed, retry_after = auth.throttle_status(self, "workspace-enter", workspace_id)
+        if not allowed:
+            self.send_throttled("Too many workspace password attempts", retry_after)
+            return
         ok, message = storage.enter_workspace(session_id, workspace_id, password=password)
         if not ok:
             status = HTTPStatus.NOT_FOUND if message == "Workspace not found" else HTTPStatus.FORBIDDEN
+            if status == HTTPStatus.FORBIDDEN:
+                auth.record_throttle_failure(self, "workspace-enter", workspace_id)
             self.send_error(status, message)
             return
+        auth.clear_throttle_failures(self, "workspace-enter", workspace_id)
         self.send_json({"ok": True, "workspace_id": workspace_id})
 
     def handle_workspace_delete(self, workspace_id: str) -> None:
@@ -425,11 +452,18 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(password, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
             return
+        allowed, retry_after = auth.throttle_status(self, "workspace-delete", workspace_id)
+        if not allowed:
+            self.send_throttled("Too many workspace password attempts", retry_after)
+            return
         ok, message = storage.delete_workspace(workspace_id, password=password)
         if not ok:
             status = HTTPStatus.NOT_FOUND if message == "Workspace not found" else HTTPStatus.FORBIDDEN
+            if status == HTTPStatus.FORBIDDEN:
+                auth.record_throttle_failure(self, "workspace-delete", workspace_id)
             self.send_error(status, message)
             return
+        auth.clear_throttle_failures(self, "workspace-delete", workspace_id)
         self.send_json(self.workspace_list_payload())
 
     def require_workspace_context(self) -> str | None:
@@ -440,11 +474,17 @@ class AppHandler(BaseHTTPRequestHandler):
                 if workspace is None:
                     self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
                     return None
+                allowed, retry_after = auth.throttle_status(self, "workspace-context", workspace["id"])
+                if not allowed:
+                    self.send_throttled("Too many workspace password attempts", retry_after)
+                    return None
                 if workspace.get("password_hash") and not storage.workspace_password_is_valid(
                     workspace, auth.requested_workspace_password(self)
                 ):
+                    auth.record_throttle_failure(self, "workspace-context", workspace["id"])
                     self.send_error(HTTPStatus.FORBIDDEN, "Wrong workspace password")
                     return None
+                auth.clear_throttle_failures(self, "workspace-context", workspace["id"])
                 return workspace["id"]
 
         session_id, session = auth.get_session(self)
@@ -559,10 +599,16 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(password, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
             return
+        allowed, retry_after = auth.throttle_status(self, "text-reveal", entry_id)
+        if not allowed:
+            self.send_throttled("Too many password attempts", retry_after)
+            return
         if not storage.entry_password_is_valid(entry, password):
+            auth.record_throttle_failure(self, "text-reveal", entry_id)
             self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
 
+        auth.clear_throttle_failures(self, "text-reveal", entry_id)
         self.send_json({"content": entry["content"]})
 
     def handle_latest_text(self) -> None:
@@ -607,15 +653,27 @@ class AppHandler(BaseHTTPRequestHandler):
 
         entry_type, payload = entry
         if entry_type == "text":
+            allowed, retry_after = auth.throttle_status(self, "short-link", payload["id"])
+            if not allowed:
+                self.send_throttled("Too many password attempts", retry_after)
+                return
             if payload.get("password_hash") and not storage.entry_password_is_valid(payload, password):
+                auth.record_throttle_failure(self, "short-link", payload["id"])
                 self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
                 return
+            auth.clear_throttle_failures(self, "short-link", payload["id"])
             self.send_text(payload["content"])
             return
 
+        allowed, retry_after = auth.throttle_status(self, "short-link", payload["id"])
+        if not allowed:
+            self.send_throttled("Too many password attempts", retry_after)
+            return
         if payload.get("password_hash") and not storage.entry_password_is_valid(payload, password):
+            auth.record_throttle_failure(self, "short-link", payload["id"])
             self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
+        auth.clear_throttle_failures(self, "short-link", payload["id"])
         self.serve_file_entry(payload, as_attachment=True)
 
     def handle_text_delete(self, entry_id: str) -> None:
@@ -864,9 +922,15 @@ class AppHandler(BaseHTTPRequestHandler):
         if entry is None:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
+        allowed, retry_after = auth.throttle_status(self, "file-download", file_id)
+        if not allowed:
+            self.send_throttled("Too many password attempts", retry_after)
+            return
         if entry.get("password_hash") and not storage.entry_password_is_valid(entry, password):
+            auth.record_throttle_failure(self, "file-download", file_id)
             self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
+        auth.clear_throttle_failures(self, "file-download", file_id)
         self.serve_file_entry(entry, as_attachment=True)
 
     def serve_preview(self, file_id: str, password: str = "") -> None:
@@ -874,9 +938,15 @@ class AppHandler(BaseHTTPRequestHandler):
         if entry is None:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
+        allowed, retry_after = auth.throttle_status(self, "file-preview", file_id)
+        if not allowed:
+            self.send_throttled("Too many password attempts", retry_after)
+            return
         if entry.get("password_hash") and not storage.entry_password_is_valid(entry, password):
+            auth.record_throttle_failure(self, "file-preview", file_id)
             self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
             return
+        auth.clear_throttle_failures(self, "file-preview", file_id)
         self.serve_file_entry(entry, as_attachment=False)
 
     def serve_file_entry(self, entry: dict, as_attachment: bool) -> None:

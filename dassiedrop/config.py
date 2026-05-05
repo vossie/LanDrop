@@ -30,6 +30,9 @@ HTTPS_SELF_SIGNED_HOST = os.environ.get("HTTPS_SELF_SIGNED_HOST", "localhost").s
 HTTPS_SELF_SIGNED_SANS = os.environ.get("HTTPS_SELF_SIGNED_SANS", "").strip()
 DEFAULT_WORKSPACE_ID = "default"
 DEFAULT_WORKSPACE_NAME = "Default"
+AUTH_FAILURE_WINDOW_SECONDS = int(os.environ.get("AUTH_FAILURE_WINDOW_SECONDS", "60"))
+AUTH_MAX_FAILURES = int(os.environ.get("AUTH_MAX_FAILURES", "5"))
+AUTH_LOCKOUT_SECONDS = int(os.environ.get("AUTH_LOCKOUT_SECONDS", "60"))
 
 
 def now_ts() -> float:
@@ -108,4 +111,3 @@ def ensure_https_certificate() -> tuple[Path, Path]:
             f"Failed to generate a self-signed certificate with OpenSSL: {details}"
         ) from exc
     return cert_path, key_path
-

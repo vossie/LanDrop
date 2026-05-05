@@ -21,6 +21,8 @@ def reset_app_state() -> None:
         state.shared_state["workspaces"] = {}
     with state.session_lock:
         state.authorized_sessions.clear()
+    with state.auth_attempt_lock:
+        state.auth_attempts.clear()
     app.stop_background_tasks()
 
 
@@ -719,16 +721,16 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(response["status"], 303)
         self.assertEqual(response["headers"]["Location"], "/workspaces?workspace=secure-space")
 
-    def test_protected_workspace_can_be_opened_directly_by_slug_url_with_password(self) -> None:
+    def test_protected_workspace_can_be_selected_by_header_password(self) -> None:
         self.start_server()
         workspace = app.create_workspace("Secure Space", password="vault")
 
-        response = self.request("GET", "/w/secure-space?workspace_password=vault")
+        state = self.request(
+            "GET",
+            "/api/state?workspace=secure-space",
+            headers={"X-Workspace-Password": "vault"},
+        )
 
-        self.assertEqual(response["status"], 303)
-        self.assertEqual(response["headers"]["Location"], "/")
-        cookie = response["headers"]["Set-Cookie"].split(";", 1)[0]
-        state = self.request("GET", "/api/state", headers={"Cookie": cookie})
         self.assertEqual(state["status"], 200)
         self.assertEqual(json.loads(state["body"])["workspace"]["id"], workspace["id"])
 
@@ -944,7 +946,9 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(blocked_share["status"], 403)
 
         allowed_share = self.request(
-            "GET", f"/s/{created_entry['short_code']}?password=swordfish"
+            "GET",
+            f"/s/{created_entry['short_code']}",
+            headers={"X-Entry-Password": "swordfish"},
         )
         self.assertEqual(allowed_share["status"], 200)
         self.assertEqual(allowed_share["body"], b"classified")
@@ -967,7 +971,9 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(blocked_download["status"], 403)
 
         allowed_download = self.request(
-            "GET", f"/download/{file_entry['id']}?password=vault"
+            "GET",
+            f"/download/{file_entry['id']}",
+            headers={"X-Entry-Password": "vault"},
         )
         self.assertEqual(allowed_download["status"], 200)
         self.assertEqual(allowed_download["body"], b"secret")
@@ -976,7 +982,9 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(blocked_share["status"], 403)
 
         allowed_share = self.request(
-            "GET", f"/s/{file_entry['short_code']}?password=vault"
+            "GET",
+            f"/s/{file_entry['short_code']}",
+            headers={"X-Entry-Password": "vault"},
         )
         self.assertEqual(allowed_share["status"], 200)
         self.assertEqual(allowed_share["body"], b"secret")
@@ -985,7 +993,9 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(blocked_preview["status"], 403)
 
         allowed_preview = self.request(
-            "GET", f"/preview/{file_entry['id']}?password=vault"
+            "GET",
+            f"/preview/{file_entry['id']}",
+            headers={"X-Entry-Password": "vault"},
         )
         self.assertEqual(allowed_preview["status"], 200)
         self.assertEqual(allowed_preview["body"], b"secret")
