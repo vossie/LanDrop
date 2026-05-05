@@ -51,7 +51,9 @@ This is for you.
 
 ---
 
-## 🧪 Try it in 30 seconds
+## Quick Start
+
+Run directly with Python:
 
 ```bash
 git clone https://github.com/vossie/DassieDrop.git
@@ -66,6 +68,21 @@ http://127.0.0.1:8000
 From another device on the same network:
 
 http://YOUR-IP:8000
+
+Run with Docker:
+
+```bash
+git clone https://github.com/vossie/DassieDrop.git
+cd DassieDrop
+docker build -t dassiedrop .
+docker run -d --name dassiedrop -p 8000:8000 -v dassiedrop-data:/data dassiedrop
+```
+
+Then open:
+
+http://127.0.0.1:8000
+
+For HTTPS, service installs, and more setup options, see [docs/installation.md](docs/installation.md).
 
 ---
 
@@ -84,32 +101,9 @@ DassieDrop is local-first by design:
 
 ---
 
-## 🧰 API (for automation)
+## 🧰 API
 
-Upload text:
-
-```bash
-curl -X POST http://127.0.0.1:8000/upload_text \
-     -d "text=Hello world"
-```
-
-Upload a file:
-
-```bash
-curl -F "file=@example.txt" http://127.0.0.1:8000/upload_file
-```
-
-List items:
-
-```bash
-curl http://127.0.0.1:8000/list
-```
-
-Delete item:
-
-```bash
-curl -X DELETE http://127.0.0.1:8000/delete/<id>
-```
+See [docs/api-usage.md](docs/api-usage.md) for API usage examples and quick automation notes.
 
 ---
 

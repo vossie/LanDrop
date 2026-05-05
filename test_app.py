@@ -1223,6 +1223,16 @@ class ScriptTests(unittest.TestCase):
         )
         self.assertEqual(result.returncode, 0, result.stderr)
 
+    def test_uninstall_centos_stream_script_has_valid_bash_syntax(self) -> None:
+        result = subprocess.run(
+            ["bash", "-n", "scripts/uninstall-centos-stream-service.sh"],
+            cwd=Path(__file__).resolve().parent,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr)
+
     def test_dockerfile_sets_runtime_defaults(self) -> None:
         dockerfile = (
             Path(__file__).resolve().parent / "Dockerfile"
@@ -1258,6 +1268,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("HTTPS_KEY_FILE=/etc/ssl/private/dassiedrop.key", install_doc)
         self.assertIn("By default, the service install enables:", install_doc)
         self.assertIn("sudo HTTPS=0 bash ./scripts/install-ubuntu-service.sh", install_doc)
+        self.assertIn("sudo bash ./scripts/uninstall-centos-stream-service.sh", install_doc)
         self.assertIn("sudo HTTPS=0 bash", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
@@ -1376,7 +1387,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
-            ["bash", "-n", "uninstall-legacy-landrop-service.sh"],
+            ["bash", "-n", "scripts/uninstall-legacy-landrop-service.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,

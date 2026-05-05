@@ -230,3 +230,15 @@ Override defaults:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
+
+Uninstall the CentOS Stream service:
+
+```bash
+sudo bash ./scripts/uninstall-centos-stream-service.sh
+```
+
+Remove the uploaded data and service user too:
+
+```bash
+sudo REMOVE_DATA=1 REMOVE_USER=1 bash ./scripts/uninstall-centos-stream-service.sh
+```
