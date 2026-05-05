@@ -8,12 +8,15 @@ import mimetypes
 import os
 import secrets
 import shutil
+import ssl
 import struct
+import subprocess
 import threading
 import time
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from ipaddress import ip_address
 from pathlib import Path
 
 
@@ -29,6 +32,17 @@ MAX_FILE_HISTORY = 100
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "").strip()
 SHARE_BASE_URL = os.environ.get("SHARE_BASE_URL", "").strip()
 WORKSPACE_SUPER_PASSWORD = os.environ.get("WORKSPACE_SUPER_PASSWORD", "").strip()
+HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "yes", "on"}
+HTTP_PORT = int(os.environ.get("HTTP_PORT", os.environ.get("PORT", "8000")))
+HTTPS_PORT = int(os.environ.get("HTTPS_PORT", "8443"))
+HTTPS_CERT_FILE = Path(
+    os.environ.get("HTTPS_CERT_FILE", str(BASE_DIR / "certs" / "dassiedrop-selfsigned.crt"))
+).resolve()
+HTTPS_KEY_FILE = Path(
+    os.environ.get("HTTPS_KEY_FILE", str(BASE_DIR / "certs" / "dassiedrop-selfsigned.key"))
+).resolve()
+HTTPS_SELF_SIGNED_HOST = os.environ.get("HTTPS_SELF_SIGNED_HOST", "localhost").strip() or "localhost"
+HTTPS_SELF_SIGNED_SANS = os.environ.get("HTTPS_SELF_SIGNED_SANS", "").strip()
 DEFAULT_WORKSPACE_ID = "default"
 DEFAULT_WORKSPACE_NAME = "Default"
 
@@ -126,8 +140,85 @@ def make_workspace_id() -> str:
     return secrets.token_hex(6)
 
 
-def session_cookie(session_id: str) -> str:
-    return f"session={session_id}; Path=/; HttpOnly; SameSite=Lax"
+def session_cookie(session_id: str, secure: bool = False) -> str:
+    secure_suffix = "; Secure" if secure else ""
+    return f"session={session_id}; Path=/; HttpOnly; SameSite=Lax{secure_suffix}"
+
+
+def is_ip_literal(value: str) -> bool:
+    try:
+        ip_address(value)
+    except ValueError:
+        return False
+    return True
+
+
+def default_https_subject_alt_names(hostname: str) -> str:
+    entries = ["DNS:localhost", "IP:127.0.0.1"]
+    if hostname and hostname != "localhost":
+        if is_ip_literal(hostname):
+            entries.append(f"IP:{hostname}")
+        else:
+            entries.append(f"DNS:{hostname}")
+    return ",".join(entries)
+
+
+def ensure_https_certificate() -> tuple[Path, Path]:
+    cert_path = HTTPS_CERT_FILE
+    key_path = HTTPS_KEY_FILE
+    if cert_path.exists() and key_path.exists():
+        return cert_path, key_path
+
+    cert_path.parent.mkdir(parents=True, exist_ok=True)
+    key_path.parent.mkdir(parents=True, exist_ok=True)
+    subject_alt_names = HTTPS_SELF_SIGNED_SANS or default_https_subject_alt_names(
+        HTTPS_SELF_SIGNED_HOST
+    )
+    command = [
+        "openssl",
+        "req",
+        "-x509",
+        "-newkey",
+        "rsa:2048",
+        "-sha256",
+        "-nodes",
+        "-keyout",
+        str(key_path),
+        "-out",
+        str(cert_path),
+        "-days",
+        "365",
+        "-subj",
+        f"/CN={HTTPS_SELF_SIGNED_HOST}",
+        "-addext",
+        f"subjectAltName={subject_alt_names}",
+    ]
+    try:
+        subprocess.run(command, check=True, capture_output=True, text=True)
+    except FileNotFoundError as exc:
+        raise RuntimeError(
+            "OpenSSL is required to generate a self-signed certificate. "
+            "Install it or set HTTPS_CERT_FILE and HTTPS_KEY_FILE to existing files."
+        ) from exc
+    except subprocess.CalledProcessError as exc:
+        details = (exc.stderr or exc.stdout or "").strip()
+        raise RuntimeError(
+            f"Failed to generate a self-signed certificate with OpenSSL: {details}"
+        ) from exc
+    return cert_path, key_path
+
+
+def build_server(host: str, port: int, use_https: bool = False) -> tuple[ThreadingHTTPServer, str]:
+    server = ThreadingHTTPServer((host, port), AppHandler)
+    scheme = "http"
+    server.is_https = use_https
+    if use_https:
+        cert_path, key_path = ensure_https_certificate()
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.load_cert_chain(certfile=str(cert_path), keyfile=str(key_path))
+        server.socket = context.wrap_socket(server.socket, server_side=True)
+        scheme = "https"
+    return server, scheme
 
 
 def parse_cookies(cookie_header: str) -> dict:
@@ -190,7 +281,7 @@ def ensure_browser_session(handler: BaseHTTPRequestHandler) -> tuple[str | None,
     session_id = create_authorized_session()
     with session_lock:
         session = authorized_sessions[session_id]
-    return (session_id, session, session_cookie(session_id))
+    return (session_id, session, session_cookie(session_id, secure=bool(getattr(handler.server, "is_https", False))))
 
 
 def requested_workspace_selector(handler: BaseHTTPRequestHandler) -> str:
@@ -1337,7 +1428,10 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_login(self) -> None:
         if not ACCESS_CODE:
             session_id = create_authorized_session()
-            self.send_json({"ok": True}, cookie=session_cookie(session_id))
+            self.send_json(
+                {"ok": True},
+                cookie=session_cookie(session_id, secure=bool(getattr(self.server, "is_https", False))),
+            )
             return
 
         length = int(self.headers.get("Content-Length", "0"))
@@ -1354,7 +1448,10 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         session_id = create_authorized_session()
-        self.send_json({"ok": True}, cookie=session_cookie(session_id))
+        self.send_json(
+            {"ok": True},
+            cookie=session_cookie(session_id, secure=bool(getattr(self.server, "is_https", False))),
+        )
 
     def parse_json_body(self) -> dict | None:
         length = int(self.headers.get("Content-Length", "0"))
@@ -1971,10 +2068,22 @@ def main() -> None:
     load_persisted_workspaces()
     start_background_tasks()
     host = os.environ.get("HOST", "0.0.0.0")
-    port = int(os.environ.get("PORT", "8000"))
-    server = ThreadingHTTPServer((host, port), AppHandler)
-    print(f"Serving DassieDrop on http://{host}:{port}")
-    server.serve_forever()
+    if HTTPS_ENABLED and HTTP_PORT == HTTPS_PORT:
+        raise RuntimeError("HTTP_PORT and HTTPS_PORT must be different when HTTPS is enabled.")
+
+    http_server, http_scheme = build_server(host, HTTP_PORT, use_https=False)
+    print(f"Serving DassieDrop on {http_scheme}://{host}:{HTTP_PORT}")
+
+    if not HTTPS_ENABLED:
+        http_server.serve_forever()
+        return
+
+    https_server, https_scheme = build_server(host, HTTPS_PORT, use_https=True)
+    print(f"Serving DassieDrop on {https_scheme}://{host}:{HTTPS_PORT}")
+
+    http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
+    http_thread.start()
+    https_server.serve_forever()
 
 
 if __name__ == "__main__":

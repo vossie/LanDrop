@@ -1220,13 +1220,29 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("SHARE_BASE_URL:", compose)
         self.assertIn("UPLOAD_DIR: /data/uploads", compose)
 
-    def test_readme_mentions_docker_usage(self) -> None:
-        readme = (Path(__file__).resolve().parent / "README.md").read_text(
+    def test_installation_doc_mentions_docker_and_https_usage(self) -> None:
+        install_doc = (Path(__file__).resolve().parent / "docs" / "installation.md").read_text(
             encoding="utf-8"
         )
-        self.assertIn("## Run With Docker", readme)
-        self.assertIn("docker build -t dassiedrop .", readme)
-        self.assertIn("docker compose up -d", readme)
+        self.assertIn("## Run With Docker", install_doc)
+        self.assertIn("docker build -t dassiedrop .", install_doc)
+        self.assertIn("docker compose up -d", install_doc)
+        self.assertIn("## Run With HTTPS", install_doc)
+        self.assertIn("HTTPS=1 ./.venv/bin/python app.py", install_doc)
+        self.assertIn("http://localhost:8000", install_doc)
+        self.assertIn("https://localhost:8443", install_doc)
+        self.assertIn("## Use Your Own SSL Certificate", install_doc)
+        self.assertIn("HTTPS_CERT_FILE=/etc/ssl/certs/dassiedrop.crt", install_doc)
+        self.assertIn("HTTPS_KEY_FILE=/etc/ssl/private/dassiedrop.key", install_doc)
+
+    def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
+        source = (Path(__file__).resolve().parent / "app.py").read_text(encoding="utf-8")
+        self.assertIn('HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "yes", "on"}', source)
+        self.assertIn('HTTP_PORT = int(os.environ.get("HTTP_PORT", os.environ.get("PORT", "8000")))', source)
+        self.assertIn('HTTPS_PORT = int(os.environ.get("HTTPS_PORT", "8443"))', source)
+        self.assertIn("def ensure_https_certificate()", source)
+        self.assertIn('"openssl"', source)
+        self.assertIn("context.wrap_socket(server.socket, server_side=True)", source)
 
     def test_text_history_reveal_ui_is_inline(self) -> None:
         script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
