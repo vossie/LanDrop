@@ -12,6 +12,7 @@ DassieDrop is a lightweight, self-hosted LAN drop zone that lets you share files
 
 No accounts. No syncing. No third-party services. Just open a browser and drop.
 
+![dassiedrop_default.png](docs/dassiedrop-default.png)
 ---
 
 ## Why DassieDrop?
