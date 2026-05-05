@@ -129,8 +129,8 @@ fi
 tar -xzf "${ARCHIVE_PATH}" -C "${TMP_DIR}"
 SOURCE_DIR="$(find "${TMP_DIR}" -mindepth 1 -maxdepth 1 -type d | head -n 1)"
 
-if [[ -z "${SOURCE_DIR}" || ! -f "${SOURCE_DIR}/install-ubuntu-service.sh" ]]; then
-  echo "Downloaded archive does not contain install-ubuntu-service.sh."
+if [[ -z "${SOURCE_DIR}" || ! -f "${SOURCE_DIR}/scripts/install-ubuntu-service.sh" ]]; then
+  echo "Downloaded archive does not contain scripts/install-ubuntu-service.sh."
   exit 1
 fi
 
@@ -145,7 +145,7 @@ if [[ -n "${HTTPS_PORT_OVERRIDE}" ]]; then
   export HTTPS_PORT="${HTTPS_PORT_OVERRIDE}"
 fi
 
-bash "${SOURCE_DIR}/install-ubuntu-service.sh"
+bash "${SOURCE_DIR}/scripts/install-ubuntu-service.sh"
 
 echo
 echo "DassieDrop ${ACTION} completed from ${REPO_URL}."

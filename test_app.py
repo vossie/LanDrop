@@ -1129,7 +1129,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_github_ubuntu_install_upgrade_script_uses_github_archive_and_env_file(self) -> None:
         script = (
-            Path(__file__).resolve().parent / "github-ubuntu-install-upgrade.sh"
+            Path(__file__).resolve().parent / "scripts" / "github-ubuntu-install-upgrade.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("--https-port", script)
@@ -1137,7 +1137,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('require_command apt-get', script)
         self.assertIn('ensure_package python3.11 python3.11', script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
-        self.assertIn('bash "${SOURCE_DIR}/install-ubuntu-service.sh"', script)
+        self.assertIn('bash "${SOURCE_DIR}/scripts/install-ubuntu-service.sh"', script)
         self.assertIn('if [[ ! -f "${ENV_FILE}" ]]; then', script)
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('export "${key}=${value}"', script)
@@ -1145,7 +1145,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_github_ubuntu_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
-            ["bash", "-n", "github-ubuntu-install-upgrade.sh"],
+            ["bash", "-n", "scripts/github-ubuntu-install-upgrade.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
@@ -1155,7 +1155,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_github_centos_stream_install_upgrade_script_mentions_dnf_and_env_file(self) -> None:
         script = (
-            Path(__file__).resolve().parent / "github-centos-stream-install-upgrade.sh"
+            Path(__file__).resolve().parent / "scripts" / "github-centos-stream-install-upgrade.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("--https-port", script)
@@ -1173,7 +1173,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_github_centos_stream_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
-            ["bash", "-n", "github-centos-stream-install-upgrade.sh"],
+            ["bash", "-n", "scripts/github-centos-stream-install-upgrade.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
@@ -1183,16 +1183,16 @@ class ScriptTests(unittest.TestCase):
 
     def test_install_script_deploys_assets_and_templates(self) -> None:
         script = (
-            Path(__file__).resolve().parent / "install-ubuntu-service.sh"
+            Path(__file__).resolve().parent / "scripts" / "install-ubuntu-service.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
         self.assertIn("--https-port", script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
-        self.assertIn('SCRIPT_DIR}/VERSION', script)
+        self.assertIn('REPO_DIR}/VERSION', script)
         self.assertIn('APP_DIR}/VERSION', script)
-        self.assertIn('SCRIPT_DIR}/assets', script)
+        self.assertIn('REPO_DIR}/assets', script)
         self.assertIn('APP_DIR}/assets', script)
-        self.assertIn('SCRIPT_DIR}/templates', script)
+        self.assertIn('REPO_DIR}/templates', script)
         self.assertIn('APP_DIR}/templates', script)
         self.assertIn('apt-get install -y python3.11', script)
         self.assertIn('apt-get install -y openssl', script)
@@ -1205,7 +1205,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_install_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
-            ["bash", "-n", "install-ubuntu-service.sh"],
+            ["bash", "-n", "scripts/install-ubuntu-service.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
@@ -1215,7 +1215,7 @@ class ScriptTests(unittest.TestCase):
 
     def test_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
-            ["bash", "-n", "uninstall-ubuntu-service.sh"],
+            ["bash", "-n", "scripts/uninstall-ubuntu-service.sh"],
             cwd=Path(__file__).resolve().parent,
             capture_output=True,
             text=True,
@@ -1257,7 +1257,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("HTTPS_CERT_FILE=/etc/ssl/certs/dassiedrop.crt", install_doc)
         self.assertIn("HTTPS_KEY_FILE=/etc/ssl/private/dassiedrop.key", install_doc)
         self.assertIn("By default, the service install enables:", install_doc)
-        self.assertIn("sudo HTTPS=0 bash ./install-ubuntu-service.sh", install_doc)
+        self.assertIn("sudo HTTPS=0 bash ./scripts/install-ubuntu-service.sh", install_doc)
         self.assertIn("sudo HTTPS=0 bash", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:

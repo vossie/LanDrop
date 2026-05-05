@@ -60,6 +60,7 @@ ENV_FILE="${ENV_FILE:-$CONFIG_DIR/dassiedrop.env}"
 SYSTEMD_UNIT="/etc/systemd/system/${SERVICE_NAME}.service"
 PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 HOST_VALUE="${HOST:-0.0.0.0}"
 HTTP_PORT_VALUE="${HTTP_PORT:-${PORT:-8000}}"
@@ -129,22 +130,22 @@ install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${DATA_DIR}/uploa
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${CERT_DIR}"
 install -d -m 0755 "${CONFIG_DIR}"
 
-install -m 0644 "${SCRIPT_DIR}/app.py" "${APP_DIR}/app.py"
-if [[ -f "${SCRIPT_DIR}/README.md" ]]; then
-  install -m 0644 "${SCRIPT_DIR}/README.md" "${APP_DIR}/README.md"
+install -m 0644 "${REPO_DIR}/app.py" "${APP_DIR}/app.py"
+if [[ -f "${REPO_DIR}/README.md" ]]; then
+  install -m 0644 "${REPO_DIR}/README.md" "${APP_DIR}/README.md"
 fi
-if [[ -f "${SCRIPT_DIR}/VERSION" ]]; then
-  install -m 0644 "${SCRIPT_DIR}/VERSION" "${APP_DIR}/VERSION"
+if [[ -f "${REPO_DIR}/VERSION" ]]; then
+  install -m 0644 "${REPO_DIR}/VERSION" "${APP_DIR}/VERSION"
 fi
-if [[ -d "${SCRIPT_DIR}/assets" ]]; then
+if [[ -d "${REPO_DIR}/assets" ]]; then
   rm -rf "${APP_DIR}/assets"
   install -d -m 0755 "${APP_DIR}/assets"
-  cp -R "${SCRIPT_DIR}/assets/." "${APP_DIR}/assets/"
+  cp -R "${REPO_DIR}/assets/." "${APP_DIR}/assets/"
 fi
-if [[ -d "${SCRIPT_DIR}/templates" ]]; then
+if [[ -d "${REPO_DIR}/templates" ]]; then
   rm -rf "${APP_DIR}/templates"
   install -d -m 0755 "${APP_DIR}/templates"
-  cp -R "${SCRIPT_DIR}/templates/." "${APP_DIR}/templates/"
+  cp -R "${REPO_DIR}/templates/." "${APP_DIR}/templates/"
 fi
 
 chown root:root "${APP_DIR}/app.py"

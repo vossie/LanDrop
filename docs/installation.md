@@ -141,7 +141,7 @@ Use this when:
 Run on the target Ubuntu server as `root`:
 
 ```bash
-sudo bash ./install-ubuntu-service.sh
+sudo bash ./scripts/install-ubuntu-service.sh
 ```
 
 By default, the service install enables:
@@ -152,13 +152,13 @@ By default, the service install enables:
 Disable HTTPS explicitly if you only want HTTP:
 
 ```bash
-sudo HTTPS=0 bash ./install-ubuntu-service.sh
+sudo HTTPS=0 bash ./scripts/install-ubuntu-service.sh
 ```
 
 Quick install:
 
 ```bash
-curl -fsSLo github-ubuntu-install-upgrade.sh https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh
+curl -fsSLo github-ubuntu-install-upgrade.sh https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh
 chmod +x github-ubuntu-install-upgrade.sh
 sudo ./github-ubuntu-install-upgrade.sh
 ```
@@ -166,7 +166,7 @@ sudo ./github-ubuntu-install-upgrade.sh
 Or install or upgrade directly from GitHub:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo bash
 ```
 
 It will:
@@ -181,25 +181,25 @@ It will:
 Override defaults:
 
 ```bash
-sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./install-ubuntu-service.sh
+sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./scripts/install-ubuntu-service.sh
 ```
 
 Or use `--port`:
 
 ```bash
-sudo bash ./install-ubuntu-service.sh --port 8080
+sudo bash ./scripts/install-ubuntu-service.sh --port 8080
 ```
 
 Set the share link base address during install:
 
 ```bash
-sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./install-ubuntu-service.sh
+sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./scripts/install-ubuntu-service.sh
 ```
 
 The GitHub helper also supports overrides. On upgrade it reuses values from `/etc/dassiedrop/dassiedrop.env` unless you override them:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
 
 Use the Ubuntu service install for a native `systemd` deployment. Use Docker for a portable container runtime.
@@ -209,7 +209,7 @@ Use the Ubuntu service install for a native `systemd` deployment. Use Docker for
 Install or upgrade on a CentOS Stream host:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo bash
 ```
 
 By default, the service install enables:
@@ -220,7 +220,7 @@ By default, the service install enables:
 Disable HTTPS explicitly if you only want HTTP:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo HTTPS=0 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo HTTPS=0 bash
 ```
 
 The CentOS Stream helper installs required packages with `dnf`, upgrades to `python3.11`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you override them.
@@ -228,5 +228,5 @@ The CentOS Stream helper installs required packages with `dnf`, upgrades to `pyt
 Override defaults:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
 ```
