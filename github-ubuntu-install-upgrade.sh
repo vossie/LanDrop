@@ -15,8 +15,8 @@ fetch_script() {
   curl -fsSL "https://raw.githubusercontent.com/${REPO_OWNER}/${REPO_NAME}/${ref}/scripts/github-ubuntu-install-upgrade.sh" -o "${TMP_SCRIPT}"
 }
 
-if ! fetch_script "main"; then
-  fetch_script "master"
+if ! fetch_script "master"; then
+  fetch_script "main"
 fi
 
 exec bash "${TMP_SCRIPT}" "$@"
