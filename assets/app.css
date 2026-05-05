@@ -30,11 +30,11 @@ main.shell {
   padding-top: 10px;
 }
 .shell-header {
-  padding-top: 18px;
-  padding-bottom: 14px;
+  padding-top: 16px;
+  padding-bottom: 16px;
 }
 .hero {
-  padding: 0;
+  padding: 4px 0 0;
   max-width: 920px;
   margin: 0 auto;
 }
@@ -194,6 +194,7 @@ h1 {
   line-height: 1;
   text-decoration: none;
   color: inherit;
+  transform: translateY(2px);
 }
 .workspace-pill {
   display: inline-flex;
