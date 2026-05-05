@@ -144,6 +144,17 @@ Run on the target Ubuntu server as `root`:
 sudo bash ./install-ubuntu-service.sh
 ```
 
+By default, the service install enables:
+
+- HTTP on port `8000`
+- HTTPS on port `8443`
+
+Disable HTTPS explicitly if you only want HTTP:
+
+```bash
+sudo HTTPS=0 bash ./install-ubuntu-service.sh
+```
+
 Quick install:
 
 ```bash
@@ -199,6 +210,17 @@ Install or upgrade on a CentOS Stream host:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo bash
+```
+
+By default, the service install enables:
+
+- HTTP on port `8000`
+- HTTPS on port `8443`
+
+Disable HTTPS explicitly if you only want HTTP:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/github-centos-stream-install-upgrade.sh | sudo HTTPS=0 bash
 ```
 
 The CentOS Stream helper installs required packages with `dnf`, upgrades to `python3.11`, creates the same `dassiedrop` system user and `systemd` service, and reuses values from `/etc/dassiedrop/dassiedrop.env` on upgrade unless you override them.

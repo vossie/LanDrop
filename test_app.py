@@ -1155,6 +1155,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('dnf -y install "${package_name}"', script)
         self.assertIn('dnf -y install openssl', script)
         self.assertIn('ensure_package python3.11 python3.11', script)
+        self.assertIn('HTTPS_VALUE="${HTTPS:-1}"', script)
         self.assertIn('HTTPS_PORT_VALUE="${HTTPS_PORT:-8443}"', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
         self.assertIn('done < "${ENV_FILE}"', script)
@@ -1186,6 +1187,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('APP_DIR}/templates', script)
         self.assertIn('apt-get install -y python3.11', script)
         self.assertIn('apt-get install -y openssl', script)
+        self.assertIn('HTTPS_VALUE="${HTTPS:-1}"', script)
         self.assertIn('HTTPS_PORT=${HTTPS_PORT_VALUE}', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
         self.assertIn('install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${CERT_DIR}"', script)
@@ -1245,6 +1247,9 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("## Use Your Own SSL Certificate", install_doc)
         self.assertIn("HTTPS_CERT_FILE=/etc/ssl/certs/dassiedrop.crt", install_doc)
         self.assertIn("HTTPS_KEY_FILE=/etc/ssl/private/dassiedrop.key", install_doc)
+        self.assertIn("By default, the service install enables:", install_doc)
+        self.assertIn("sudo HTTPS=0 bash ./install-ubuntu-service.sh", install_doc)
+        self.assertIn("sudo HTTPS=0 bash", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
         source = (Path(__file__).resolve().parent / "app.py").read_text(encoding="utf-8")
