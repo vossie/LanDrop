@@ -219,7 +219,7 @@ h1 {
 .workspace-selector-hint {
   position: absolute;
   right: 0;
-  bottom: calc(100% + 10px);
+  top: calc(100% + 10px);
   max-width: 220px;
   padding: 8px 10px;
   border-radius: 12px;
@@ -235,15 +235,15 @@ h1 {
   content: "";
   position: absolute;
   right: 16px;
-  top: 100%;
+  bottom: 100%;
   width: 10px;
   height: 10px;
   background: #0b2f66;
-  transform: rotate(45deg) translateY(-4px);
+  transform: rotate(45deg) translateY(4px);
 }
 .workspace-selector-hint.fade-out {
   opacity: 0;
-  transform: translateY(-4px);
+  transform: translateY(4px);
 }
 .workspace-pill:hover {
   background: #e2edff;
