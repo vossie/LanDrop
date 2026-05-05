@@ -46,11 +46,18 @@ body {
   flex-wrap: nowrap;
   width: 100%;
 }
+.hero-title-row-workspace {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  column-gap: 12px;
+}
 .hero-brand-row {
   display: inline-flex;
   align-items: center;
   gap: 12px;
   flex: 0 0 auto;
+  min-width: 0;
 }
 .hero-mark {
   display: block;
@@ -95,6 +102,9 @@ h1 {
   padding-top: 0;
   white-space: nowrap;
   text-align: right;
+}
+.hero-title-row-workspace .subhead {
+  text-align: center;
 }
 .hero-input-row {
   flex: 0 1 280px;
@@ -190,6 +200,16 @@ h1 {
   transition: background 120ms ease, color 120ms ease, border-color 120ms ease;
   cursor: pointer;
   align-self: center;
+  margin-left: auto;
+  flex: 0 0 auto;
+  max-width: 100%;
+}
+.workspace-pill-label {
+  display: inline-block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .workspace-pill:hover {
   background: #e2edff;
@@ -807,9 +827,15 @@ input[type="file"] {
     flex-wrap: wrap;
     gap: 10px 12px;
   }
+  .hero-title-row-workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    column-gap: 10px;
+  }
   .hero-brand-row {
     width: 100%;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
   }
   .hero-mark {
     width: 32px;
@@ -824,6 +850,10 @@ input[type="file"] {
     white-space: normal;
     margin-left: 0;
     text-align: center;
+  }
+  .workspace-pill {
+    margin-left: 0;
+    max-width: min(44vw, 180px);
   }
   .hero-input-row {
     flex-basis: 100%;
