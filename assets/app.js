@@ -23,6 +23,7 @@ const fileStatus = document.getElementById("fileStatus");
 const fileList = document.getElementById("fileList");
 const textHistory = document.getElementById("textHistory");
 const dropZone = document.getElementById("dropZone");
+const clipboardReadAvailable = !!(window.isSecureContext && navigator.clipboard && navigator.clipboard.readText);
 
 let pendingTextPush = false;
 let activeTab = "text";
@@ -50,6 +51,13 @@ window.addEventListener("pageshow", (event) => {
     window.location.reload();
   }
 });
+
+if (!clipboardReadAvailable && pasteSendBtn) {
+  const textEditorWrap = pasteSendBtn.closest(".text-editor-wrap");
+  if (textEditorWrap) {
+    textEditorWrap.classList.add("clipboard-read-unavailable");
+  }
+}
 
 function updateTabIndicators() {
   textTabBtn.classList.toggle("has-update", unreadText);
@@ -941,7 +949,9 @@ async function pasteAndSendText() {
 }
 
 saveTextBtn.addEventListener("click", saveText);
-pasteSendBtn.addEventListener("click", pasteAndSendText);
+if (clipboardReadAvailable && pasteSendBtn) {
+  pasteSendBtn.addEventListener("click", pasteAndSendText);
+}
 hiddenText.addEventListener("change", updateHiddenOptions);
 hiddenFile.addEventListener("change", updateHiddenOptions);
 textTabBtn.addEventListener("click", () => setActiveTab("text"));

@@ -226,6 +226,9 @@ textarea, .rich-editor {
   background: #fff4a82b;
   padding-right: 68px;
 }
+.text-editor-wrap.clipboard-read-unavailable #sharedText {
+  padding-right: 14px;
+}
 .paste-send-btn {
   position: absolute;
   top: 10px;
@@ -240,6 +243,9 @@ textarea, .rich-editor {
   border: 1px solid #bcc8d8;
   box-shadow: none;
   z-index: 1;
+}
+.text-editor-wrap.clipboard-read-unavailable .paste-send-btn {
+  display: none;
 }
 .paste-send-btn:hover {
   background: #f4f7fb;

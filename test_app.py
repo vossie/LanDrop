@@ -1315,11 +1315,15 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('/assets/cloud_1434863.png', index)
         self.assertIn('const pasteSendBtn = document.getElementById("pasteSendBtn");', script)
         self.assertIn("async function pasteAndSendText()", script)
+        self.assertIn("const clipboardReadAvailable = !!(window.isSecureContext && navigator.clipboard && navigator.clipboard.readText);", script)
+        self.assertIn('textEditorWrap.classList.add("clipboard-read-unavailable");', script)
         self.assertIn("window.isSecureContext", script)
         self.assertIn("navigator.clipboard.readText()", script)
         self.assertIn("Clipboard read requires HTTPS or localhost.", script)
+        self.assertIn('if (clipboardReadAvailable && pasteSendBtn) {', script)
         self.assertIn('pasteSendBtn.addEventListener("click", pasteAndSendText);', script)
         self.assertIn(".paste-send-btn", css)
+        self.assertIn(".text-editor-wrap.clipboard-read-unavailable .paste-send-btn", css)
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
