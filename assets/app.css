@@ -207,6 +207,9 @@ h1 {
 .panel-title h2 {
   margin: 0;
 }
+.text-editor-wrap {
+  position: relative;
+}
 textarea, .rich-editor {
   width: 100%;
   min-height: 120px;
@@ -221,6 +224,31 @@ textarea, .rich-editor {
 #sharedText {
   border-color: rgba(6, 26, 58, 0.5);
   background: #fff4a82b;
+  padding-right: 68px;
+}
+.paste-send-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 44px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0;
+  border-radius: 14px;
+  background: #ffffff;
+  color: var(--accent);
+  border: 1px solid #bcc8d8;
+  box-shadow: none;
+  z-index: 1;
+}
+.paste-send-btn:hover {
+  background: #f4f7fb;
+}
+.paste-send-icon {
+  display: block;
+  width: 26px;
+  height: 26px;
+  object-fit: contain;
 }
 .rich-editor {
   overflow: auto;
@@ -741,7 +769,8 @@ input[type="file"] {
     padding-top: 6px;
   }
   .hero-top {
-    align-items: stretch;
+    align-items: flex-start;
+    flex-wrap: nowrap;
   }
   .hero-copy {
     flex-direction: column;
@@ -777,6 +806,7 @@ input[type="file"] {
   }
   .hero-actions {
     margin-left: 0;
+    flex: 0 0 auto;
   }
   .panel-title {
     align-items: flex-start;

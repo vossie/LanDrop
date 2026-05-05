@@ -42,7 +42,12 @@
         <h2>Share Text</h2>
         <div class="meta" id="textMeta">Waiting for updates…</div>
       </div>
-      <textarea id="sharedText" placeholder="Paste text here"></textarea>
+      <div class="text-editor-wrap">
+        <button id="pasteSendBtn" class="paste-send-btn" type="button" aria-label="Paste and send" title="Paste and send">
+          <img class="paste-send-icon" src="/assets/cloud_1434863.png" alt="">
+        </button>
+        <textarea id="sharedText" placeholder="Paste text here"></textarea>
+      </div>
       <div class="row text-controls-row">
         <button id="saveTextBtn">Save</button>
         <label class="checkbox-row" for="hiddenText">

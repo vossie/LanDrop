@@ -12,6 +12,7 @@ const hiddenText = document.getElementById("hiddenText");
 const textHiddenOptions = document.getElementById("textHiddenOptions");
 const textPassword = document.getElementById("textPassword");
 const saveTextBtn = document.getElementById("saveTextBtn");
+const pasteSendBtn = document.getElementById("pasteSendBtn");
 const fileInput = document.getElementById("fileInput");
 const hiddenFile = document.getElementById("hiddenFile");
 const fileHiddenOptions = document.getElementById("fileHiddenOptions");
@@ -910,7 +911,26 @@ async function uploadFile(file = fileInput.files[0]) {
   }
 }
 
+async function pasteAndSendText() {
+  if (!navigator.clipboard || !navigator.clipboard.readText) {
+    textStatus.textContent = "Clipboard paste is not available here.";
+    return;
+  }
+  try {
+    const pastedText = (await navigator.clipboard.readText()).trim();
+    if (!pastedText) {
+      textStatus.textContent = "Clipboard is empty.";
+      return;
+    }
+    sharedText.value = pastedText;
+    await saveText();
+  } catch (error) {
+    textStatus.textContent = "Clipboard paste failed.";
+  }
+}
+
 saveTextBtn.addEventListener("click", saveText);
+pasteSendBtn.addEventListener("click", pasteAndSendText);
 hiddenText.addEventListener("change", updateHiddenOptions);
 hiddenFile.addEventListener("change", updateHiddenOptions);
 textTabBtn.addEventListener("click", () => setActiveTab("text"));

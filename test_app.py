@@ -1109,7 +1109,7 @@ class ScriptTests(unittest.TestCase):
         license_text = (root / "LICENSE").read_text(encoding="utf-8")
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
-        self.assertEqual(version, "1.0.8")
+        self.assertEqual(version, "1.0.11")
         self.assertIn("infrastructure you control", readme)
         self.assertIn("Know exactly where your data is while it is being shared", readme)
         self.assertIn("Contributor: Mark Levitt", readme)
@@ -1284,6 +1284,24 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('window.addEventListener("pageshow"', script)
         self.assertIn('window.addEventListener("pageshow"', (Path(__file__).resolve().parent / "assets" / "app.js").read_text(encoding="utf-8"))
         self.assertLess(template.index("<h2>Create Workspace</h2>"), template.index("<h2>Workspaces</h2>"))
+
+    def test_text_panel_exposes_paste_and_send_control(self) -> None:
+        index = (Path(__file__).resolve().parent / "templates" / "index.html").read_text(
+            encoding="utf-8"
+        )
+        script = (Path(__file__).resolve().parent / "assets" / "app.js").read_text(
+            encoding="utf-8"
+        )
+        css = (Path(__file__).resolve().parent / "assets" / "app.css").read_text(
+            encoding="utf-8"
+        )
+        self.assertIn('id="pasteSendBtn"', index)
+        self.assertIn('/assets/cloud_1434863.png', index)
+        self.assertIn('const pasteSendBtn = document.getElementById("pasteSendBtn");', script)
+        self.assertIn("async function pasteAndSendText()", script)
+        self.assertIn("navigator.clipboard.readText()", script)
+        self.assertIn('pasteSendBtn.addEventListener("click", pasteAndSendText);', script)
+        self.assertIn(".paste-send-btn", css)
 
     def test_legacy_uninstall_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
