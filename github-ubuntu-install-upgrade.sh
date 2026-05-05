@@ -7,13 +7,15 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 PORT_OVERRIDE=""
+HTTPS_PORT_OVERRIDE=""
 
 usage() {
   cat <<'EOF'
-Usage: github-ubuntu-install-upgrade.sh [--port PORT]
+Usage: github-ubuntu-install-upgrade.sh [--port PORT] [--https-port PORT]
 
 Options:
-  --port PORT   Set the DassieDrop listen port for install or upgrade.
+  --port PORT        Set the DassieDrop HTTP listen port for install or upgrade.
+  --https-port PORT  Set the DassieDrop HTTPS listen port for install or upgrade.
   --help        Show this help.
 EOF
 }
@@ -26,6 +28,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       PORT_OVERRIDE="$2"
+      shift 2
+      ;;
+    --https-port)
+      if [[ $# -lt 2 ]]; then
+        echo "--https-port requires a value."
+        exit 1
+      fi
+      HTTPS_PORT_OVERRIDE="$2"
       shift 2
       ;;
     --help)
@@ -127,7 +137,12 @@ fi
 load_existing_config
 
 if [[ -n "${PORT_OVERRIDE}" ]]; then
+  export HTTP_PORT="${PORT_OVERRIDE}"
   export PORT="${PORT_OVERRIDE}"
+fi
+
+if [[ -n "${HTTPS_PORT_OVERRIDE}" ]]; then
+  export HTTPS_PORT="${HTTPS_PORT_OVERRIDE}"
 fi
 
 bash "${SOURCE_DIR}/install-ubuntu-service.sh"

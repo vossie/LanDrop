@@ -1123,6 +1123,7 @@ class ScriptTests(unittest.TestCase):
             Path(__file__).resolve().parent / "github-ubuntu-install-upgrade.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
+        self.assertIn("--https-port", script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
         self.assertIn('require_command apt-get', script)
         self.assertIn('ensure_package python3.11 python3.11', script)
@@ -1131,6 +1132,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('if [[ ! -f "${ENV_FILE}" ]]; then', script)
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('export "${key}=${value}"', script)
+        self.assertIn('export HTTPS_PORT="${HTTPS_PORT_OVERRIDE}"', script)
 
     def test_github_ubuntu_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
@@ -1147,10 +1149,14 @@ class ScriptTests(unittest.TestCase):
             Path(__file__).resolve().parent / "github-centos-stream-install-upgrade.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
+        self.assertIn("--https-port", script)
         self.assertIn('require_command dnf', script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
         self.assertIn('dnf -y install "${package_name}"', script)
+        self.assertIn('dnf -y install openssl', script)
         self.assertIn('ensure_package python3.11 python3.11', script)
+        self.assertIn('HTTPS_PORT_VALUE="${HTTPS_PORT:-8443}"', script)
+        self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py', script)
         self.assertIn('systemctl restart "${SERVICE_NAME}.service"', script)
@@ -1170,6 +1176,7 @@ class ScriptTests(unittest.TestCase):
             Path(__file__).resolve().parent / "install-ubuntu-service.sh"
         ).read_text(encoding="utf-8")
         self.assertIn("--port", script)
+        self.assertIn("--https-port", script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
         self.assertIn('SCRIPT_DIR}/VERSION', script)
         self.assertIn('APP_DIR}/VERSION', script)
@@ -1178,6 +1185,10 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('SCRIPT_DIR}/templates', script)
         self.assertIn('APP_DIR}/templates', script)
         self.assertIn('apt-get install -y python3.11', script)
+        self.assertIn('apt-get install -y openssl', script)
+        self.assertIn('HTTPS_PORT=${HTTPS_PORT_VALUE}', script)
+        self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
+        self.assertIn('install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${CERT_DIR}"', script)
         self.assertIn('ExecStart=${PYTHON_BIN} ${APP_DIR}/app.py', script)
         self.assertIn('systemctl restart "${SERVICE_NAME}.service"', script)
 

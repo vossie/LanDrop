@@ -7,13 +7,15 @@ if [[ "${EUID}" -ne 0 ]]; then
 fi
 
 PORT_OVERRIDE=""
+HTTPS_PORT_OVERRIDE=""
 
 usage() {
   cat <<'EOF'
-Usage: github-centos-stream-install-upgrade.sh [--port PORT]
+Usage: github-centos-stream-install-upgrade.sh [--port PORT] [--https-port PORT]
 
 Options:
-  --port PORT   Set the DassieDrop listen port for install or upgrade.
+  --port PORT        Set the DassieDrop HTTP listen port for install or upgrade.
+  --https-port PORT  Set the DassieDrop HTTPS listen port for install or upgrade.
   --help        Show this help.
 EOF
 }
@@ -26,6 +28,14 @@ while [[ $# -gt 0 ]]; do
         exit 1
       fi
       PORT_OVERRIDE="$2"
+      shift 2
+      ;;
+    --https-port)
+      if [[ $# -lt 2 ]]; then
+        echo "--https-port requires a value."
+        exit 1
+      fi
+      HTTPS_PORT_OVERRIDE="$2"
       shift 2
       ;;
     --help)
@@ -131,14 +141,29 @@ fi
 
 load_existing_config
 
+if [[ "${HTTPS:-}" =~ ^(1|true|yes|on)$ ]] && ! command -v openssl >/dev/null 2>&1; then
+  dnf -y install openssl
+fi
+
 HOST_VALUE="${HOST:-0.0.0.0}"
-PORT_VALUE="${PORT:-8000}"
+HTTP_PORT_VALUE="${HTTP_PORT:-${PORT:-8000}}"
+HTTPS_VALUE="${HTTPS:-}"
+HTTPS_PORT_VALUE="${HTTPS_PORT:-8443}"
 ACCESS_CODE_VALUE="${ACCESS_CODE:-change-me}"
 SHARE_BASE_URL_VALUE="${SHARE_BASE_URL:-}"
 APP_VERSION_VALUE="${APP_VERSION:-}"
+CERT_DIR="${CERT_DIR:-${DATA_DIR}/certs}"
+HTTPS_CERT_FILE_VALUE="${HTTPS_CERT_FILE:-${CERT_DIR}/dassiedrop-selfsigned.crt}"
+HTTPS_KEY_FILE_VALUE="${HTTPS_KEY_FILE:-${CERT_DIR}/dassiedrop-selfsigned.key}"
+HTTPS_SELF_SIGNED_HOST_VALUE="${HTTPS_SELF_SIGNED_HOST:-localhost}"
+HTTPS_SELF_SIGNED_SANS_VALUE="${HTTPS_SELF_SIGNED_SANS:-}"
 
 if [[ -n "${PORT_OVERRIDE}" ]]; then
-  PORT_VALUE="${PORT_OVERRIDE}"
+  HTTP_PORT_VALUE="${PORT_OVERRIDE}"
+fi
+
+if [[ -n "${HTTPS_PORT_OVERRIDE}" ]]; then
+  HTTPS_PORT_VALUE="${HTTPS_PORT_OVERRIDE}"
 fi
 
 if ! getent group "${SERVICE_GROUP}" >/dev/null; then
@@ -158,6 +183,7 @@ fi
 install -d -m 0755 "${APP_DIR}"
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${DATA_DIR}"
 install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${DATA_DIR}/uploads"
+install -d -o "${SERVICE_USER}" -g "${SERVICE_GROUP}" -m 0750 "${CERT_DIR}"
 install -d -m 0755 "${CONFIG_DIR}"
 
 install -m 0644 "${SOURCE_DIR}/app.py" "${APP_DIR}/app.py"
@@ -194,7 +220,14 @@ fi
 
 cat > "${ENV_FILE}" <<EOF
 HOST=${HOST_VALUE}
-PORT=${PORT_VALUE}
+PORT=${HTTP_PORT_VALUE}
+HTTP_PORT=${HTTP_PORT_VALUE}
+HTTPS=${HTTPS_VALUE}
+HTTPS_PORT=${HTTPS_PORT_VALUE}
+HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}
+HTTPS_KEY_FILE=${HTTPS_KEY_FILE_VALUE}
+HTTPS_SELF_SIGNED_HOST=${HTTPS_SELF_SIGNED_HOST_VALUE}
+HTTPS_SELF_SIGNED_SANS=${HTTPS_SELF_SIGNED_SANS_VALUE}
 UPLOAD_DIR=${DATA_DIR}/uploads
 ACCESS_CODE=${ACCESS_CODE_VALUE}
 SHARE_BASE_URL=${SHARE_BASE_URL_VALUE}
@@ -243,7 +276,8 @@ echo
 echo "Config file: ${ENV_FILE}"
 echo "Code dir: ${APP_DIR}"
 echo "Data dir: ${DATA_DIR}"
+echo "Certificate dir: ${CERT_DIR}"
 echo
-echo "To change the access code or port:"
+echo "To change the access code, HTTP port, or HTTPS settings:"
 echo "  sudoedit ${ENV_FILE}"
 echo "  sudo systemctl restart ${SERVICE_NAME}"
