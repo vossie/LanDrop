@@ -4,10 +4,18 @@ services:
     container_name: dassiedrop
     ports:
       - "${PORT:-8000}:8000"
+      - "${HTTPS_PORT:-8443}:8443"
     environment:
       ACCESS_CODE: "${ACCESS_CODE:-change-me}"
       SHARE_BASE_URL: "${SHARE_BASE_URL:-}"
       APP_VERSION: "${APP_VERSION:-}"
+      HTTPS: "${HTTPS:-0}"
+      HTTP_PORT: 8000
+      HTTPS_PORT: 8443
+      HTTPS_CERT_FILE: /data/certs/dassiedrop-selfsigned.crt
+      HTTPS_KEY_FILE: /data/certs/dassiedrop-selfsigned.key
+      HTTPS_SELF_SIGNED_HOST: "${HTTPS_SELF_SIGNED_HOST:-localhost}"
+      HTTPS_SELF_SIGNED_SANS: "${HTTPS_SELF_SIGNED_SANS:-}"
       UPLOAD_DIR: /data/uploads
     volumes:
       - dassiedrop-data:/data

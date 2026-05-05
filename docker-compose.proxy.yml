@@ -1,0 +1,18 @@
+services:
+  caddy:
+    image: caddy:2
+    container_name: dassiedrop-caddy
+    depends_on:
+      - dassiedrop
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./docker/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

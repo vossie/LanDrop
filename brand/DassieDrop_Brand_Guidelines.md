@@ -2,30 +2,22 @@
 
 # Brand Story
 
-DassieDrop is named after the rock hyrax ,  locally known in South Africa
-as the dassie.  
-  
-Dassies are highly social animals. They live in groups, communicate
-constantly, stay close to their community,  
-and share safe spaces together. That makes them a surprisingly perfect
-metaphor for local-first file sharing.  
-  
-The app represents:  
-• Fast local communication  
-• Trust within a shared environment  
-• Lightweight movement between nearby devices  
-• Community over cloud dependency  
-  
-And yes ,  there’s also a bit of humor in the name.  
-  
-Real dassies famously use communal toilet areas and return to the same
-cliff face for generations.  
-So in a weirdly accurate way, “DassieDrop” literally references
-creatures repeatedly dropping things  
-in the same place together.  
-  
-It’s memorable, slightly ridiculous, and impossible to forget ,  which is
-exactly what good branding should be.
+DassieDrop is named after the rock hyrax, locally known in South Africa as the dassie.
+
+Dassies are highly social animals. They live in groups, communicate constantly, stay close to their community, and share safe spaces together. That makes them a surprisingly good metaphor for local-first file sharing.
+
+The app represents:
+
+- Fast local communication
+- Trust within a shared environment
+- Lightweight movement between nearby devices
+- Community over cloud dependency
+
+There is also a bit of humor in the name.
+
+Real dassies famously use communal toilet areas and return to the same cliff face for generations. In a weirdly accurate way, "DassieDrop" literally references creatures repeatedly dropping things in the same place together.
+
+It is memorable, slightly ridiculous, and hard to forget, which is exactly what good branding should be.
 
 # Brand Personality
 
@@ -52,55 +44,58 @@ exactly what good branding should be.
 
 # Logo Usage
 
-The DassieDrop icon should always be used with generous spacing and
-clean backgrounds.  
-  
-Preferred usage:  
-• White or light neutral backgrounds  
-• Navy monochrome variant  
-• Left-aligned icon + wordmark layout for desktop applications  
-• Standalone dassie icon for tray icons, mobile icons, and favicons  
-  
-Avoid:  
-• Gradients  
-• Glow effects  
-• Cartoon styling  
-• Heavy shadows  
-• Busy backgrounds
+The DassieDrop icon should always be used with generous spacing and clean backgrounds.
+
+Preferred usage:
+
+- White or light neutral backgrounds
+- Navy monochrome variant
+- Left-aligned icon and wordmark layout for desktop applications
+- Standalone dassie icon for tray icons, mobile icons, and favicons
+
+Avoid:
+
+- Gradients
+- Glow effects
+- Cartoon styling
+- Heavy shadows
+- Busy backgrounds
 
 # Typography
 
-Recommended typefaces:  
-• Inter  
-• Manrope  
-• SF Pro Display  
-• IBM Plex Sans  
-  
-Typography should remain:  
-• Clean  
-• Rounded  
-• Modern  
-• Highly legible
+Recommended typefaces:
+
+- Inter
+- Manrope
+- SF Pro Display
+- IBM Plex Sans
+
+Typography should remain:
+
+- Clean
+- Rounded
+- Modern
+- Highly legible
 
 # Tone of Voice
 
-DassieDrop should sound:  
-• Calm  
-• Efficient  
-• Friendly  
-• Slightly witty  
-• Never corporate jargon-heavy  
-  
-Examples:  
-GOOD:  
-“Share instantly across your local network.”  
-“Fast local transfer without the cloud.”  
-  
-BAD:  
-“Enterprise-grade synergistic file mobility platform.”
+DassieDrop should sound:
+
+- Calm
+- Efficient
+- Friendly
+- Slightly witty
+- Never corporate jargon-heavy
+
+Examples:
+
+Good:
+"Share instantly across your local network."
+"Fast local transfer without the cloud."
+
+Bad:
+"Enterprise-grade synergistic file mobility platform."
 
 # Core Brand Idea
 
-DassieDrop is about nearby trust, lightweight sharing, and community , 
-inspired by one of Southern Africa’s weirdest and most social little
-animals.
+DassieDrop is about nearby trust, lightweight sharing, and community, inspired by one of Southern Africa's weirdest and most social little animals.

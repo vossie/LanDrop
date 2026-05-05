@@ -8,17 +8,21 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 
 WORKDIR /app
 
-RUN groupadd --system dassiedrop \
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/* \
+    && groupadd --system dassiedrop \
     && useradd --system --gid dassiedrop --create-home --home-dir /home/dassiedrop dassiedrop \
     && mkdir -p /app /data/uploads \
     && chown -R dassiedrop:dassiedrop /app /data
 
 COPY app.py VERSION ./
+COPY dassiedrop ./dassiedrop
 COPY assets ./assets
 COPY templates ./templates
 
 VOLUME ["/data"]
-EXPOSE 8000
+EXPOSE 8000 8443
 
 USER dassiedrop
 

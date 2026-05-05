@@ -88,6 +88,7 @@ DassieDrop ships with:
 
 - a `Dockerfile` for local image builds
 - a `docker-compose.yml` for a persistent container setup
+- a `docker-compose.proxy.yml` overlay for reverse-proxy TLS with Caddy
 - a writable `/data/uploads` path for uploaded files
 
 ```bash
@@ -114,7 +115,75 @@ Run with Compose:
 ACCESS_CODE=my-secret-code SHARE_BASE_URL=http://192.168.1.24:8000 docker compose up -d
 ```
 
-The included [docker-compose.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.yml) maps port `8000`, keeps uploads in a named volume, and restarts automatically.
+The included [docker-compose.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.yml) maps ports `8000` and `8443`, keeps uploads in a named volume, and restarts automatically.
+
+### Docker With Native HTTPS
+
+The container can run DassieDrop's built-in HTTPS support directly.
+
+```bash
+HTTPS=1 \
+HTTPS_SELF_SIGNED_HOST=localhost \
+HTTPS_SELF_SIGNED_SANS=DNS:localhost,IP:127.0.0.1 \
+docker compose up -d
+```
+
+Then open:
+
+```text
+http://localhost:8000
+https://localhost:8443
+```
+
+Notes:
+
+- The container image includes `openssl`, so it can generate the self-signed certificate on first start.
+- Generated certificates are stored under `/data/certs` in the same persistent Docker volume.
+- For your own certificate, mount the cert and key into the container and set `HTTPS_CERT_FILE` and `HTTPS_KEY_FILE`.
+
+Example with your own certificate:
+
+```bash
+docker run -d \
+  --name dassiedrop \
+  -p 8000:8000 \
+  -p 8443:8443 \
+  -e HTTPS=1 \
+  -e HTTPS_CERT_FILE=/certs/dassiedrop.crt \
+  -e HTTPS_KEY_FILE=/certs/dassiedrop.key \
+  -v $PWD/certs:/certs:ro \
+  -v dassiedrop-data:/data \
+  dassiedrop
+```
+
+### Docker With Reverse-Proxy TLS
+
+For a cleaner remote setup, keep DassieDrop on plain HTTP inside Docker and terminate TLS at a reverse proxy.
+
+This repo includes:
+
+- [docker-compose.proxy.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.proxy.yml)
+- [docker/Caddyfile](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker/Caddyfile)
+
+Start the proxy stack:
+
+```bash
+ACCESS_CODE=my-secret-code \
+SHARE_BASE_URL=https://localhost \
+docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
+```
+
+Then open:
+
+```text
+https://localhost
+```
+
+Notes:
+
+- The Caddy config uses `tls internal`, which is convenient for LAN or lab use but still requires trusting Caddy's local CA in your browser.
+- In this mode, DassieDrop stays on container port `8000` and Caddy handles HTTPS on `443`.
+- For a real LAN hostname such as `files.example.lan`, update `docker/Caddyfile` and `SHARE_BASE_URL` to match.
 
 ## Configure The LAN Link Address
 
@@ -133,7 +202,7 @@ Use this when:
 ## Test
 
 ```bash
-./.venv/bin/python -m unittest -v test_app.py
+./.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ## Install As An Ubuntu Service

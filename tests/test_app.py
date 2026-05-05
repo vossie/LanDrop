@@ -1344,17 +1344,32 @@ class ScriptTests(unittest.TestCase):
     def test_dockerfile_sets_runtime_defaults(self) -> None:
         dockerfile = (REPO_ROOT / "Dockerfile").read_text(encoding="utf-8")
         self.assertIn("FROM python:3.12-slim", dockerfile)
+        self.assertIn("apt-get install -y --no-install-recommends openssl", dockerfile)
         self.assertIn("UPLOAD_DIR=/data/uploads", dockerfile)
+        self.assertIn("COPY dassiedrop ./dassiedrop", dockerfile)
         self.assertIn('VOLUME ["/data"]', dockerfile)
+        self.assertIn("EXPOSE 8000 8443", dockerfile)
         self.assertIn('CMD ["python3", "app.py"]', dockerfile)
 
     def test_docker_compose_persists_uploads_and_configures_env(self) -> None:
         compose = (REPO_ROOT / "docker-compose.yml").read_text(encoding="utf-8")
         self.assertIn("build: .", compose)
+        self.assertIn('${HTTPS_PORT:-8443}:8443', compose)
         self.assertIn("dassiedrop-data:/data", compose)
         self.assertIn("ACCESS_CODE:", compose)
         self.assertIn("SHARE_BASE_URL:", compose)
+        self.assertIn("HTTPS:", compose)
+        self.assertIn("HTTPS_CERT_FILE:", compose)
+        self.assertIn("HTTPS_KEY_FILE:", compose)
         self.assertIn("UPLOAD_DIR: /data/uploads", compose)
+
+    def test_docker_proxy_compose_and_caddyfile_are_present(self) -> None:
+        proxy_compose = (REPO_ROOT / "docker-compose.proxy.yml").read_text(encoding="utf-8")
+        caddyfile = (REPO_ROOT / "docker" / "Caddyfile").read_text(encoding="utf-8")
+        self.assertIn("caddy:", proxy_compose)
+        self.assertIn("443:443", proxy_compose)
+        self.assertIn("tls internal", caddyfile)
+        self.assertIn("reverse_proxy dassiedrop:8000", caddyfile)
 
     def test_installation_doc_mentions_docker_and_https_usage(self) -> None:
         install_doc = (REPO_ROOT / "docs" / "installation.md").read_text(
@@ -1363,6 +1378,10 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("## Run With Docker", install_doc)
         self.assertIn("docker build -t dassiedrop .", install_doc)
         self.assertIn("docker compose up -d", install_doc)
+        self.assertIn("### Docker With Native HTTPS", install_doc)
+        self.assertIn("### Docker With Reverse-Proxy TLS", install_doc)
+        self.assertIn("docker-compose.proxy.yml", install_doc)
+        self.assertIn("docker/Caddyfile", install_doc)
         self.assertIn("## Run With HTTPS", install_doc)
         self.assertIn("HTTPS=1 ./.venv/bin/python app.py", install_doc)
         self.assertIn("http://localhost:8000", install_doc)

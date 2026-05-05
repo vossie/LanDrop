@@ -83,7 +83,12 @@ Then open:
 
 http://127.0.0.1:8000
 
-For HTTPS, service installs, and more setup options, see [docs/installation.md](docs/installation.md).
+Docker also supports:
+
+- native HTTPS on `8443`
+- reverse-proxy TLS with the included Caddy setup
+
+For HTTPS, Docker TLS options, service installs, and more setup details, see [docs/installation.md](docs/installation.md).
 
 ---
 
