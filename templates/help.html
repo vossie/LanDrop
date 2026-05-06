@@ -122,6 +122,14 @@ curl -ksSL \
 curl -ksSL \
   -H 'X-Access-Password: item-secret' \
   "$LAN_LINK"</code></pre>
+
+        <p><strong>Risky:</strong> if you are intentionally sharing a script and want to execute it directly, you can pipe the LAN link into <code>bash</code>. Only do this if you fully trust the source and have checked what you are about to run.</p>
+        <pre class="help-code"><code>curl -fsSL https://your-dassiedrop-host:8443 | bash</code></pre>
+
+        <p>If the shared item is protected:</p>
+        <pre class="help-code"><code>curl -fsSL https://your-dassiedrop-host:8443 \
+  -H "X-Access-Password: secret" | bash</code></pre>
+        <p>Be sure you know what you are running before you use this pattern.</p>
       </div>
     </article>
 
