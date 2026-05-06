@@ -14,4 +14,10 @@ shared_state = {
     "workspaces": {},
     "reserved_upload_bytes": 0,
     "reserved_upload_names": set(),
+    "update_check": {
+        "checking": False,
+        "last_checked_at": 0.0,
+        "latest_version": "",
+        "update_available": False,
+    },
 }

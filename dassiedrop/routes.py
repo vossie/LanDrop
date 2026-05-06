@@ -93,6 +93,19 @@ def render_template(name: str, replacements: dict[str, str] | None = None) -> st
     return body
 
 
+def update_notice_html() -> str:
+    with state.state_lock:
+        update_state = state.shared_state.get("update_check", {})
+        if not update_state.get("update_available"):
+            return ""
+        latest_version = str(update_state.get("latest_version", "")).strip()
+    if latest_version:
+        message = f"Update available: v{latest_version}"
+    else:
+        message = "Update available"
+    return f'<p class="footer-line update-available">{html.escape(message)}</p>'
+
+
 class AppHandler(BaseHTTPRequestHandler):
     server_version = "DassieDrop/1.2"
     content_security_policy = (
@@ -361,6 +374,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 {
                     "__SHARE_BASE_URL__": html.escape(get_share_base_url()),
                     "__APP_VERSION__": html.escape(get_app_version()),
+                    "__UPDATE_NOTICE__": update_notice_html(),
                     "__WORKSPACE_NAME__": html.escape(storage.compact_workspace_name(workspace["name"])),
                     "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
                 },
@@ -379,6 +393,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 "workspaces.html",
                 {
                     "__APP_VERSION__": html.escape(get_app_version()),
+                    "__UPDATE_NOTICE__": update_notice_html(),
                     "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
                 },
             ),
@@ -396,6 +411,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 "help.html",
                 {
                     "__APP_VERSION__": html.escape(get_app_version()),
+                    "__UPDATE_NOTICE__": update_notice_html(),
                     "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
                 },
             ),

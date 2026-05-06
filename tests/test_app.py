@@ -21,6 +21,12 @@ def reset_app_state() -> None:
         state.shared_state["workspaces"] = {}
         state.shared_state["reserved_upload_bytes"] = 0
         state.shared_state["reserved_upload_names"] = set()
+        state.shared_state["update_check"] = {
+            "checking": False,
+            "last_checked_at": 0.0,
+            "latest_version": "",
+            "update_available": False,
+        }
     with state.session_lock:
         state.authorized_sessions.clear()
     with state.auth_attempt_lock:
@@ -38,11 +44,17 @@ class AppStateTests(unittest.TestCase):
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
         self.original_version_file = config.VERSION_FILE
+        self.original_update_check_enabled = config.UPDATE_CHECK_ENABLED
+        self.original_update_check_url = config.UPDATE_CHECK_URL
+        self.original_update_check_interval_seconds = config.UPDATE_CHECK_INTERVAL_SECONDS
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
         config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
+        config.UPDATE_CHECK_ENABLED = False
+        config.UPDATE_CHECK_URL = "https://example.invalid/VERSION"
+        config.UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
         config.now_ts = self.fake_now
         config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -57,6 +69,9 @@ class AppStateTests(unittest.TestCase):
         config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
+        config.UPDATE_CHECK_ENABLED = self.original_update_check_enabled
+        config.UPDATE_CHECK_URL = self.original_update_check_url
+        config.UPDATE_CHECK_INTERVAL_SECONDS = self.original_update_check_interval_seconds
         config.now_ts = self.original_now_ts
         config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -103,6 +118,20 @@ class AppStateTests(unittest.TestCase):
                 os.environ.pop("APP_VERSION", None)
             else:
                 os.environ["APP_VERSION"] = original_value
+
+    def test_update_check_marks_newer_remote_version_available(self) -> None:
+        config.UPDATE_CHECK_ENABLED = True
+        original_fetch = config.fetch_remote_app_version
+        try:
+            config.fetch_remote_app_version = lambda *args, **kwargs: "9.9.10"
+            self.assertTrue(app.check_for_updates(force=True))
+        finally:
+            config.fetch_remote_app_version = original_fetch
+
+        update_state = app.get_update_check_state()
+        self.assertTrue(update_state["update_available"])
+        self.assertEqual(update_state["latest_version"], "9.9.10")
+        self.assertEqual(update_state["last_checked_at"], self.current_time)
 
     def test_compact_workspace_name_limits_header_label_to_16_characters(self) -> None:
         self.assertEqual(app.compact_workspace_name("1234567890abcdefXYZ"), "1234567890abcdef")
@@ -378,12 +407,18 @@ class HttpServerTests(unittest.TestCase):
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
         self.original_version_file = config.VERSION_FILE
+        self.original_update_check_enabled = config.UPDATE_CHECK_ENABLED
+        self.original_update_check_url = config.UPDATE_CHECK_URL
+        self.original_update_check_interval_seconds = config.UPDATE_CHECK_INTERVAL_SECONDS
         self.current_time = 1_700_100_000.0
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
         config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
+        config.UPDATE_CHECK_ENABLED = False
+        config.UPDATE_CHECK_URL = "https://example.invalid/VERSION"
+        config.UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
         config.now_ts = self.fake_now
         config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -404,6 +439,9 @@ class HttpServerTests(unittest.TestCase):
         config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
+        config.UPDATE_CHECK_ENABLED = self.original_update_check_enabled
+        config.UPDATE_CHECK_URL = self.original_update_check_url
+        config.UPDATE_CHECK_INTERVAL_SECONDS = self.original_update_check_interval_seconds
         config.now_ts = self.original_now_ts
         config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -1624,6 +1662,22 @@ class HttpServerTests(unittest.TestCase):
         self.assertIn("bash -c", response["text"])
         self.assertIn("General Use", response["text"])
 
+    def test_help_footer_shows_update_notice_when_available(self) -> None:
+        config.UPDATE_CHECK_ENABLED = True
+        self.start_server()
+        original_fetch = config.fetch_remote_app_version
+        try:
+            config.fetch_remote_app_version = lambda *args, **kwargs: "9.9.10"
+            app.check_for_updates(force=True)
+        finally:
+            config.fetch_remote_app_version = original_fetch
+
+        response = self.request("GET", "/help")
+
+        self.assertEqual(response["status"], 200)
+        self.assertIn("Update available: v9.9.10", response["text"])
+        self.assertIn("update-available", response["text"])
+
     def test_expired_file_is_removed_from_disk_when_state_is_read(self) -> None:
         self.start_server()
 
@@ -1755,7 +1809,11 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('ACCESS_CODE_VALUE="${ACCESS_CODE:-}"', script)
         self.assertIn('resolve_secret "ACCESS_CODE_VALUE" "ACCESS_CODE"', script)
         self.assertIn('resolve_secret "API_KEY_VALUE" "API_KEY"', script)
+        self.assertIn('UPDATE_CHECK_ENABLED_VALUE="${UPDATE_CHECK_ENABLED:-}"', script)
+        self.assertIn('resolve_update_check_enabled "${UPDATE_CHECK_ENABLED_VALUE}"', script)
+        self.assertIn('read -r -p "Enable daily update checks? [y/N]: " answer </dev/tty', script)
         self.assertIn('Generated API_KEY:', script)
+        self.assertIn('UPDATE_CHECK_ENABLED=${UPDATE_CHECK_ENABLED_VALUE}', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('SOURCE_DIR}/dassiedrop', script)
@@ -1793,7 +1851,11 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('ACCESS_CODE_VALUE="${ACCESS_CODE:-}"', script)
         self.assertIn('resolve_secret "ACCESS_CODE_VALUE" "ACCESS_CODE"', script)
         self.assertIn('resolve_secret "API_KEY_VALUE" "API_KEY"', script)
+        self.assertIn('UPDATE_CHECK_ENABLED_VALUE="${UPDATE_CHECK_ENABLED:-}"', script)
+        self.assertIn('resolve_update_check_enabled "${UPDATE_CHECK_ENABLED_VALUE}"', script)
+        self.assertIn('read -r -p "Enable daily update checks? [y/N]: " answer </dev/tty', script)
         self.assertIn('Generated ACCESS_CODE:', script)
+        self.assertIn('UPDATE_CHECK_ENABLED=${UPDATE_CHECK_ENABLED_VALUE}', script)
         self.assertIn('HTTPS_VALUE="${HTTPS:-1}"', script)
         self.assertIn('HTTPS_PORT=${HTTPS_PORT_VALUE}', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
@@ -1887,6 +1949,8 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("master/scripts/github-ubuntu-install-upgrade.sh", install_doc)
         self.assertIn("master/scripts/github-centos-stream-install-upgrade.sh", install_doc)
         self.assertIn("API_KEY=my-api-key", install_doc)
+        self.assertIn("--silent", install_doc)
+        self.assertIn("UPDATE_CHECK_ENABLED", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
         config_source = (REPO_ROOT / "dassiedrop" / "config.py").read_text(encoding="utf-8")

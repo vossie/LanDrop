@@ -120,6 +120,13 @@ is_missing_secret() {
   [[ -z "${trimmed}" || "${trimmed,,}" == "null" ]]
 }
 
+is_missing_config_value() {
+  local value="${1:-}"
+  local trimmed="${value#"${value%%[![:space:]]*}"}"
+  trimmed="${trimmed%"${trimmed##*[![:space:]]}"}"
+  [[ -z "${trimmed}" || "${trimmed,,}" == "null" ]]
+}
+
 generate_secret() {
   if command -v openssl >/dev/null 2>&1; then
     openssl rand -hex 16
@@ -153,13 +160,13 @@ resolve_secret() {
     return
   fi
 
-  if [[ ! -t 0 ]]; then
+  if [[ ! -r /dev/tty ]]; then
     echo "${prompt_label} is missing. Set it in the environment/config or rerun with --silent." >&2
     exit 1
   fi
 
   local entered=""
-  read -r -p "Enter ${prompt_label} (leave blank to auto-generate): " entered
+  read -r -p "Enter ${prompt_label} (leave blank to auto-generate): " entered </dev/tty
   if is_missing_secret "${entered}"; then
     entered="$(generate_secret)"
     if [[ "${var_name}" == "ACCESS_CODE_VALUE" ]]; then
@@ -169,6 +176,37 @@ resolve_secret() {
     fi
   fi
   printf '%s' "${entered}"
+}
+
+resolve_update_check_enabled() {
+  local current_value="$1"
+  if ! is_missing_config_value "${current_value}"; then
+    local lowered="${current_value,,}"
+    if [[ "${lowered}" =~ ^(1|true|yes|on)$ ]]; then
+      printf '1'
+    else
+      printf '0'
+    fi
+    return
+  fi
+
+  if [[ "${SILENT_MODE}" == "1" ]]; then
+    printf '0'
+    return
+  fi
+
+  if [[ ! -r /dev/tty ]]; then
+    echo "UPDATE_CHECK_ENABLED is missing. Rerun interactively or use --silent to keep it off." >&2
+    exit 1
+  fi
+
+  local answer=""
+  read -r -p "Enable daily update checks? [y/N]: " answer </dev/tty
+  if [[ "${answer,,}" =~ ^(y|yes)$ ]]; then
+    printf '1'
+  else
+    printf '0'
+  fi
 }
 
 ensure_package curl curl
@@ -217,6 +255,7 @@ ACCESS_CODE_VALUE="${ACCESS_CODE:-}"
 API_KEY_VALUE="${API_KEY:-}"
 SHARE_BASE_URL_VALUE="${SHARE_BASE_URL:-}"
 APP_VERSION_VALUE="${APP_VERSION:-}"
+UPDATE_CHECK_ENABLED_VALUE="${UPDATE_CHECK_ENABLED:-}"
 CERT_DIR="${CERT_DIR:-${DATA_DIR}/certs}"
 HTTPS_CERT_FILE_VALUE="${HTTPS_CERT_FILE:-${CERT_DIR}/dassiedrop-selfsigned.crt}"
 HTTPS_KEY_FILE_VALUE="${HTTPS_KEY_FILE:-${CERT_DIR}/dassiedrop-selfsigned.key}"
@@ -233,6 +272,7 @@ fi
 
 ACCESS_CODE_VALUE="$(resolve_secret "ACCESS_CODE_VALUE" "ACCESS_CODE" "${ACCESS_CODE_VALUE}")"
 API_KEY_VALUE="$(resolve_secret "API_KEY_VALUE" "API_KEY" "${API_KEY_VALUE}")"
+UPDATE_CHECK_ENABLED_VALUE="$(resolve_update_check_enabled "${UPDATE_CHECK_ENABLED_VALUE}")"
 
 if ! getent group "${SERVICE_GROUP}" >/dev/null; then
   groupadd --system "${SERVICE_GROUP}"
@@ -309,6 +349,7 @@ ACCESS_CODE=${ACCESS_CODE_VALUE}
 API_KEY=${API_KEY_VALUE}
 SHARE_BASE_URL=${SHARE_BASE_URL_VALUE}
 APP_VERSION=${APP_VERSION_VALUE}
+UPDATE_CHECK_ENABLED=${UPDATE_CHECK_ENABLED_VALUE}
 EOF
 chmod 0640 "${ENV_FILE}"
 chown root:"${SERVICE_GROUP}" "${ENV_FILE}"

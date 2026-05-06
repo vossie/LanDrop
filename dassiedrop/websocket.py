@@ -102,9 +102,11 @@ def start_background_tasks() -> None:
     def run_janitor() -> None:
         while not state.janitor_stop_event.wait(config.JANITOR_INTERVAL_SECONDS):
             from . import auth
+            import app as app_module
 
             auth.cleanup_throttle_failures()
             auth.cleanup_authorized_sessions()
+            app_module.check_for_updates()
             for workspace_id in storage.prune_expired_entries():
                 broadcast_snapshot(workspace_id)
 

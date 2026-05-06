@@ -288,6 +288,11 @@ h1 {
 .footer-link:hover {
   text-decoration: underline;
 }
+
+.update-available {
+  color: #198754;
+  font-weight: 700;
+}
 .panel h2 {
   margin: 0 0 6px;
   font-size: 1.2rem;

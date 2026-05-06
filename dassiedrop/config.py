@@ -1,6 +1,9 @@
 import os
+import re
 import subprocess
 import time
+import urllib.error
+import urllib.request
 from ipaddress import ip_address
 from pathlib import Path
 
@@ -38,6 +41,13 @@ AUTH_MAX_FAILURES = int(os.environ.get("AUTH_MAX_FAILURES", "5"))
 AUTH_LOCKOUT_SECONDS = int(os.environ.get("AUTH_LOCKOUT_SECONDS", "60"))
 SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(7 * 24 * 60 * 60)))
 JANITOR_INTERVAL_SECONDS = float(os.environ.get("JANITOR_INTERVAL_SECONDS", "30"))
+UPDATE_CHECK_ENABLED = os.environ.get("UPDATE_CHECK_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
+UPDATE_CHECK_URL = os.environ.get(
+    "UPDATE_CHECK_URL",
+    "https://raw.githubusercontent.com/vossie/DassieDrop/refs/heads/master/VERSION",
+).strip()
+UPDATE_CHECK_INTERVAL_SECONDS = int(os.environ.get("UPDATE_CHECK_INTERVAL_SECONDS", str(24 * 60 * 60)))
+UPDATE_CHECK_TIMEOUT_SECONDS = float(os.environ.get("UPDATE_CHECK_TIMEOUT_SECONDS", "5"))
 
 
 def now_ts() -> float:
@@ -53,6 +63,28 @@ def load_app_version() -> str:
     except OSError:
         version = ""
     return version or "dev"
+
+
+def version_key(value: str) -> tuple[int, ...]:
+    parts = [int(part) for part in re.findall(r"\d+", value or "")]
+    return tuple(parts) if parts else (0,)
+
+
+def is_remote_version_newer(current: str, remote: str) -> bool:
+    return version_key(remote) > version_key(current)
+
+
+def fetch_remote_app_version(url: str | None = None, timeout: float | None = None) -> str | None:
+    target_url = (url or UPDATE_CHECK_URL).strip()
+    if not target_url:
+        return None
+    request = urllib.request.Request(target_url, headers={"User-Agent": "DassieDrop/1.2"})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout or UPDATE_CHECK_TIMEOUT_SECONDS) as response:
+            raw = response.read().decode("utf-8", errors="replace").strip()
+    except (urllib.error.URLError, TimeoutError, ValueError, OSError):
+        return None
+    return raw or None
 
 
 def is_ip_literal(value: str) -> bool:

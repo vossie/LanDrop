@@ -273,6 +273,12 @@ The GitHub helper also supports overrides. On upgrade it reuses values from `/et
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash
 ```
 
+To explicitly enable daily update checks during install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo UPDATE_CHECK_ENABLED=1 bash
+```
+
 If `ACCESS_CODE` or `API_KEY` is missing or set to `null`, the installer prompts for them on an interactive terminal. To run non-interactively and auto-generate any missing values, use `--silent`:
 
 ```bash
@@ -308,6 +314,12 @@ Override defaults:
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash
+```
+
+To explicitly enable daily update checks during install:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo UPDATE_CHECK_ENABLED=1 bash
 ```
 
 If `ACCESS_CODE` or `API_KEY` is missing or set to `null`, the installer prompts for them on an interactive terminal. To run non-interactively and auto-generate any missing values, use `--silent`:

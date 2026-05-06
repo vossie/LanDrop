@@ -19,6 +19,12 @@ def reset_app_state() -> None:
         state.shared_state["workspaces"] = {}
         state.shared_state["reserved_upload_bytes"] = 0
         state.shared_state["reserved_upload_names"] = set()
+        state.shared_state["update_check"] = {
+            "checking": False,
+            "last_checked_at": 0.0,
+            "latest_version": "",
+            "update_available": False,
+        }
     with state.session_lock:
         state.authorized_sessions.clear()
     with state.auth_attempt_lock:
@@ -36,6 +42,9 @@ class CoreStateTestCase(unittest.TestCase):
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
         self.original_version_file = config.VERSION_FILE
+        self.original_update_check_enabled = config.UPDATE_CHECK_ENABLED
+        self.original_update_check_url = config.UPDATE_CHECK_URL
+        self.original_update_check_interval_seconds = config.UPDATE_CHECK_INTERVAL_SECONDS
         self.original_max_json_body_size = config.MAX_JSON_BODY_SIZE
         self.original_max_total_storage_bytes = config.MAX_TOTAL_STORAGE_BYTES
         self.original_session_ttl_seconds = config.SESSION_TTL_SECONDS
@@ -44,6 +53,9 @@ class CoreStateTestCase(unittest.TestCase):
         config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
+        config.UPDATE_CHECK_ENABLED = False
+        config.UPDATE_CHECK_URL = "https://example.invalid/VERSION"
+        config.UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
         config.MAX_JSON_BODY_SIZE = 1024 * 1024
         config.MAX_TOTAL_STORAGE_BYTES = 0
         config.SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -61,6 +73,9 @@ class CoreStateTestCase(unittest.TestCase):
         config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
+        config.UPDATE_CHECK_ENABLED = self.original_update_check_enabled
+        config.UPDATE_CHECK_URL = self.original_update_check_url
+        config.UPDATE_CHECK_INTERVAL_SECONDS = self.original_update_check_interval_seconds
         config.MAX_JSON_BODY_SIZE = self.original_max_json_body_size
         config.MAX_TOTAL_STORAGE_BYTES = self.original_max_total_storage_bytes
         config.SESSION_TTL_SECONDS = self.original_session_ttl_seconds
@@ -82,6 +97,9 @@ class CoreHttpTestCase(unittest.TestCase):
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
         self.original_version_file = config.VERSION_FILE
+        self.original_update_check_enabled = config.UPDATE_CHECK_ENABLED
+        self.original_update_check_url = config.UPDATE_CHECK_URL
+        self.original_update_check_interval_seconds = config.UPDATE_CHECK_INTERVAL_SECONDS
         self.original_max_json_body_size = config.MAX_JSON_BODY_SIZE
         self.original_max_total_storage_bytes = config.MAX_TOTAL_STORAGE_BYTES
         self.original_session_ttl_seconds = config.SESSION_TTL_SECONDS
@@ -91,6 +109,9 @@ class CoreHttpTestCase(unittest.TestCase):
         config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
+        config.UPDATE_CHECK_ENABLED = False
+        config.UPDATE_CHECK_URL = "https://example.invalid/VERSION"
+        config.UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
         config.MAX_JSON_BODY_SIZE = 1024 * 1024
         config.MAX_TOTAL_STORAGE_BYTES = 0
         config.SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
@@ -114,6 +135,9 @@ class CoreHttpTestCase(unittest.TestCase):
         config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
+        config.UPDATE_CHECK_ENABLED = self.original_update_check_enabled
+        config.UPDATE_CHECK_URL = self.original_update_check_url
+        config.UPDATE_CHECK_INTERVAL_SECONDS = self.original_update_check_interval_seconds
         config.MAX_JSON_BODY_SIZE = self.original_max_json_body_size
         config.MAX_TOTAL_STORAGE_BYTES = self.original_max_total_storage_bytes
         config.SESSION_TTL_SECONDS = self.original_session_ttl_seconds

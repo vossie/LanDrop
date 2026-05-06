@@ -103,9 +103,61 @@ def __getattr__(name):
     raise AttributeError(name)
 
 
+def reset_update_check_state() -> None:
+    with state.state_lock:
+        state.shared_state["update_check"] = {
+            "checking": False,
+            "last_checked_at": 0.0,
+            "latest_version": "",
+            "update_available": False,
+        }
+
+
+def get_update_check_state() -> dict:
+    with state.state_lock:
+        return dict(state.shared_state.get("update_check", {}))
+
+
+def check_for_updates(force: bool = False) -> bool:
+    if not config.UPDATE_CHECK_ENABLED:
+        return False
+
+    now = config.now_ts()
+    with state.state_lock:
+        update_state = state.shared_state.setdefault(
+            "update_check",
+            {
+                "checking": False,
+                "last_checked_at": 0.0,
+                "latest_version": "",
+                "update_available": False,
+            },
+        )
+        if update_state.get("checking"):
+            return bool(update_state.get("update_available"))
+        last_checked_at = float(update_state.get("last_checked_at") or 0.0)
+        if not force and now - last_checked_at < config.UPDATE_CHECK_INTERVAL_SECONDS:
+            return bool(update_state.get("update_available"))
+        update_state["checking"] = True
+
+    remote_version = config.fetch_remote_app_version()
+    current_version = get_app_version()
+    update_available = bool(remote_version) and config.is_remote_version_newer(current_version, remote_version)
+
+    with state.state_lock:
+        update_state = state.shared_state.setdefault("update_check", {})
+        update_state["checking"] = False
+        update_state["last_checked_at"] = now
+        update_state["latest_version"] = remote_version or ""
+        update_state["update_available"] = update_available
+        return update_available
+
+
 def main() -> None:
     ensure_upload_dir()
     load_persisted_workspaces()
+    if config.UPDATE_CHECK_ENABLED:
+        check_for_updates(force=True)
     start_background_tasks()
     host = os.environ.get("HOST", "0.0.0.0")
     if config.HTTPS_ENABLED and config.HTTP_PORT == config.HTTPS_PORT:
