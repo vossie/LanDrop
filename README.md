@@ -1,6 +1,6 @@
 # DassieDrop
 ![dassiedrop_logo.png](brand/images/dassiedrop_logo.png)
-**Move files and text between your devices, instantly, privately, and without the cloud.**
+**Move files and text between your devices, privately, and without the cloud.**
 
 DassieDrop is a lightweight, self-hosted LAN drop zone that lets you share files and clipboard-style text between:
 
