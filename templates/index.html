@@ -4,6 +4,8 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DassieDrop</title>
+  <meta name="dassiedrop-share-base-url" content="__SHARE_BASE_URL__">
+  <meta name="dassiedrop-csrf-token" content="__CSRF_TOKEN__">
   <link rel="icon" type="image/png" href="/assets/DassieDrop-dassie-icon.png">
   <link rel="stylesheet" href="/assets/app.css">
 </head>
@@ -111,14 +113,6 @@
     </p>
   </footer>
 </main>
-
-<script>
-  const configuredShareBaseUrl = __SHARE_BASE_URL__;
-  window.LANDROP_CONFIG = {
-    shareBaseUrl: configuredShareBaseUrl,
-    csrfToken: "__CSRF_TOKEN__"
-  };
-</script>
 <script src="/assets/app.js"></script>
 </body>
 </html>

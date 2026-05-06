@@ -192,7 +192,7 @@ class SecurityHttpTests(CoreHttpTestCase):
         self.start_server()
         page = self.request("GET", "/workspaces")
         cookie = page["headers"]["Set-Cookie"].split(";", 1)[0]
-        marker = 'csrfToken: "'
+        marker = '<meta name="dassiedrop-csrf-token" content="'
         token = page["text"].split(marker, 1)[1].split('"', 1)[0]
 
         allowed = self.request(

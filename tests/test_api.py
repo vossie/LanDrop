@@ -134,6 +134,8 @@ class ApiContractHttpTests(CoreHttpTestCase):
         self.assertEqual(response["status"], 200)
         self.assertIn("Content-Security-Policy", response["headers"])
         self.assertIn("default-src 'self'", response["headers"]["Content-Security-Policy"])
+        self.assertIn('<meta name="dassiedrop-csrf-token" content="', response["text"])
+        self.assertNotIn("window.LANDROP_CONFIG", response["text"])
 
     def test_api_state_contract_headers_and_keys_are_stable(self) -> None:
         self.start_server()

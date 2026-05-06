@@ -1,9 +1,7 @@
-const resolvedShareBaseUrl =
-  (typeof configuredShareBaseUrl === "string" && configuredShareBaseUrl) ||
-  (window.LANDROP_CONFIG && window.LANDROP_CONFIG.shareBaseUrl) ||
-  "";
-const csrfToken =
-  (window.LANDROP_CONFIG && window.LANDROP_CONFIG.csrfToken) || "";
+const shareBaseMeta = document.querySelector('meta[name="dassiedrop-share-base-url"]');
+const csrfMeta = document.querySelector('meta[name="dassiedrop-csrf-token"]');
+const resolvedShareBaseUrl = (shareBaseMeta && shareBaseMeta.content) || "";
+const csrfToken = (csrfMeta && csrfMeta.content) || "";
 const sharedText = document.getElementById("sharedText");
 const sharerName = document.getElementById("sharerName");
 const textPanel = document.getElementById("textPanel");

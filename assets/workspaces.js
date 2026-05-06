@@ -6,8 +6,8 @@ const workspacePasswordWrap = document.getElementById("workspacePasswordWrap");
 const workspacePassword = document.getElementById("workspacePassword");
 const createWorkspaceBtn = document.getElementById("createWorkspaceBtn");
 const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || "";
-const csrfToken =
-  (window.LANDROP_CONFIG && window.LANDROP_CONFIG.csrfToken) || "";
+const csrfMeta = document.querySelector('meta[name="dassiedrop-csrf-token"]');
+const csrfToken = (csrfMeta && csrfMeta.content) || "";
 let pendingWorkspaceAction = null;
 
 function withCsrfHeaders(headers = {}) {
