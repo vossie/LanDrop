@@ -23,7 +23,7 @@ http://<this-machine-ip>:8000
 ## Protect The App With An Access Code
 
 ```bash
-ACCESS_CODE=my-secret-code ./.venv/bin/python app.py
+ACCESS_CODE=my-secret-code API_KEY=my-api-key ./.venv/bin/python app.py
 ```
 
 ## Run With HTTPS
@@ -100,6 +100,7 @@ docker run -d \
   --name dassiedrop \
   -p 8000:8000 \
   -e ACCESS_CODE=my-secret-code \
+  -e API_KEY=my-api-key \
   -e SHARE_BASE_URL=http://192.168.1.24:8000 \
   -v dassiedrop-data:/data \
   dassiedrop
@@ -112,7 +113,7 @@ The container stores uploads in `/data/uploads`.
 Run with Compose:
 
 ```bash
-ACCESS_CODE=my-secret-code SHARE_BASE_URL=http://192.168.1.24:8000 docker compose up -d
+ACCESS_CODE=my-secret-code API_KEY=my-api-key SHARE_BASE_URL=http://192.168.1.24:8000 docker compose up -d
 ```
 
 The included [docker-compose.yml](/home/carel/IdeaProjects/bronzegate/DassieDrop/docker-compose.yml) maps ports `8000` and `8443`, keeps uploads in a named volume, and restarts automatically.
@@ -169,6 +170,7 @@ Start the proxy stack:
 
 ```bash
 ACCESS_CODE=my-secret-code \
+API_KEY=my-api-key \
 SHARE_BASE_URL=https://localhost \
 docker compose -f docker-compose.yml -f docker-compose.proxy.yml up -d
 ```
@@ -250,7 +252,7 @@ It will:
 Override defaults:
 
 ```bash
-sudo ACCESS_CODE=my-secret-code PORT=8080 bash ./scripts/install-ubuntu-service.sh
+sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash ./scripts/install-ubuntu-service.sh
 ```
 
 Or use `--port`:
@@ -268,7 +270,7 @@ sudo SHARE_BASE_URL=http://192.168.1.24:8000 bash ./scripts/install-ubuntu-servi
 The GitHub helper also supports overrides. On upgrade it reuses values from `/etc/dassiedrop/dassiedrop.env` unless you override them:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash
 ```
 
 Use the Ubuntu service install for a native `systemd` deployment. Use Docker for a portable container runtime.
@@ -297,7 +299,7 @@ The CentOS Stream helper installs required packages with `dnf`, upgrades to `pyt
 Override defaults:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code PORT=8080 bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash
 ```
 
 Uninstall the CentOS Stream service:

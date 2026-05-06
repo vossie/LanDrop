@@ -17,6 +17,7 @@ EXPIRY_SECONDS = 24 * 60 * 60
 MAX_TEXT_HISTORY = 200
 MAX_FILE_HISTORY = 100
 ACCESS_CODE = os.environ.get("ACCESS_CODE", "").strip()
+API_KEY = os.environ.get("API_KEY", "").strip()
 SHARE_BASE_URL = os.environ.get("SHARE_BASE_URL", "").strip()
 WORKSPACE_SUPER_PASSWORD = os.environ.get("WORKSPACE_SUPER_PASSWORD", "").strip()
 HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "yes", "on"}

@@ -9,9 +9,20 @@ from tests.support import CoreStateTestCase, make_app_handler
 class AuthTests(CoreStateTestCase):
     def test_access_code_blocks_unauthorised_access_and_allows_valid_access(self) -> None:
         config.ACCESS_CODE = "secret-code"
+        config.API_KEY = "api-secret"
 
         unauthorized_handler = make_app_handler(headers={})
         self.assertFalse(auth.is_authorized(unauthorized_handler))
+
+        authorized_handler = make_app_handler(headers={"X-API-Key": "api-secret"})
+        self.assertTrue(auth.is_authorized(authorized_handler))
+
+        access_code_handler = make_app_handler(headers={"X-API-Key": "secret-code"})
+        self.assertFalse(auth.is_authorized(access_code_handler))
+
+    def test_x_api_key_falls_back_to_access_code_when_api_key_is_unset(self) -> None:
+        config.ACCESS_CODE = "secret-code"
+        config.API_KEY = ""
 
         authorized_handler = make_app_handler(headers={"X-API-Key": "secret-code"})
         self.assertTrue(auth.is_authorized(authorized_handler))

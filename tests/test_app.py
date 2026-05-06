@@ -33,12 +33,14 @@ class AppStateTests(unittest.TestCase):
         self.temp_dir = TemporaryDirectory()
         self.original_upload_dir = config.UPLOAD_DIR
         self.original_access_code = config.ACCESS_CODE
+        self.original_api_key = config.API_KEY
         self.original_share_base_url = config.SHARE_BASE_URL
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
         self.original_version_file = config.VERSION_FILE
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
+        config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
         config.now_ts = self.fake_now
@@ -52,6 +54,7 @@ class AppStateTests(unittest.TestCase):
         reset_app_state()
         config.UPLOAD_DIR = self.original_upload_dir
         config.ACCESS_CODE = self.original_access_code
+        config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
         config.now_ts = self.original_now_ts
@@ -80,13 +83,13 @@ class AppStateTests(unittest.TestCase):
         self.assertEqual(snapshot["texts"][0]["content"], "second")
         self.assertEqual(snapshot["texts"][0]["sharer_name"], "Bob")
         self.assertEqual(snapshot["texts"][0]["sharer_ip"], "192.168.1.11")
-        self.assertEqual(len(snapshot["texts"][0]["short_code"]), 4)
+        self.assertEqual(len(snapshot["texts"][0]["short_code"]), 10)
         self.assertEqual(len(snapshot["files"]), 1)
         self.assertEqual(snapshot["files"][0]["name"], "hello.txt")
         self.assertEqual(snapshot["files"][0]["content_type"], "text/plain")
         self.assertEqual(snapshot["files"][0]["sharer_name"], "Bob")
         self.assertEqual(snapshot["files"][0]["sharer_ip"], "192.168.1.11")
-        self.assertEqual(len(snapshot["files"][0]["short_code"]), 4)
+        self.assertEqual(len(snapshot["files"][0]["short_code"]), 10)
         self.assertEqual(snapshot["expires_after_seconds"], app.EXPIRY_SECONDS)
 
     def test_app_version_comes_from_version_file_or_env(self) -> None:
@@ -370,12 +373,15 @@ class HttpServerTests(unittest.TestCase):
         self.temp_dir = TemporaryDirectory()
         self.original_upload_dir = config.UPLOAD_DIR
         self.original_access_code = config.ACCESS_CODE
+        self.original_api_key = config.API_KEY
         self.original_share_base_url = config.SHARE_BASE_URL
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
         self.original_version_file = config.VERSION_FILE
         self.current_time = 1_700_100_000.0
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
+        config.ACCESS_CODE = ""
+        config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
         config.now_ts = self.fake_now
@@ -395,6 +401,7 @@ class HttpServerTests(unittest.TestCase):
         reset_app_state()
         config.UPLOAD_DIR = self.original_upload_dir
         config.ACCESS_CODE = self.original_access_code
+        config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
         config.now_ts = self.original_now_ts
@@ -404,8 +411,9 @@ class HttpServerTests(unittest.TestCase):
     def fake_now(self) -> float:
         return self.current_time
 
-    def start_server(self, access_code: str = "") -> None:
+    def start_server(self, access_code: str = "", api_key: str = "") -> None:
         config.ACCESS_CODE = access_code
+        config.API_KEY = api_key
         reset_app_state()
         app.start_background_tasks()
         self.server = app.ThreadingHTTPServer(("127.0.0.1", 0), app.AppHandler)
@@ -534,6 +542,8 @@ class HttpServerTests(unittest.TestCase):
         hidden: bool = False,
         password: str = "",
         name: str = "",
+        workspace_name: str = "",
+        workspace_password: str = "",
     ):
         boundary = "----DassieDropBoundary"
         body = (
@@ -563,6 +573,10 @@ class HttpServerTests(unittest.TestCase):
         }
         if cookie:
             headers["Cookie"] = cookie
+        if workspace_name:
+            headers["X-Workspace-Name"] = workspace_name
+        if workspace_password:
+            headers["X-Workspace-Password"] = workspace_password
         return self.request("POST", "/api/upload", body=body, headers=headers)
 
     def test_text_file_and_delete_flow_without_auth(self) -> None:
@@ -833,6 +847,68 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(shared_text_response["body"], b"Hello world")
 
+    def test_short_link_requires_workspace_password_when_workspace_is_protected(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "Hello world"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": workspace["slug"],
+                "X-Workspace-Password": "vault",
+            },
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+
+        blocked_share = self.request("GET", f"/s/{created_entry['short_code']}")
+        self.assertEqual(blocked_share["status"], 401)
+        self.assertEqual(json.loads(blocked_share["body"]), {"message": "Access denied"})
+
+        allowed_share = self.request(
+            "GET",
+            f"/s/{created_entry['short_code']}",
+            headers={"X-Access-Password": "vault"},
+        )
+        self.assertEqual(allowed_share["status"], 200)
+        self.assertEqual(allowed_share["body"], b"Hello world")
+
+    def test_short_link_with_object_password_overrides_workspace_password(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "Hello world", "hidden": True, "password": "swordfish"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": workspace["slug"],
+                "X-Workspace-Password": "vault",
+            },
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+
+        workspace_password_response = self.request(
+            "GET",
+            f"/s/{created_entry['short_code']}",
+            headers={"X-Access-Password": "vault"},
+        )
+        self.assertEqual(workspace_password_response["status"], 401)
+        self.assertEqual(json.loads(workspace_password_response["body"]), {"message": "Access denied"})
+
+        object_password_response = self.request(
+            "GET",
+            f"/s/{created_entry['short_code']}",
+            headers={"X-Access-Password": "swordfish"},
+        )
+        self.assertEqual(object_password_response["status"], 200)
+        self.assertEqual(object_password_response["body"], b"Hello world")
+
     def test_share_text_endpoint_returns_compact_share_payload(self) -> None:
         self.start_server()
 
@@ -1016,15 +1092,49 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(json.loads(reveal["body"])["content"], "classified")
 
         blocked_share = self.request("GET", f"/s/{created_entry['short_code']}")
-        self.assertEqual(blocked_share["status"], 403)
+        self.assertEqual(blocked_share["status"], 401)
 
         allowed_share = self.request(
             "GET",
             f"/s/{created_entry['short_code']}",
-            headers={"X-Entry-Password": "swordfish"},
+            headers={"X-Access-Password": "swordfish"},
         )
         self.assertEqual(allowed_share["status"], 200)
         self.assertEqual(allowed_share["body"], b"classified")
+
+    def test_hidden_share_in_protected_workspace_requires_workspace_and_entry_passwords(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        text_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps(
+                {"text": "classified", "hidden": True, "password": "swordfish"}
+            ).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": workspace["slug"],
+                "X-Workspace-Password": "vault",
+            },
+        )
+        self.assertEqual(text_response["status"], 200)
+        text_entry = json.loads(text_response["body"])["texts"][0]
+
+        object_password_only = self.request(
+            "GET",
+            f"/s/{text_entry['short_code']}",
+            headers={"X-Access-Password": "swordfish"},
+        )
+        self.assertEqual(object_password_only["status"], 200)
+        self.assertEqual(object_password_only["body"], b"classified")
+
+        blocked_without_entry = self.request(
+            "GET",
+            f"/s/{text_entry['short_code']}",
+            headers={"X-Access-Password": "vault"},
+        )
+        self.assertEqual(blocked_without_entry["status"], 401)
 
     def test_hidden_file_requires_password_for_upload_and_download(self) -> None:
         self.start_server()
@@ -1052,12 +1162,12 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(allowed_download["body"], b"secret")
 
         blocked_share = self.request("GET", f"/s/{file_entry['short_code']}")
-        self.assertEqual(blocked_share["status"], 403)
+        self.assertEqual(blocked_share["status"], 401)
 
         allowed_share = self.request(
             "GET",
             f"/s/{file_entry['short_code']}",
-            headers={"X-Entry-Password": "vault"},
+            headers={"X-Access-Password": "vault"},
         )
         self.assertEqual(allowed_share["status"], 200)
         self.assertEqual(allowed_share["body"], b"secret")
@@ -1072,6 +1182,36 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(allowed_preview["status"], 200)
         self.assertEqual(allowed_preview["body"], b"secret")
+
+    def test_hidden_file_share_in_protected_workspace_requires_workspace_and_entry_passwords(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        upload_response = self.upload_request(
+            "locked.txt",
+            b"secret",
+            hidden=True,
+            password="item-secret",
+            workspace_name=workspace["slug"],
+            workspace_password="vault",
+        )
+        self.assertEqual(upload_response["status"], 200)
+        file_entry = json.loads(upload_response["body"])["files"][0]
+
+        object_password_only = self.request(
+            "GET",
+            f"/s/{file_entry['short_code']}",
+            headers={"X-Access-Password": "item-secret"},
+        )
+        self.assertEqual(object_password_only["status"], 200)
+        self.assertEqual(object_password_only["body"], b"secret")
+
+        blocked_without_entry = self.request(
+            "GET",
+            f"/s/{file_entry['short_code']}",
+            headers={"X-Access-Password": "vault"},
+        )
+        self.assertEqual(blocked_without_entry["status"], 401)
 
     def test_access_code_is_enforced_and_login_unlocks_api(self) -> None:
         self.start_server(access_code="secret-code")
@@ -1149,6 +1289,37 @@ class HttpServerTests(unittest.TestCase):
 
         authorized = self.request("GET", "/api/state", headers={"X-API-Key": "secret-code"})
         self.assertEqual(authorized["status"], 200)
+
+    def test_separate_api_key_is_used_for_stateless_api_access(self) -> None:
+        self.start_server(access_code="secret-code", api_key="api-secret")
+
+        unauthorized = self.request("GET", "/api/state")
+        self.assertEqual(unauthorized["status"], 401)
+
+        old_access_code = self.request("GET", "/api/state", headers={"X-API-Key": "secret-code"})
+        self.assertEqual(old_access_code["status"], 401)
+
+        authorized = self.request("GET", "/api/state", headers={"X-API-Key": "api-secret"})
+        self.assertEqual(authorized["status"], 200)
+
+    def test_browser_login_still_uses_access_code_when_separate_api_key_is_configured(self) -> None:
+        self.start_server(access_code="secret-code", api_key="api-secret")
+
+        wrong_login = self.request(
+            "POST",
+            "/login",
+            body=json.dumps({"code": "api-secret"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(wrong_login["status"], 401)
+
+        login = self.request(
+            "POST",
+            "/login",
+            body=json.dumps({"code": "secret-code"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(login["status"], 200)
 
     def test_websocket_receives_initial_snapshot_and_live_updates(self) -> None:
         self.start_server()
@@ -1228,6 +1399,50 @@ class HttpServerTests(unittest.TestCase):
         handshake = response.partition(b"\r\n\r\n")[0].decode("utf-8", errors="replace")
         self.assertIn("101 Switching Protocols", handshake)
 
+    def test_websocket_uses_separate_api_key_when_configured(self) -> None:
+        self.start_server(access_code="secret-code", api_key="api-secret")
+
+        connection = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        self.addCleanup(connection.close)
+        websocket_key = base64.b64encode(os.urandom(16)).decode("ascii")
+        request = (
+            f"GET /ws HTTP/1.1\r\n"
+            f"Host: 127.0.0.1:{self.port}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: {websocket_key}\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "X-API-Key: secret-code\r\n\r\n"
+        )
+        connection.sendall(request.encode("utf-8"))
+        denied = b""
+        while b"\r\n\r\n" not in denied:
+            chunk = connection.recv(4096)
+            if not chunk:
+                break
+            denied += chunk
+        self.assertIn("401", denied.decode("utf-8", errors="replace"))
+
+        allowed = socket.create_connection(("127.0.0.1", self.port), timeout=5)
+        self.addCleanup(allowed.close)
+        request = (
+            f"GET /ws HTTP/1.1\r\n"
+            f"Host: 127.0.0.1:{self.port}\r\n"
+            "Upgrade: websocket\r\n"
+            "Connection: Upgrade\r\n"
+            f"Sec-WebSocket-Key: {websocket_key}\r\n"
+            "Sec-WebSocket-Version: 13\r\n"
+            "X-API-Key: api-secret\r\n\r\n"
+        )
+        allowed.sendall(request.encode("utf-8"))
+        response = b""
+        while b"\r\n\r\n" not in response:
+            chunk = allowed.recv(4096)
+            if not chunk:
+                break
+            response += chunk
+        self.assertIn("101 Switching Protocols", response.decode("utf-8", errors="replace"))
+
     def test_websocket_rejects_unmasked_client_frames(self) -> None:
         self.start_server()
         websocket, handshake, _, buffered = self.open_websocket()
@@ -1258,7 +1473,40 @@ class HttpServerTests(unittest.TestCase):
 
         response = self.request("GET", "/s/ABCD")
 
-        self.assertEqual(response["status"], 404)
+        self.assertEqual(response["status"], 401)
+        self.assertEqual(response["headers"]["Content-Type"], "application/json; charset=utf-8")
+        self.assertEqual(json.loads(response["body"]), {"message": "Access denied"})
+
+    def test_lan_link_does_not_require_api_key_even_when_access_code_is_enabled(self) -> None:
+        self.start_server(access_code="secret-code", api_key="api-secret")
+
+        create = self.request(
+            "POST",
+            "/api/share-text",
+            body=json.dumps({"text": "share me"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": "api-secret",
+            },
+        )
+        self.assertEqual(create["status"], 200)
+        short_code = json.loads(create["body"])["short_code"]
+
+        response = self.request("GET", f"/s/{short_code}")
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["body"], b"share me")
+
+    def test_help_page_renders_terminal_examples_and_general_usage(self) -> None:
+        self.start_server()
+
+        response = self.request("GET", "/help")
+
+        self.assertEqual(response["status"], 200)
+        self.assertIn("LAN Link Examples", response["text"])
+        self.assertIn("curl -ksSL", response["text"])
+        self.assertIn("X-Access-Password", response["text"])
+        self.assertIn("bash -c", response["text"])
+        self.assertIn("General Use", response["text"])
 
     def test_expired_file_is_removed_from_disk_when_state_is_read(self) -> None:
         self.start_server()
@@ -1341,6 +1589,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('export "${key}=${value}"', script)
         self.assertIn('export HTTPS_PORT="${HTTPS_PORT_OVERRIDE}"', script)
+        self.assertIn('API_KEY=', (REPO_ROOT / "scripts" / "install-ubuntu-service.sh").read_text(encoding="utf-8"))
 
     def test_github_ubuntu_install_upgrade_script_has_valid_bash_syntax(self) -> None:
         result = subprocess.run(
@@ -1385,6 +1634,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('ensure_package python3.11 python3.11', script)
         self.assertIn('HTTPS_VALUE="${HTTPS:-1}"', script)
         self.assertIn('HTTPS_PORT_VALUE="${HTTPS_PORT:-8443}"', script)
+        self.assertIn('API_KEY_VALUE="${API_KEY:-}"', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
         self.assertIn('done < "${ENV_FILE}"', script)
         self.assertIn('SOURCE_DIR}/dassiedrop', script)
@@ -1417,6 +1667,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('APP_DIR}/templates', script)
         self.assertIn('apt-get install -y python3.11', script)
         self.assertIn('apt-get install -y openssl', script)
+        self.assertIn('API_KEY=${API_KEY_VALUE}', script)
         self.assertIn('HTTPS_VALUE="${HTTPS:-1}"', script)
         self.assertIn('HTTPS_PORT=${HTTPS_PORT_VALUE}', script)
         self.assertIn('HTTPS_CERT_FILE=${HTTPS_CERT_FILE_VALUE}', script)
@@ -1470,6 +1721,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('${HTTPS_PORT:-8443}:8443', compose)
         self.assertIn("dassiedrop-data:/data", compose)
         self.assertIn("ACCESS_CODE:", compose)
+        self.assertIn("API_KEY:", compose)
         self.assertIn("SHARE_BASE_URL:", compose)
         self.assertIn("HTTPS:", compose)
         self.assertIn("HTTPS_CERT_FILE:", compose)
@@ -1496,7 +1748,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("docker-compose.proxy.yml", install_doc)
         self.assertIn("docker/Caddyfile", install_doc)
         self.assertIn("## Run With HTTPS", install_doc)
-        self.assertIn("HTTPS=1 ./.venv/bin/python app.py", install_doc)
+        self.assertIn("ACCESS_CODE=my-secret-code API_KEY=my-api-key ./.venv/bin/python app.py", install_doc)
         self.assertIn("http://localhost:8000", install_doc)
         self.assertIn("https://localhost:8443", install_doc)
         self.assertIn("## Use Your Own SSL Certificate", install_doc)
@@ -1508,6 +1760,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("sudo HTTPS=0 bash", install_doc)
         self.assertIn("master/scripts/github-ubuntu-install-upgrade.sh", install_doc)
         self.assertIn("master/scripts/github-centos-stream-install-upgrade.sh", install_doc)
+        self.assertIn("API_KEY=my-api-key", install_doc)
 
     def test_app_can_enable_https_with_self_signed_cert_support(self) -> None:
         config_source = (REPO_ROOT / "dassiedrop" / "config.py").read_text(encoding="utf-8")
@@ -1526,6 +1779,25 @@ class ScriptTests(unittest.TestCase):
         self.assertIn('label.textContent = isMasked ? "Click to reveal" : "Click to copy"', script)
         self.assertIn('toggleVisibilityBtn.textContent = isRevealed ? "👁" : "🙈"', script)
         self.assertNotIn('revealHead.textContent = "Reveal"', script)
+
+    def test_help_template_and_footer_links_exist(self) -> None:
+        index_template = (REPO_ROOT / "templates" / "index.html").read_text(encoding="utf-8")
+        workspaces_template = (REPO_ROOT / "templates" / "workspaces.html").read_text(encoding="utf-8")
+        help_template = (REPO_ROOT / "templates" / "help.html").read_text(encoding="utf-8")
+        lan_link_doc = (REPO_ROOT / "docs" / "lan-link-access.md").read_text(encoding="utf-8")
+        self.assertIn('href="/help"', index_template)
+        self.assertIn('href="/help"', workspaces_template)
+        self.assertIn("LAN Link Examples", help_template)
+        self.assertIn("General Use", help_template)
+        self.assertIn("Workspace password", help_template)
+        self.assertIn("Object password", help_template)
+        self.assertIn("No password required", help_template)
+        self.assertIn("Workspace password via <code>X-Access-Password</code>", help_template)
+        self.assertIn("Object password via <code>X-Access-Password</code>", help_template)
+        self.assertIn("most specific applicable protection rule", help_template)
+        self.assertIn("| Workspace password | Object password | Required access |", lan_link_doc)
+        self.assertIn("| Yes | Yes | Object password via `X-Access-Password` |", lan_link_doc)
+        self.assertIn("most specific applicable protection rule", lan_link_doc)
 
     def test_file_history_preview_ui_is_limited_to_known_image_mime_types(self) -> None:
         script = (REPO_ROOT / "assets" / "app.js").read_text(

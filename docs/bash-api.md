@@ -11,6 +11,8 @@ DassieDrop exposes bash-friendly endpoints for automation, including workspace-a
 
 Share endpoints return a compact JSON payload with the generated short code, LAN share URL, and workspace metadata.
 
+LAN link behavior is documented separately in [lan-link-access.md](lan-link-access.md).
+
 ## Workspace Selection
 
 Workspace-aware requests can target a workspace with any of these:
@@ -68,9 +70,9 @@ Example response:
 {
   "type": "text",
   "id": "4b6a6d7c8e9f0123",
-  "short_code": "ABCD",
-  "share_path": "/s/ABCD",
-  "share_url": "http://127.0.0.1:8000/s/ABCD",
+  "short_code": "AbC123XyZ9",
+  "share_path": "/s/AbC123XyZ9",
+  "share_url": "http://127.0.0.1:8000/s/AbC123XyZ9",
   "hidden": false,
   "password_required": false,
   "created_at": 1714672800.0,
@@ -129,9 +131,9 @@ Example response:
 {
   "type": "file",
   "id": "18f7d6c5b4a39281",
-  "short_code": "WXYZ",
-  "share_path": "/s/WXYZ",
-  "share_url": "http://127.0.0.1:8000/s/WXYZ",
+  "short_code": "Qw7N4LmP2x",
+  "share_path": "/s/Qw7N4LmP2x",
+  "share_url": "http://127.0.0.1:8000/s/Qw7N4LmP2x",
   "hidden": false,
   "password_required": false,
   "created_at": 1714672800.0,
@@ -173,12 +175,12 @@ curl -sS \
 
 ## Access Code
 
-If DassieDrop is protected by an access code, the simplest bash option is to send it as `X-API-Key`:
+If DassieDrop is protected, the simplest bash option is to send the automation secret as `X-API-Key`. If `API_KEY` is configured, use that. Otherwise `X-API-Key` falls back to `ACCESS_CODE`:
 
 ```bash
 curl -sS \
   -H 'Content-Type: application/json' \
-  -H 'X-API-Key: your-access-code' \
+  -H 'X-API-Key: your-api-key-or-access-code' \
   -X POST \
   -d '{"text":"hello again"}' \
   http://127.0.0.1:8000/api/share-text
@@ -188,7 +190,7 @@ You can do the same for file uploads:
 
 ```bash
 curl -sS \
-  -H 'X-API-Key: your-access-code' \
+  -H 'X-API-Key: your-api-key-or-access-code' \
   -X POST \
   -F 'file=@./example.txt' \
   http://127.0.0.1:8000/api/share-file
@@ -199,7 +201,7 @@ And combine access code plus workspace targeting:
 ```bash
 curl -sS \
   -H 'Content-Type: application/json' \
-  -H 'X-API-Key: your-access-code' \
+  -H 'X-API-Key: your-api-key-or-access-code' \
   -H 'X-Workspace-Name: ops-desk' \
   -X POST \
   -d '{"text":"hello again"}' \
@@ -225,3 +227,5 @@ curl -sS -b cookies.txt \
   -d '{"text":"hello again"}' \
   http://127.0.0.1:8000/api/share-text
 ```
+
+`X-API-Key` is for authenticated API routes. LAN links under `/s/{SHORT-CODE}` do not use `X-API-Key`; use `X-Access-Password` there only when a password is required.

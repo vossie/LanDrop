@@ -47,12 +47,23 @@ def is_authorized(handler: BaseHTTPRequestHandler) -> bool:
     if not config.ACCESS_CODE:
         return True
 
-    api_key = handler.headers.get("X-API-Key", "").strip()
-    if api_key and hmac.compare_digest(api_key, config.ACCESS_CODE):
+    if api_key_is_valid(handler):
         return True
 
     session_id, _ = get_session(handler)
     return session_id is not None
+
+
+def expected_api_key() -> str:
+    return config.API_KEY or config.ACCESS_CODE
+
+
+def api_key_is_valid(handler: BaseHTTPRequestHandler) -> bool:
+    configured = expected_api_key()
+    if not configured:
+        return False
+    api_key = handler.headers.get("X-API-Key", "").strip()
+    return bool(api_key) and hmac.compare_digest(api_key, configured)
 
 
 def create_authorized_session(workspace_id: str | None = None) -> str:
@@ -184,7 +195,7 @@ def csrf_required(handler: BaseHTTPRequestHandler) -> bool:
         return False
     if handler.path == "/login":
         return False
-    if handler.headers.get("X-API-Key", "").strip():
+    if api_key_is_valid(handler):
         return False
     return bool(parse_cookies(handler.headers.get("Cookie", "")).get("session"))
 
@@ -232,6 +243,10 @@ def requested_workspace_password(handler: BaseHTTPRequestHandler) -> str:
 
 def requested_entry_password(handler: BaseHTTPRequestHandler) -> str:
     return handler.headers.get("X-Entry-Password", "").strip()
+
+
+def requested_access_password(handler: BaseHTTPRequestHandler) -> str:
+    return handler.headers.get("X-Access-Password", "").strip()
 
 
 def set_session_workspace(session_id: str, workspace_id: str | None) -> None:

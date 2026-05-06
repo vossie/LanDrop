@@ -280,6 +280,14 @@ h1 {
 .footer-line + .footer-line {
   margin-top: 4px;
 }
+.footer-link {
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 600;
+}
+.footer-link:hover {
+  text-decoration: underline;
+}
 .panel h2 {
   margin: 0 0 6px;
   font-size: 1.2rem;
@@ -297,6 +305,54 @@ h1 {
 }
 .panel-title h2 {
   margin: 0;
+}
+.help-panel-title {
+  align-items: flex-start;
+}
+.help-copy p {
+  margin: 0 0 10px;
+  color: var(--ink);
+}
+.help-copy p:last-child {
+  margin-bottom: 0;
+}
+.help-code {
+  margin: 0 0 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: #f3f7fd;
+  color: #04152f;
+  overflow-x: auto;
+  font: 0.9rem/1.5 "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+}
+.help-code code {
+  font: inherit;
+  white-space: pre;
+}
+.help-table {
+  width: 100%;
+  margin: 0 0 14px;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  overflow: hidden;
+  background: #fdfefe;
+}
+.help-table th,
+.help-table td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+.help-table th {
+  background: #eef4ff;
+  color: var(--accent-strong);
+  font-size: 0.92rem;
+}
+.help-table tr:last-child td {
+  border-bottom: 0;
 }
 .text-editor-wrap {
   position: relative;

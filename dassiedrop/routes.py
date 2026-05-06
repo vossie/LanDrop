@@ -156,6 +156,10 @@ class AppHandler(BaseHTTPRequestHandler):
             self.handle_workspaces_page()
             return
 
+        if parsed.path == "/help":
+            self.handle_help_page()
+            return
+
         if parsed.path.startswith("/w/"):
             workspace_slug_value = urllib.parse.unquote(parsed.path.removeprefix("/w/"))
             self.handle_workspace_shortcut(workspace_slug_value)
@@ -166,6 +170,11 @@ class AppHandler(BaseHTTPRequestHandler):
                 self.send_error(HTTPStatus.UNAUTHORIZED, "Access code required")
                 return
             self.send_json(self.workspace_list_payload())
+            return
+
+        if parsed.path.startswith("/s/"):
+            short_code = urllib.parse.unquote(parsed.path.removeprefix("/s/"))
+            self.handle_short_link(short_code, auth.requested_access_password(self))
             return
 
         if config.ACCESS_CODE and not auth.is_authorized(self):
@@ -193,11 +202,6 @@ class AppHandler(BaseHTTPRequestHandler):
 
         if parsed.path == "/api/latest-file/content":
             self.handle_latest_file_content()
-            return
-
-        if parsed.path.startswith("/s/"):
-            short_code = urllib.parse.unquote(parsed.path.removeprefix("/s/"))
-            self.handle_short_link(short_code, auth.requested_entry_password(self))
             return
 
         if parsed.path.startswith("/download/"):
@@ -344,6 +348,23 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_html(
             render_template(
                 "workspaces.html",
+                {
+                    "__APP_VERSION__": html.escape(get_app_version()),
+                    "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
+                },
+            ),
+            cookie=cookie,
+        )
+
+    def handle_help_page(self) -> None:
+        if config.ACCESS_CODE and not auth.is_authorized(self):
+            self.send_html(render_template("login.html"))
+            return
+
+        _, session, cookie = auth.ensure_browser_session(self)
+        self.send_html(
+            render_template(
+                "help.html",
                 {
                     "__APP_VERSION__": html.escape(get_app_version()),
                     "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
@@ -531,7 +552,7 @@ class AppHandler(BaseHTTPRequestHandler):
             return workspace_id
 
         if config.ACCESS_CODE:
-            if self.headers.get("X-API-Key", "").strip() == config.ACCESS_CODE:
+            if auth.api_key_is_valid(self):
                 return config.DEFAULT_WORKSPACE_ID
             self.send_error(HTTPStatus.UNAUTHORIZED, "Access code required")
             return None
@@ -675,34 +696,42 @@ class AppHandler(BaseHTTPRequestHandler):
         self.serve_file_entry(entry, as_attachment=True)
 
     def handle_short_link(self, short_code: str, password: str = "") -> None:
+        normalized_code = short_code.strip()
+        if not normalized_code:
+            self.send_access_denied()
+            return
+        allowed, _ = auth.throttle_status(self, "short-link", normalized_code)
+        if not allowed:
+            self.send_access_denied()
+            return
         entry = storage.find_entry_by_short_code(short_code)
         if entry is None:
-            self.send_error(HTTPStatus.NOT_FOUND, "Shared item not found")
+            auth.record_throttle_failure(self, "short-link", normalized_code)
+            self.send_access_denied()
             return
 
         entry_type, payload = entry
+        workspace = storage.get_workspace(payload["workspace_id"])
+        if workspace is None:
+            auth.record_throttle_failure(self, "short-link", normalized_code)
+            self.send_access_denied()
+            return
+        if payload.get("password_hash"):
+            if not storage.entry_password_is_valid(payload, password):
+                auth.record_throttle_failure(self, "short-link", normalized_code)
+                self.send_access_denied()
+                return
+        elif workspace.get("password_hash"):
+            if not storage.workspace_password_is_valid(workspace, password):
+                auth.record_throttle_failure(self, "short-link", normalized_code)
+                self.send_access_denied()
+                return
         if entry_type == "text":
-            allowed, retry_after = auth.throttle_status(self, "short-link", payload["id"])
-            if not allowed:
-                self.send_throttled("Too many password attempts", retry_after)
-                return
-            if payload.get("password_hash") and not storage.entry_password_is_valid(payload, password):
-                auth.record_throttle_failure(self, "short-link", payload["id"])
-                self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
-                return
-            auth.clear_throttle_failures(self, "short-link", payload["id"])
+            auth.clear_throttle_failures(self, "short-link", normalized_code)
             self.send_text(payload["content"])
             return
 
-        allowed, retry_after = auth.throttle_status(self, "short-link", payload["id"])
-        if not allowed:
-            self.send_throttled("Too many password attempts", retry_after)
-            return
-        if payload.get("password_hash") and not storage.entry_password_is_valid(payload, password):
-            auth.record_throttle_failure(self, "short-link", payload["id"])
-            self.send_error(HTTPStatus.FORBIDDEN, "Wrong password")
-            return
-        auth.clear_throttle_failures(self, "short-link", payload["id"])
+        auth.clear_throttle_failures(self, "short-link", normalized_code)
         self.serve_file_entry(payload, as_attachment=True)
 
     def handle_text_delete(self, entry_id: str) -> None:
@@ -1153,6 +1182,16 @@ class AppHandler(BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_common_security_headers()
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+
+    def send_access_denied(self) -> None:
+        data = storage.json_bytes({"message": "Access denied"})
+        self.send_response(HTTPStatus.UNAUTHORIZED)
+        self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_common_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))

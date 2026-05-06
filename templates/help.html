@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DassieDrop Help</title>
+  <meta name="dassiedrop-csrf-token" content="__CSRF_TOKEN__">
+  <link rel="icon" type="image/png" href="/assets/DassieDrop-dassie-icon.png">
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+<div class="header-bar">
+  <main class="shell shell-header">
+    <section class="hero">
+      <div class="hero-top">
+        <div class="hero-copy">
+          <div class="hero-title-row hero-title-row-workspace">
+            <div class="hero-brand-row">
+              <a class="hero-brand-link" href="https://github.com/vossie/DassieDrop" target="_blank" rel="noreferrer">
+                <img class="hero-mark" src="/assets/DassieDrop-dassie-icon.png" alt="">
+                <span class="hero-title-text">DassieDrop</span>
+              </a>
+            </div>
+            <div class="workspace-selector-wrap">
+              <a class="workspace-pill" href="/" aria-label="Back to main share page" title="Back to main share page">
+                <span class="workspace-pill-label">Back to Share</span>
+              </a>
+            </div>
+          </div>
+          <h1 class="sr-only">DassieDrop Help</h1>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+
+<main class="shell">
+  <section class="grid">
+    <article class="panel tab-panel help-panel">
+      <div class="panel-title help-panel-title">
+        <h2>LAN Link Examples</h2>
+        <div class="meta">Use a LAN link directly from a terminal with curl.</div>
+      </div>
+      <div class="help-copy">
+        <p>Set the link once and print the shared text:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+curl -ksSL "$LAN_LINK"</code></pre>
+
+        <p>Store the shared text in a shell variable:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+SHARED_TEXT="$(curl -ksSL "$LAN_LINK")"
+printf '%s\n' "$SHARED_TEXT"</code></pre>
+
+        <p>Run the shared text as a command:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+bash -c "$(curl -ksSL "$LAN_LINK")"</code></pre>
+
+        <p>If the workspace is protected, add one access password header:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+curl -ksSL \
+  -H 'X-Access-Password: workspace-secret' \
+  "$LAN_LINK"</code></pre>
+
+        <p>If the shared item has its own password, use that same header instead. Object passwords override workspace passwords:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+curl -ksSL \
+  -H 'X-Access-Password: item-secret' \
+  "$LAN_LINK"</code></pre>
+
+        <p>LAN link access uses the most specific applicable protection rule. Object-level password protection overrides workspace-level password protection. Workspace password protection applies only when the object does not define its own password.</p>
+
+        <p>LAN link access matrix:</p>
+        <table class="help-table">
+          <thead>
+            <tr>
+              <th>Workspace password</th>
+              <th>Object password</th>
+              <th>Required access</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>No</td>
+              <td>No</td>
+              <td>No password required</td>
+            </tr>
+            <tr>
+              <td>Yes</td>
+              <td>No</td>
+              <td>Workspace password via <code>X-Access-Password</code></td>
+            </tr>
+            <tr>
+              <td>No</td>
+              <td>Yes</td>
+              <td>Object password via <code>X-Access-Password</code></td>
+            </tr>
+            <tr>
+              <td>Yes</td>
+              <td>Yes</td>
+              <td>Object password via <code>X-Access-Password</code></td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </article>
+
+    <article class="panel tab-panel help-panel">
+      <div class="panel-title help-panel-title">
+        <h2>General Use</h2>
+        <div class="meta">How the main parts fit together.</div>
+      </div>
+      <div class="help-copy">
+        <p>Text tab: paste text, click <strong>Save</strong>, then copy the LAN link or short code from history.</p>
+        <p>Files tab: drag a file in or choose one, then share or download it from another device.</p>
+        <p>Hidden items: turn on <strong>Hidden</strong> and set an item password when the content itself should need a second secret.</p>
+        <p>Workspaces: use separate workspaces to keep different streams of text and files apart. A protected workspace requires a password for API access and for LAN links when the shared item does not have its own password.</p>
+        <p>API key: <code>X-API-Key</code> is the app-level automation secret. If <code>API_KEY</code> is configured, use that. Otherwise it falls back to <code>ACCESS_CODE</code>.</p>
+        <p>LAN links: <code>/s/...</code> links are the simplest way to fetch shared content from scripts. They do not use <code>X-API-Key</code>. If a password is needed, always send it as <code>X-Access-Password</code>.</p>
+        <p>Password precedence on LAN links: object password first, workspace password second, no password if neither is set.</p>
+        <p>Downloads and previews: direct file routes like <code>/download/&lt;id&gt;</code> and <code>/preview/&lt;id&gt;</code> are still API-style routes and keep their own header rules.</p>
+      </div>
+    </article>
+  </section>
+
+  <footer class="app-footer" aria-label="Licensing and privacy notice">
+    <p class="footer-line">
+      DassieDrop v__APP_VERSION__
+    </p>
+    <p class="footer-line">
+      Copyright © 2026 DassieDrop contributors. Released under the ISC License.
+    </p>
+    <p class="footer-line">
+      <a class="footer-link" href="/help">Help</a>
+    </p>
+    <p class="footer-line">
+      ISC licensed. DassieDrop is intended only for devices and people you trust on your own network.
+    </p>
+  </footer>
+</main>
+</body>
+</html>

@@ -31,6 +31,7 @@ class CoreStateTestCase(unittest.TestCase):
         self.temp_dir = TemporaryDirectory()
         self.original_upload_dir = config.UPLOAD_DIR
         self.original_access_code = config.ACCESS_CODE
+        self.original_api_key = config.API_KEY
         self.original_share_base_url = config.SHARE_BASE_URL
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
@@ -40,6 +41,7 @@ class CoreStateTestCase(unittest.TestCase):
         self.original_session_ttl_seconds = config.SESSION_TTL_SECONDS
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
+        config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
         config.MAX_JSON_BODY_SIZE = 1024 * 1024
@@ -56,6 +58,7 @@ class CoreStateTestCase(unittest.TestCase):
         reset_app_state()
         config.UPLOAD_DIR = self.original_upload_dir
         config.ACCESS_CODE = self.original_access_code
+        config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
         config.MAX_JSON_BODY_SIZE = self.original_max_json_body_size
@@ -74,6 +77,7 @@ class CoreHttpTestCase(unittest.TestCase):
         self.temp_dir = TemporaryDirectory()
         self.original_upload_dir = config.UPLOAD_DIR
         self.original_access_code = config.ACCESS_CODE
+        self.original_api_key = config.API_KEY
         self.original_share_base_url = config.SHARE_BASE_URL
         self.original_workspace_super_password = config.WORKSPACE_SUPER_PASSWORD
         self.original_now_ts = config.now_ts
@@ -84,6 +88,7 @@ class CoreHttpTestCase(unittest.TestCase):
         self.current_time = 1_700_100_000.0
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
+        config.API_KEY = ""
         config.SHARE_BASE_URL = ""
         config.WORKSPACE_SUPER_PASSWORD = ""
         config.MAX_JSON_BODY_SIZE = 1024 * 1024
@@ -106,6 +111,7 @@ class CoreHttpTestCase(unittest.TestCase):
         reset_app_state()
         config.UPLOAD_DIR = self.original_upload_dir
         config.ACCESS_CODE = self.original_access_code
+        config.API_KEY = self.original_api_key
         config.SHARE_BASE_URL = self.original_share_base_url
         config.WORKSPACE_SUPER_PASSWORD = self.original_workspace_super_password
         config.MAX_JSON_BODY_SIZE = self.original_max_json_body_size
@@ -118,8 +124,9 @@ class CoreHttpTestCase(unittest.TestCase):
     def fake_now(self) -> float:
         return self.current_time
 
-    def start_server(self, access_code: str = "") -> None:
+    def start_server(self, access_code: str = "", api_key: str = "") -> None:
         config.ACCESS_CODE = access_code
+        config.API_KEY = api_key
         reset_app_state()
         app.start_background_tasks()
         self.server = app.ThreadingHTTPServer(("127.0.0.1", 0), app.AppHandler)

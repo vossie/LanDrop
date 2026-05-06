@@ -553,10 +553,10 @@ class SecurityHttpTests(CoreHttpTestCase):
         file_response = self.upload_request("locked.txt", b"secret", hidden=True, password="vault")
         file_entry = json.loads(file_response["body"])["files"][0]
 
-        self.assertEqual(self.request("GET", f"/s/{text_entry['short_code']}?password=swordfish")["status"], 403)
+        self.assertEqual(self.request("GET", f"/s/{text_entry['short_code']}?password=swordfish")["status"], 401)
         self.assertEqual(self.request("GET", f"/download/{file_entry['id']}?password=vault")["status"], 403)
         self.assertEqual(self.request("GET", f"/preview/{file_entry['id']}?password=vault")["status"], 403)
-        self.assertEqual(self.request("GET", f"/s/{file_entry['short_code']}?password=vault")["status"], 403)
+        self.assertEqual(self.request("GET", f"/s/{file_entry['short_code']}?password=vault")["status"], 401)
 
     def test_query_string_workspace_password_no_longer_unlocks_workspace_api(self) -> None:
         self.start_server()
@@ -573,16 +573,18 @@ class SecurityHttpTests(CoreHttpTestCase):
 
         for _ in range(config.AUTH_MAX_FAILURES):
             response = self.request("GET", f"/s/{file_entry['short_code']}")
-            self.assertEqual(response["status"], 403)
+            self.assertEqual(response["status"], 401)
+            self.assertEqual(json.loads(response["body"]), {"message": "Access denied"})
 
         throttled = self.request("GET", f"/s/{file_entry['short_code']}")
-        self.assertEqual(throttled["status"], 429)
+        self.assertEqual(throttled["status"], 401)
+        self.assertEqual(json.loads(throttled["body"]), {"message": "Access denied"})
 
         self.current_time += config.AUTH_LOCKOUT_SECONDS + 1
         recovered = self.request(
             "GET",
             f"/s/{file_entry['short_code']}",
-            headers={"X-Entry-Password": "vault"},
+            headers={"X-Access-Password": "vault"},
         )
         self.assertEqual(recovered["status"], 200)
 

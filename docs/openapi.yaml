@@ -576,7 +576,7 @@ paths:
           required: true
           schema:
             type: string
-        - $ref: '#/components/parameters/PasswordQuery'
+        - $ref: '#/components/parameters/AccessPasswordHeader'
       responses:
         '200':
           description: Shared text or file content
@@ -588,10 +588,16 @@ paths:
               schema:
                 type: string
                 format: binary
-        '403':
-          $ref: '#/components/responses/Forbidden'
-        '404':
-          $ref: '#/components/responses/NotFound'
+        '401':
+          description: Generic LAN-link denial response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Access denied
 
   /w/{workspaceSlug}:
     get:
@@ -616,12 +622,18 @@ components:
       type: apiKey
       in: header
       name: X-API-Key
-      description: Access code for automation clients when `ACCESS_CODE` is enabled.
+      description: API key for automation clients. Uses `API_KEY` when configured, otherwise falls back to `ACCESS_CODE`.
     sessionCookie:
       type: apiKey
       in: cookie
       name: dassiedrop_session
   parameters:
+    AccessPasswordHeader:
+      name: X-Access-Password
+      in: header
+      required: false
+      schema:
+        type: string
     WorkspaceIdPath:
       name: workspaceId
       in: path

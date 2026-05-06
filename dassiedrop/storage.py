@@ -96,8 +96,8 @@ def make_id() -> str:
 
 
 def make_short_code() -> str:
-    alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
-    return "".join(secrets.choice(alphabet) for _ in range(4))
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+    return "".join(secrets.choice(alphabet) for _ in range(10))
 
 
 def make_workspace_id() -> str:
@@ -432,7 +432,7 @@ def load_persisted_workspaces() -> None:
         if not isinstance(content, str):
             return None
         now = config.now_ts()
-        short_code = str(text_item.get("short_code") or "").strip().upper()
+        short_code = str(text_item.get("short_code") or "").strip()
         if not short_code or short_code in restored_short_codes:
             while True:
                 short_code = make_short_code()
@@ -463,7 +463,7 @@ def load_persisted_workspaces() -> None:
         if target is None or not target.exists() or not target.is_file():
             return None
         now = config.now_ts()
-        short_code = str(file_item.get("short_code") or "").strip().upper()
+        short_code = str(file_item.get("short_code") or "").strip()
         if not short_code or short_code in restored_short_codes:
             while True:
                 short_code = make_short_code()
@@ -951,7 +951,7 @@ def find_text_entry(text_id: str, workspace_id: str | None = None) -> dict | Non
 
 
 def find_entry_by_short_code(short_code: str) -> tuple[str, dict] | None:
-    normalized = short_code.strip().upper()
+    normalized = short_code.strip()
     with state.state_lock:
         for workspace in list_workspace_objects_locked():
             prune_workspace_locked(workspace)

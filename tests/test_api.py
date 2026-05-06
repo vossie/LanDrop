@@ -300,3 +300,12 @@ class ApiContractHttpTests(CoreHttpTestCase):
         self.assertEqual(response["headers"]["Content-Type"], "text/plain; charset=utf-8")
         self.assertEqual(response["headers"]["Cache-Control"], "no-store")
         self.assertEqual(response["body"], b"share me")
+
+    def test_lan_link_unknown_code_returns_generic_access_denied_json(self) -> None:
+        self.start_server(access_code="secret-code", api_key="api-secret")
+
+        response = self.request("GET", "/s/AbC123XyZ9")
+
+        self.assertEqual(response["status"], 401)
+        self.assertEqual(response["headers"]["Content-Type"], "application/json; charset=utf-8")
+        self.assertEqual(json.loads(response["body"]), {"message": "Access denied"})
