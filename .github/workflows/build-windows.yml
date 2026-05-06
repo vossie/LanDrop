@@ -2,6 +2,8 @@ name: Build Windows Binary
 
 on:
   push:
+    branches:
+      - feature/portable_build
     tags:
       - 'v*'
   workflow_dispatch:
