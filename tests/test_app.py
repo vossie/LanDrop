@@ -122,6 +122,17 @@ class AppStateTests(unittest.TestCase):
         self.assertIsNotNone(resolved)
         self.assertEqual(resolved["id"], workspace["id"])
 
+    def test_workspace_selector_uses_unique_workspace_slugs(self) -> None:
+        first = app.create_workspace("Ops Desk")
+        second = app.create_workspace("Ops-Desk")
+
+        with state.state_lock:
+            resolved_first = app.resolve_workspace_selector_locked("ops-desk")
+            resolved_second = app.resolve_workspace_selector_locked("ops-desk-2")
+
+        self.assertEqual(resolved_first["id"], first["id"])
+        self.assertEqual(resolved_second["id"], second["id"])
+
     def test_text_entries_can_be_marked_hidden(self) -> None:
         app.add_text_entry("secret", hidden=True)
 
@@ -414,11 +425,52 @@ class HttpServerTests(unittest.TestCase):
         return result
 
     def select_workspace(self, cookie: str, workspace_id: str = app.DEFAULT_WORKSPACE_ID, password: str = ""):
+        page = self.request("GET", "/workspaces", headers={"Cookie": cookie})
+        token = page["text"].split('<meta name="dassiedrop-csrf-token" content="', 1)[1].split('"', 1)[0]
         return self.request(
             "POST",
             f"/api/workspaces/{workspace_id}/enter",
             body=json.dumps({"password": password}).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Cookie": cookie},
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "X-CSRF-Token": token,
+            },
+        )
+
+    def upload_with_cookie_session(self, filename: str, content: bytes, cookie: str):
+        page = self.request("GET", "/workspaces", headers={"Cookie": cookie})
+        token = page["text"].split('<meta name="dassiedrop-csrf-token" content="', 1)[1].split('"', 1)[0]
+        boundary = "----DassieDropBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            f'Content-Disposition: form-data; name="file"; filename="{filename}"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+        ).encode("utf-8") + content
+        body += (
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="hidden"\r\n\r\n'
+            "false"
+        ).encode("utf-8")
+        body += (
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="password"\r\n\r\n'
+        ).encode("utf-8")
+        body += (
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="name"\r\n\r\n'
+        ).encode("utf-8")
+        body += f"\r\n--{boundary}--\r\n".encode("utf-8")
+        return self.request(
+            "POST",
+            "/api/upload",
+            body=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+                "Cookie": cookie,
+                "X-CSRF-Token": token,
+            },
         )
 
     def open_websocket(self, cookie: str | None = None):
@@ -710,6 +762,22 @@ class HttpServerTests(unittest.TestCase):
         state = self.request("GET", "/api/state", headers={"Cookie": cookie})
         self.assertEqual(state["status"], 200)
         self.assertEqual(json.loads(state["body"])["workspace"]["id"], workspace["id"])
+
+    def test_duplicate_workspace_slugs_resolve_to_distinct_workspace_urls(self) -> None:
+        self.start_server()
+        first = app.create_workspace("Carel Space")
+        second = app.create_workspace("Carel-Space")
+
+        self.assertEqual(first["slug"], "carel-space")
+        self.assertEqual(second["slug"], "carel-space-2")
+
+        response = self.request("GET", "/w/carel-space-2")
+
+        self.assertEqual(response["status"], 303)
+        cookie = response["headers"]["Set-Cookie"].split(";", 1)[0]
+        state = self.request("GET", "/api/state", headers={"Cookie": cookie})
+        self.assertEqual(state["status"], 200)
+        self.assertEqual(json.loads(state["body"])["workspace"]["id"], second["id"])
 
     def test_protected_workspace_slug_redirects_to_workspace_picker_without_password(self) -> None:
         self.start_server()
@@ -1039,7 +1107,7 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(protected_latest_text_missing["status"], 404)
 
-        protected_upload = self.upload_request("secure.txt", b"secure-data", cookie=cookie)
+        protected_upload = self.upload_with_cookie_session("secure.txt", b"secure-data", cookie)
         self.assertEqual(protected_upload["status"], 200)
         file_id = json.loads(protected_upload["body"])["files"][0]["id"]
 

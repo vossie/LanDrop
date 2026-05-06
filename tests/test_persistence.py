@@ -7,6 +7,22 @@ from tests.support import CoreStateTestCase
 
 
 class PersistenceTests(CoreStateTestCase):
+    def test_text_entries_survive_reload(self) -> None:
+        workspace = app.create_workspace("Ops Room", password="vault")
+        app.add_text_entry("default text", sharer_name="Phone")
+        app.add_text_entry("workspace text", hidden=True, password="vault", workspace_id=workspace["id"])
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+
+        app.load_persisted_workspaces()
+
+        reloaded_default = app.get_snapshot()
+        reloaded_ops = app.get_snapshot(workspace["id"])
+        self.assertEqual(reloaded_default["texts"][0]["content"], "default text")
+        self.assertEqual(reloaded_ops["texts"][0]["masked_content"], "*****")
+        self.assertTrue(reloaded_ops["texts"][0]["password_required"])
+
     def test_multiple_workspaces_and_files_survive_reload(self) -> None:
         default_target = config.UPLOAD_DIR / "default.txt"
         default_target.write_text("default payload", encoding="utf-8")
@@ -107,3 +123,22 @@ class PersistenceTests(CoreStateTestCase):
         self.assertFalse(target.exists())
         persisted = json.loads(app.uploads_index_path().read_text(encoding="utf-8"))
         self.assertNotIn(workspace["id"], {item["id"] for item in persisted["workspaces"]})
+
+    def test_duplicate_workspace_names_get_unique_stable_slugs_after_reload(self) -> None:
+        first = app.create_workspace("Ops Room")
+        second = app.create_workspace("Ops-Room")
+
+        self.assertEqual(first["slug"], "ops-room")
+        self.assertEqual(second["slug"], "ops-room-2")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+
+        app.load_persisted_workspaces()
+        listed = {
+            workspace["id"]: workspace["slug"]
+            for workspace in app.list_workspaces()
+            if workspace["id"] in {first["id"], second["id"]}
+        }
+        self.assertEqual(listed[first["id"]], "ops-room")
+        self.assertEqual(listed[second["id"]], "ops-room-2")

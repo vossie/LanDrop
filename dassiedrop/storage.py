@@ -48,6 +48,35 @@ def workspace_slug(name: str) -> str:
     return slug or "workspace"
 
 
+def workspace_slug_value(workspace: dict) -> str:
+    value = workspace.get("slug")
+    if isinstance(value, str) and value.strip():
+        return value.strip().lower()
+    return workspace_slug(str(workspace.get("name") or ""))
+
+
+def make_unique_workspace_slug_locked(
+    name: str,
+    exclude_workspace_id: str | None = None,
+    workspaces: dict[str, dict] | None = None,
+) -> str:
+    base_slug = workspace_slug(name)
+    workspace_map = state.shared_state["workspaces"] if workspaces is None else workspaces
+    used = {
+        workspace_slug_value(workspace)
+        for workspace in workspace_map.values()
+        if workspace.get("id") != exclude_workspace_id
+    }
+    if base_slug not in used:
+        return base_slug
+    suffix = 2
+    while True:
+        candidate = f"{base_slug}-{suffix}"
+        if candidate not in used:
+            return candidate
+        suffix += 1
+
+
 def unique_filename(name: str) -> str:
     candidate = sanitize_filename(name)
     path = config.UPLOAD_DIR / candidate
@@ -132,6 +161,7 @@ def build_workspace(
     name: str,
     password_hash: str | None = None,
     workspace_id: str | None = None,
+    slug: str | None = None,
     created_at: float | None = None,
     last_used_at: float | None = None,
 ) -> dict:
@@ -139,6 +169,7 @@ def build_workspace(
     return {
         "id": workspace_id or make_workspace_id(),
         "name": sanitize_workspace_name(name),
+        "slug": (slug or workspace_slug(name)).strip().lower() or "workspace",
         "password_hash": password_hash,
         "created_at": timestamp,
         "updated_at": 0.0,
@@ -180,7 +211,7 @@ def get_workspace_by_slug_locked(slug: str) -> dict | None:
     if not target:
         return None
     for workspace in list_workspace_objects_locked():
-        if workspace_slug(workspace["name"]) == target:
+        if workspace_slug_value(workspace) == target:
             return workspace
     return None
 
@@ -273,11 +304,12 @@ def workspace_delete_password_is_valid(workspace: dict, password: str) -> bool:
 
 
 def serialize_workspace_summary(workspace: dict) -> dict:
+    slug = workspace_slug_value(workspace)
     return {
         "id": workspace["id"],
         "name": workspace["name"],
-        "slug": workspace_slug(workspace["name"]),
-        "path": f"/w/{workspace_slug(workspace['name'])}",
+        "slug": slug,
+        "path": f"/w/{slug}",
         "password_required": bool(workspace.get("password_hash")),
         "created_at": workspace["created_at"],
         "updated_at": workspace["updated_at"],
@@ -290,10 +322,12 @@ def serialize_persisted_workspace(workspace: dict) -> dict:
     return {
         "id": workspace["id"],
         "name": workspace["name"],
+        "slug": workspace_slug_value(workspace),
         "password_hash": workspace.get("password_hash"),
         "created_at": workspace["created_at"],
         "updated_at": workspace["updated_at"],
         "last_used_at": workspace.get("last_used_at", workspace["created_at"]),
+        "texts": workspace["texts"],
         "files": workspace["files"],
     }
 
@@ -317,6 +351,26 @@ def load_persisted_workspaces() -> None:
     ensure_upload_dir()
     index_path = uploads_index_path()
     loaded_workspaces = {}
+
+    def restore_text_entry(text_item: dict) -> dict | None:
+        content = text_item.get("content")
+        if not isinstance(content, str):
+            return None
+        return {
+            "id": str(text_item.get("id") or make_id()),
+            "content": content,
+            "hidden": bool(text_item.get("hidden", False)),
+            "password_hash": text_item.get("password_hash")
+            if isinstance(text_item.get("password_hash"), str)
+            else None,
+            "sharer_name": str(text_item.get("sharer_name") or "").strip(),
+            "sharer_ip": str(text_item.get("sharer_ip") or "").strip(),
+            "short_code": str(text_item.get("short_code") or make_short_code()).upper(),
+            "created_at": float(text_item.get("created_at") or config.now_ts()),
+            "expires_at": float(
+                text_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
+            ),
+        }
 
     def restore_file_entry(file_item: dict) -> dict | None:
         stored_name = file_item.get("stored_name")
@@ -361,6 +415,7 @@ def load_persisted_workspaces() -> None:
                     if isinstance(item.get("password_hash"), str)
                     else None,
                     workspace_id=workspace_id,
+                    slug=str(item.get("slug") or workspace_slug(str(item.get("name") or config.DEFAULT_WORKSPACE_NAME))),
                     created_at=float(item.get("created_at") or config.now_ts()),
                     last_used_at=float(
                         item.get("last_used_at")
@@ -369,6 +424,18 @@ def load_persisted_workspaces() -> None:
                         or config.now_ts()
                     ),
                 )
+                raw_texts = item.get("texts", [])
+                if not isinstance(raw_texts, list):
+                    raw_texts = []
+                restored_texts = []
+                for text_item in raw_texts:
+                    if not isinstance(text_item, dict):
+                        continue
+                    restored = restore_text_entry(text_item)
+                    if restored is not None:
+                        restored_texts.append(restored)
+                restored_texts.sort(key=lambda entry: entry["created_at"], reverse=True)
+                workspace["texts"] = restored_texts
                 raw_files = item.get("files", [])
                 if not isinstance(raw_files, list):
                     raw_files = []
@@ -383,6 +450,11 @@ def load_persisted_workspaces() -> None:
                 workspace["files"] = restored_files
                 trim_workspace_history_locked(workspace)
                 prune_workspace_locked(workspace)
+                workspace["slug"] = make_unique_workspace_slug_locked(
+                    workspace["name"],
+                    exclude_workspace_id=workspace["id"],
+                    workspaces=loaded_workspaces,
+                )
                 loaded_workspaces[workspace["id"]] = workspace
         else:
             raw_files = payload.get("files", [])
@@ -559,6 +631,7 @@ def create_workspace(name: str, password: str = "") -> dict:
         workspace_name = sanitize_workspace_name(name)
         workspace = build_workspace(
             workspace_name,
+            slug=make_unique_workspace_slug_locked(workspace_name),
             password_hash=hash_password(password.strip()) if password.strip() else None,
         )
         state.shared_state["workspaces"][workspace["id"]] = workspace

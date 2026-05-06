@@ -58,7 +58,7 @@ def share_payload(entry_type: str, entry: dict, base_url: str) -> dict:
         workspace = storage.get_workspace_locked(workspace_id)
         if workspace is not None:
             workspace_name = workspace["name"]
-            workspace_slug_value = storage.workspace_slug(workspace["name"])
+            workspace_slug_value = storage.workspace_slug_value(workspace)
     payload = {
         "type": entry_type,
         "id": entry["id"],
