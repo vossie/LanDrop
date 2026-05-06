@@ -273,6 +273,14 @@ The GitHub helper also supports overrides. On upgrade it reuses values from `/et
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash
 ```
 
+If `ACCESS_CODE` or `API_KEY` is missing or set to `null`, the installer prompts for them on an interactive terminal. To run non-interactively and auto-generate any missing values, use `--silent`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-ubuntu-install-upgrade.sh | sudo bash -s -- --silent
+```
+
+In `--silent` mode, the installer generates secure random values for missing `ACCESS_CODE` and `API_KEY`, writes them to `/etc/dassiedrop/dassiedrop.env`, and prints the generated values at the end.
+
 Use the Ubuntu service install for a native `systemd` deployment. Use Docker for a portable container runtime.
 
 ## Install On CentOS Stream From GitHub
@@ -301,6 +309,14 @@ Override defaults:
 ```bash
 curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo ACCESS_CODE=my-secret-code API_KEY=my-api-key PORT=8080 bash
 ```
+
+If `ACCESS_CODE` or `API_KEY` is missing or set to `null`, the installer prompts for them on an interactive terminal. To run non-interactively and auto-generate any missing values, use `--silent`:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/vossie/DassieDrop/master/scripts/github-centos-stream-install-upgrade.sh | sudo bash -s -- --silent
+```
+
+In `--silent` mode, the installer generates secure random values for missing `ACCESS_CODE` and `API_KEY`, writes them to `/etc/dassiedrop/dassiedrop.env`, and prints the generated values at the end.
 
 Uninstall the CentOS Stream service:
 

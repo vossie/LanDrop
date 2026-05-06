@@ -8,14 +8,16 @@ fi
 
 PORT_OVERRIDE=""
 HTTPS_PORT_OVERRIDE=""
+SILENT_MODE=0
 
 usage() {
   cat <<'EOF'
-Usage: github-ubuntu-install-upgrade.sh [--port PORT] [--https-port PORT]
+Usage: github-ubuntu-install-upgrade.sh [--port PORT] [--https-port PORT] [--silent]
 
 Options:
   --port PORT        Set the DassieDrop HTTP listen port for install or upgrade.
   --https-port PORT  Set the DassieDrop HTTPS listen port for install or upgrade.
+  --silent           Generate missing ACCESS_CODE and API_KEY values automatically.
   --help        Show this help.
 EOF
 }
@@ -37,6 +39,10 @@ while [[ $# -gt 0 ]]; do
       fi
       HTTPS_PORT_OVERRIDE="$2"
       shift 2
+      ;;
+    --silent)
+      SILENT_MODE=1
+      shift
       ;;
     --help)
       usage
@@ -146,7 +152,12 @@ if [[ -n "${HTTPS_PORT_OVERRIDE}" ]]; then
   export HTTPS_PORT="${HTTPS_PORT_OVERRIDE}"
 fi
 
-bash "${SOURCE_DIR}/scripts/install-ubuntu-service.sh"
+INSTALL_ARGS=()
+if [[ "${SILENT_MODE}" == "1" ]]; then
+  INSTALL_ARGS+=(--silent)
+fi
+
+bash "${SOURCE_DIR}/scripts/install-ubuntu-service.sh" "${INSTALL_ARGS[@]}"
 
 echo
 echo "DassieDrop ${ACTION} completed from ${REPO_URL}."
