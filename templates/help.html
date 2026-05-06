@@ -44,6 +44,7 @@
       <div class="help-copy">
         <ul>
           <li><a href="#lan-link-examples">LAN Link Examples</a></li>
+          <li><a href="#api-examples">API Examples</a></li>
           <li><a href="#general-use">General Use</a></li>
           <li><a href="#sharing-text">Sharing text</a></li>
           <li><a href="#sharing-files">Sharing files</a></li>
@@ -162,6 +163,124 @@ printf '%s\n' "$SHARED_TEXT"</code></pre>
         <pre class="help-code"><code>curl -fsSL "$LAN_LINK" -o script.sh
 less script.sh
 bash script.sh</code></pre>
+      </div>
+    </article>
+
+    <article id="api-examples" class="panel tab-panel help-panel">
+      <div class="panel-title help-panel-title">
+        <h2>API Examples</h2>
+        <div class="meta">Use the API directly from curl to share text and files.</div>
+      </div>
+      <div class="help-copy">
+        <h3>Basic setup</h3>
+        <p>Set the API host once:</p>
+        <pre class="help-code"><code>API_HOST='http://your-dassiedrop-host:8000'</code></pre>
+
+        <p>If the app is protected, send your automation secret as:</p>
+        <pre class="help-code"><code>-H 'X-API-Key: your-api-key-or-access-code'</code></pre>
+
+        <h3>Share text</h3>
+        <p>Share a text snippet:</p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'Content-Type: application/json' \
+  -X POST \
+  -d '{
+    "text": "hello from curl",
+    "name": "CLI"
+  }' \
+  "$API_HOST/api/share-text"</code></pre>
+
+        <p>Share protected text:</p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'Content-Type: application/json' \
+  -X POST \
+  -d '{
+    "text": "secret note",
+    "name": "CLI",
+    "hidden": true,
+    "password": "vault"
+  }' \
+  "$API_HOST/api/share-text"</code></pre>
+
+        <p>Share text into a specific workspace:</p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'Content-Type: application/json' \
+  -H 'X-Workspace-Name: ops-desk' \
+  -X POST \
+  -d '{
+    "text": "hello from ops",
+    "name": "CLI"
+  }' \
+  "$API_HOST/api/share-text"</code></pre>
+
+        <p>Share text into a protected workspace:</p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: your-api-key-or-access-code' \
+  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace-Password: workspace-secret' \
+  -X POST \
+  -d '{
+    "text": "hello from protected ops",
+    "name": "CLI"
+  }' \
+  "$API_HOST/api/share-text"</code></pre>
+
+        <h3>Share files</h3>
+        <p>Share a file:</p>
+        <pre class="help-code"><code>curl -sS \
+  -X POST \
+  -F 'file=@./example.txt' \
+  -F 'name=CLI' \
+  "$API_HOST/api/share-file"</code></pre>
+
+        <p>Share a protected file:</p>
+        <pre class="help-code"><code>curl -sS \
+  -X POST \
+  -F 'file=@./secret.pdf' \
+  -F 'name=CLI' \
+  -F 'hidden=true' \
+  -F 'password=vault' \
+  "$API_HOST/api/share-file"</code></pre>
+
+        <p>Share a file into a specific workspace:</p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'X-Workspace-Name: ops-desk' \
+  -X POST \
+  -F 'file=@./example.txt' \
+  -F 'name=CLI' \
+  "$API_HOST/api/share-file"</code></pre>
+
+        <p>Share a file into a protected workspace:</p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'X-API-Key: your-api-key-or-access-code' \
+  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace-Password: workspace-secret' \
+  -X POST \
+  -F 'file=@./example.txt' \
+  -F 'name=CLI' \
+  "$API_HOST/api/share-file"</code></pre>
+
+        <h3>Using API auth</h3>
+        <p>If the app requires API auth, add <code>X-API-Key</code> to the same requests.</p>
+
+        <p><strong>Text example with API auth</strong></p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'Content-Type: application/json' \
+  -H 'X-API-Key: your-api-key-or-access-code' \
+  -X POST \
+  -d '{"text":"hello again"}' \
+  "$API_HOST/api/share-text"</code></pre>
+
+        <p><strong>File example with API auth</strong></p>
+        <pre class="help-code"><code>curl -sS \
+  -H 'X-API-Key: your-api-key-or-access-code' \
+  -X POST \
+  -F 'file=@./example.txt' \
+  "$API_HOST/api/share-file"</code></pre>
+
+        <p>If the workspace itself is protected, include <code>X-Workspace-Password</code> alongside your workspace selector.</p>
+        <p>Use the API when you want automation, workspace-aware posting, or structured JSON responses. Use LAN links when you want the simplest shareable link between devices.</p>
       </div>
     </article>
 
