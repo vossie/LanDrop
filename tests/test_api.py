@@ -137,6 +137,33 @@ class ApiContractHttpTests(CoreHttpTestCase):
         self.assertIn('<meta name="dassiedrop-csrf-token" content="', response["text"])
         self.assertNotIn("window.LANDROP_CONFIG", response["text"])
 
+    def test_root_page_renders_configured_share_base_url_in_meta_tag(self) -> None:
+        config.SHARE_BASE_URL = "https://share.example.test/base"
+        self.start_server()
+
+        page = self.request("GET", "/workspaces")
+        cookie = page["headers"]["Set-Cookie"].split(";", 1)[0]
+        token = page["text"].split('<meta name="dassiedrop-csrf-token" content="', 1)[1].split('"', 1)[0]
+
+        enter = self.request(
+            "POST",
+            "/api/workspaces/default/enter",
+            body=json.dumps({"password": ""}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "X-CSRF-Token": token,
+            },
+        )
+        self.assertEqual(enter["status"], 200)
+
+        page = self.request("GET", "/", headers={"Cookie": cookie})
+        self.assertEqual(page["status"], 200)
+        self.assertIn(
+            '<meta name="dassiedrop-share-base-url" content="https://share.example.test/base">',
+            page["text"],
+        )
+
     def test_api_state_contract_headers_and_keys_are_stable(self) -> None:
         self.start_server()
         self.request(
@@ -218,6 +245,17 @@ class ApiContractHttpTests(CoreHttpTestCase):
 
         self.assertEqual(response["status"], 200)
         self.assertIn("Strict-Transport-Security", response["headers"])
+
+    def test_error_responses_include_security_headers(self) -> None:
+        self.start_server()
+        self.server.is_https = True
+
+        response = self.request("GET", "/missing")
+
+        self.assertEqual(response["status"], 404)
+        self.assertEqual(response["headers"]["X-Content-Type-Options"], "nosniff")
+        self.assertIn("Strict-Transport-Security", response["headers"])
+        self.assertIn("Content-Security-Policy", response["headers"])
 
     def test_text_share_contract_headers_are_stable(self) -> None:
         self.start_server()

@@ -324,7 +324,7 @@ class AppHandler(BaseHTTPRequestHandler):
             render_template(
                 "index.html",
                 {
-                    "__SHARE_BASE_URL__": json.dumps(get_share_base_url()),
+                    "__SHARE_BASE_URL__": html.escape(get_share_base_url()),
                     "__APP_VERSION__": html.escape(get_app_version()),
                     "__WORKSPACE_NAME__": html.escape(storage.compact_workspace_name(workspace["name"])),
                     "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
@@ -1137,6 +1137,22 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_header("Set-Cookie", cookie)
         self.send_header("Content-Length", "0")
         self.end_headers()
+
+    def send_error(self, code, message=None, explain=None) -> None:
+        short, long = self.responses.get(code, ("Unknown", "Unknown"))
+        message = message or short
+        explain = explain or long
+        body = f"{int(code)} {message}\n{explain}\n"
+        data = body.encode("utf-8", errors="replace")
+        self.send_response(code, message)
+        self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_common_security_headers()
+        self.send_header("Content-Security-Policy", self.content_security_policy)
+        self.send_header("Cache-Control", "no-store")
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        if self.command != "HEAD":
+            self.wfile.write(data)
 
     def log_message(self, fmt: str, *args) -> None:
         message = fmt % args

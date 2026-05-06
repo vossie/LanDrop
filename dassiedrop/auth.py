@@ -186,13 +186,7 @@ def csrf_required(handler: BaseHTTPRequestHandler) -> bool:
         return False
     if handler.headers.get("X-API-Key", "").strip():
         return False
-    if not bool(parse_cookies(handler.headers.get("Cookie", "")).get("session")):
-        return False
-    return bool(
-        handler.headers.get("Origin")
-        or handler.headers.get("Referer")
-        or handler.headers.get("Sec-Fetch-Site")
-    )
+    return bool(parse_cookies(handler.headers.get("Cookie", "")).get("session"))
 
 
 def validate_csrf(handler: BaseHTTPRequestHandler) -> bool:

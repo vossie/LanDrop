@@ -209,6 +209,22 @@ class SecurityHttpTests(CoreHttpTestCase):
 
         self.assertEqual(allowed["status"], 200)
 
+    def test_cookie_backed_mutations_require_csrf_token_even_without_origin_headers(self) -> None:
+        self.start_server()
+        cookie = self.request("GET", "/workspaces")["headers"]["Set-Cookie"].split(";", 1)[0]
+
+        blocked = self.request(
+            "POST",
+            "/api/workspaces",
+            body=json.dumps({"name": "Ops Room", "password": ""}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+            },
+        )
+
+        self.assertEqual(blocked["status"], 403)
+
     def test_upload_is_rejected_when_global_storage_quota_is_exceeded(self) -> None:
         self.start_server()
         config.MAX_TOTAL_STORAGE_BYTES = 3
@@ -353,14 +369,20 @@ class SecurityHttpTests(CoreHttpTestCase):
     def test_workspace_entry_is_rate_limited_after_repeated_wrong_passwords(self) -> None:
         self.start_server()
         workspace = app.create_workspace("Vault Room", password="vault")
-        cookie = self.request("GET", "/")["headers"]["Set-Cookie"].split(";", 1)[0]
+        page = self.request("GET", "/workspaces")
+        cookie = page["headers"]["Set-Cookie"].split(";", 1)[0]
+        token = page["text"].split('<meta name="dassiedrop-csrf-token" content="', 1)[1].split('"', 1)[0]
 
         for _ in range(config.AUTH_MAX_FAILURES):
             response = self.request(
                 "POST",
                 f"/api/workspaces/{workspace['id']}/enter",
                 body=json.dumps({"password": "wrong"}).encode("utf-8"),
-                headers={"Content-Type": "application/json", "Cookie": cookie},
+                headers={
+                    "Content-Type": "application/json",
+                    "Cookie": cookie,
+                    "X-CSRF-Token": token,
+                },
             )
             self.assertEqual(response["status"], 403)
 
@@ -368,7 +390,11 @@ class SecurityHttpTests(CoreHttpTestCase):
             "POST",
             f"/api/workspaces/{workspace['id']}/enter",
             body=json.dumps({"password": "wrong"}).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Cookie": cookie},
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "X-CSRF-Token": token,
+            },
         )
         self.assertEqual(throttled["status"], 429)
 
@@ -377,7 +403,11 @@ class SecurityHttpTests(CoreHttpTestCase):
             "POST",
             f"/api/workspaces/{workspace['id']}/enter",
             body=json.dumps({"password": "vault"}).encode("utf-8"),
-            headers={"Content-Type": "application/json", "Cookie": cookie},
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "X-CSRF-Token": token,
+            },
         )
         self.assertEqual(recovered["status"], 200)
 
