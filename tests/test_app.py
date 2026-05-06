@@ -1142,6 +1142,32 @@ class HttpServerTests(unittest.TestCase):
 
         self.assertEqual(response["status"], 400)
 
+    def test_non_hidden_text_ignores_stray_password(self) -> None:
+        self.start_server()
+
+        response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps(
+                {"text": "shared text", "hidden": False, "password": "vault", "name": "Laptop"}
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+
+        self.assertEqual(response["status"], 200)
+        snapshot = json.loads(response["body"])
+        entry = snapshot["texts"][0]
+        self.assertFalse(entry["hidden"])
+        self.assertFalse(entry["password_required"])
+
+        latest_text = app.find_text_entry(entry["id"])
+        self.assertIsNotNone(latest_text)
+        self.assertIsNone(latest_text.get("password_hash"))
+
+        short_link_response = self.request("GET", f"/s/{entry['short_code']}")
+        self.assertEqual(short_link_response["status"], 200)
+        self.assertEqual(short_link_response["body"], b"shared text")
+
     def test_password_protected_text_requires_reveal_password(self) -> None:
         self.start_server()
 

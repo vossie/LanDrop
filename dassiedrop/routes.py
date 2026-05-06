@@ -661,7 +661,7 @@ class AppHandler(BaseHTTPRequestHandler):
         return {
             "text": normalized_text,
             "hidden": hidden,
-            "password": password.strip(),
+            "password": password.strip() if hidden else "",
             "name": sharer_name.strip(),
         }
 

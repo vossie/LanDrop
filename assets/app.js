@@ -930,7 +930,7 @@ async function saveText() {
       body: JSON.stringify({
         text: submittedText,
         hidden: submittedHidden,
-        password: textPassword.value,
+        password: submittedHidden ? submittedPassword : "",
         name: sharerName.value
       })
     });
