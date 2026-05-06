@@ -879,7 +879,12 @@ def add_file(
             workspace["updated_at"] = previous_updated_at
             workspace["last_used_at"] = previous_last_used_at
             raise
-        delete_file_artifacts(overflow_files)
+        try:
+            delete_file_artifacts(overflow_files)
+        except OSError:
+            # Keep the newly persisted file entry authoritative even if trimming old
+            # file artifacts hits a transient filesystem problem.
+            pass
         return dict(entry)
 
 

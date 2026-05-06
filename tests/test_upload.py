@@ -73,3 +73,29 @@ class UploadTests(CoreStateTestCase):
         self.assertEqual(snapshot["files"][0]["name"], "first.txt")
         self.assertTrue(first_target.exists())
         self.assertTrue(second_target.exists())
+
+    def test_add_file_keeps_new_entry_when_trimmed_file_cleanup_fails(self) -> None:
+        original_limit = config.MAX_FILE_HISTORY
+        config.MAX_FILE_HISTORY = 1
+        first_target = config.UPLOAD_DIR / "first.txt"
+        second_target = config.UPLOAD_DIR / "second.txt"
+        first_target.write_bytes(b"first")
+        second_target.write_bytes(b"second")
+        app.add_file("first.txt", "first.txt", first_target.stat().st_size, sharer_name="Phone")
+        original_delete = storage.delete_file_artifacts
+
+        def broken_delete(entries: list[dict]) -> None:
+            raise OSError("permission denied")
+
+        storage.delete_file_artifacts = broken_delete
+        try:
+            created = app.add_file("second.txt", "second.txt", second_target.stat().st_size, sharer_name="Laptop")
+        finally:
+            storage.delete_file_artifacts = original_delete
+            config.MAX_FILE_HISTORY = original_limit
+
+        snapshot = app.get_snapshot()
+        self.assertEqual(created["name"], "second.txt")
+        self.assertEqual(len(snapshot["files"]), 1)
+        self.assertEqual(snapshot["files"][0]["name"], "second.txt")
+        self.assertTrue(second_target.exists())

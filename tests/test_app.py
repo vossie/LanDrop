@@ -1333,6 +1333,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("--https-port", script)
         self.assertIn('PYTHON_BIN="${PYTHON_BIN:-/usr/bin/python3.11}"', script)
         self.assertIn('require_command apt-get', script)
+        self.assertIn('require_command systemctl', script)
         self.assertIn('ensure_package python3.11 python3.11', script)
         self.assertIn("https://github.com/${REPO_OWNER}/${REPO_NAME}/archive/refs/heads/${ref}.tar.gz", script)
         self.assertIn('bash "${SOURCE_DIR}/scripts/install-ubuntu-service.sh"', script)

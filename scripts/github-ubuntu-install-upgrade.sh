@@ -108,6 +108,7 @@ require_command tar
 require_command apt-get
 ensure_package python3.11 python3.11
 require_command "${PYTHON_BIN}"
+require_command systemctl
 
 ACTION="install"
 if systemctl list-unit-files 2>/dev/null | grep -q "^${SERVICE_NAME}\\.service"; then
