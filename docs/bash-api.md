@@ -25,7 +25,6 @@ Workspace-aware requests can target a workspace with any of these:
 Protected workspaces can also use:
 
 - `X-Workspace-Password: <workspace-password>`
-- `?workspace_password=<workspace-password>`
 
 List workspaces:
 
