@@ -63,15 +63,66 @@
         <div class="meta">Use a LAN link directly from a terminal with curl.</div>
       </div>
       <div class="help-copy">
-        <p>LAN link access uses the most specific applicable protection rule. Object-level password protection overrides workspace-level password protection. Workspace password protection applies only when the object does not define its own password.</p>
+        <h3>Basic usage</h3>
+        <p>Set the link once:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'</code></pre>
 
-        <p>LAN link access matrix:</p>
+        <p>Print the shared text:</p>
+        <pre class="help-code"><code>curl -ksSL "$LAN_LINK"</code></pre>
+
+        <p>Store it in a variable:</p>
+        <pre class="help-code"><code>SHARED_TEXT="$(curl -ksSL "$LAN_LINK")"
+printf '%s\n' "$SHARED_TEXT"</code></pre>
+
+        <p>Run it as a command:</p>
+        <pre class="help-code"><code>bash -c "$(curl -ksSL "$LAN_LINK")"</code></pre>
+
+        <h3>Using passwords</h3>
+        <p>If a password is required, always send it using:</p>
+        <pre class="help-code"><code>-H 'X-Access-Password: &lt;password&gt;'</code></pre>
+
+        <p><strong>Workspace-protected item</strong></p>
+        <pre class="help-code"><code>curl -ksSL \
+  -H 'X-Access-Password: workspace-secret' \
+  "$LAN_LINK"</code></pre>
+
+        <p><strong>Item-protected (Object password, overrides workspace)</strong></p>
+        <pre class="help-code"><code>curl -ksSL \
+  -H 'X-Access-Password: item-secret' \
+  "$LAN_LINK"</code></pre>
+
+        <h3>How password selection works</h3>
+        <p>You only ever need one password.</p>
+        <p>LAN link access uses the most specific applicable protection rule.</p>
+        <p>DassieDrop automatically picks the right one:</p>
+        <ul>
+          <li>If the item has a password, use that.</li>
+          <li>Otherwise, if the workspace has a password, use that.</li>
+          <li>Otherwise, no password is required.</li>
+        </ul>
+
+        <p><strong>Example</strong></p>
+        <p>Workspace password: <code>alpha</code></p>
+        <p>Item password: <code>beta</code></p>
+        <p>Accessing the item:</p>
+        <p>Use <code>beta</code></p>
+        <p>Do not use <code>alpha</code></p>
+
+        <h3>Why it works this way</h3>
+        <p>LAN links are designed to be shared directly.</p>
+        <ul>
+          <li>You should not need to understand the workspace structure.</li>
+          <li>You should not be asked for multiple passwords.</li>
+        </ul>
+        <p>The password closest to the shared item always takes priority.</p>
+
+        <h3>Access matrix</h3>
         <table class="help-table">
           <thead>
             <tr>
               <th>Workspace password</th>
-              <th>Object password</th>
-              <th>Required access</th>
+              <th>Item password (Object password)</th>
+              <th>What to send</th>
             </tr>
           </thead>
           <tbody>
@@ -98,38 +149,19 @@
           </tbody>
         </table>
 
-        <p>Set the link once and print the shared text:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-curl -ksSL "$LAN_LINK"</code></pre>
+        <h3>Running scripts directly</h3>
+        <p><strong>Risky:</strong> you can pipe a LAN link into <code>bash</code>, but only do this if you fully trust the source and understand what will be executed.</p>
+        <pre class="help-code"><code>curl -fsSL "$LAN_LINK" | bash</code></pre>
 
-        <p>Store the shared text in a shell variable:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-SHARED_TEXT="$(curl -ksSL "$LAN_LINK")"
-printf '%s\n' "$SHARED_TEXT"</code></pre>
+        <p>With a password:</p>
+        <pre class="help-code"><code>curl -fsSL \
+  -H "X-Access-Password: secret" \
+  "$LAN_LINK" | bash</code></pre>
 
-        <p>Run the shared text as a command:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-bash -c "$(curl -ksSL "$LAN_LINK")"</code></pre>
-
-        <p>If the workspace is protected, add one access password header:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-curl -ksSL \
-  -H 'X-Access-Password: workspace-secret' \
-  "$LAN_LINK"</code></pre>
-
-        <p>If the shared item has its own password, use that same header instead. Object passwords override workspace passwords:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-curl -ksSL \
-  -H 'X-Access-Password: item-secret' \
-  "$LAN_LINK"</code></pre>
-
-        <p><strong>Risky:</strong> if you are intentionally sharing a script and want to execute it directly, you can pipe the LAN link into <code>bash</code>. Only do this if you fully trust the source and have checked what you are about to run.</p>
-        <pre class="help-code"><code>curl -fsSL https://your-dassiedrop-host:8443 | bash</code></pre>
-
-        <p>If the shared item is protected:</p>
-        <pre class="help-code"><code>curl -fsSL https://your-dassiedrop-host:8443 \
-  -H "X-Access-Password: secret" | bash</code></pre>
-        <p>Be sure you know what you are running before you use this pattern.</p>
+        <p>A safer approach:</p>
+        <pre class="help-code"><code>curl -fsSL "$LAN_LINK" -o script.sh
+less script.sh
+bash script.sh</code></pre>
       </div>
     </article>
 
