@@ -988,6 +988,8 @@ class AppHandler(BaseHTTPRequestHandler):
             return (None, b"")
         opcode = first_byte & 0x0F
         masked = bool(second_byte & 0x80)
+        if not masked:
+            return (None, b"")
         payload_length = second_byte & 0x7F
 
         if payload_length == 126:

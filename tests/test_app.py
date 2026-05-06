@@ -1222,6 +1222,19 @@ class HttpServerTests(unittest.TestCase):
         handshake = response.partition(b"\r\n\r\n")[0].decode("utf-8", errors="replace")
         self.assertIn("101 Switching Protocols", handshake)
 
+    def test_websocket_rejects_unmasked_client_frames(self) -> None:
+        self.start_server()
+        websocket, handshake, _, buffered = self.open_websocket()
+        self.addCleanup(websocket.close)
+        self.assertIn("101 Switching Protocols", handshake)
+        initial_frame, buffered = self.read_websocket_frame(websocket, buffered)
+        self.assertTrue(initial_frame)
+
+        websocket.sendall(b"\x81\x00")
+        closed = websocket.recv(1)
+
+        self.assertEqual(closed, b"")
+
     def test_latest_endpoints_return_not_found_when_history_is_empty(self) -> None:
         self.start_server()
 

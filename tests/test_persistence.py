@@ -142,3 +142,71 @@ class PersistenceTests(CoreStateTestCase):
         }
         self.assertEqual(listed[first["id"]], "ops-room")
         self.assertEqual(listed[second["id"]], "ops-room-2")
+
+    def test_workspace_named_default_does_not_collide_with_built_in_default_slug_after_reload(self) -> None:
+        created = app.create_workspace("Default")
+        self.assertEqual(created["slug"], "default-2")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+
+        app.load_persisted_workspaces()
+
+        listed = {workspace["id"]: workspace["slug"] for workspace in app.list_workspaces()}
+        self.assertEqual(listed[app.DEFAULT_WORKSPACE_ID], "default")
+        self.assertEqual(listed[created["id"]], "default-2")
+
+    def test_duplicate_restored_short_codes_are_repaired_on_reload(self) -> None:
+        payload = {
+            "workspaces": [
+                {
+                    "id": app.DEFAULT_WORKSPACE_ID,
+                    "name": app.DEFAULT_WORKSPACE_NAME,
+                    "slug": "default",
+                    "created_at": 0.0,
+                    "updated_at": self.current_time,
+                    "last_used_at": self.current_time,
+                    "texts": [
+                        {
+                            "id": "text-1",
+                            "content": "alpha",
+                            "hidden": False,
+                            "short_code": "ABCD",
+                            "created_at": self.current_time,
+                            "expires_at": self.current_time + app.EXPIRY_SECONDS,
+                        }
+                    ],
+                    "files": [],
+                },
+                {
+                    "id": "ops123",
+                    "name": "Ops Room",
+                    "slug": "ops-room",
+                    "created_at": self.current_time,
+                    "updated_at": self.current_time,
+                    "last_used_at": self.current_time,
+                    "texts": [
+                        {
+                            "id": "text-2",
+                            "content": "bravo",
+                            "hidden": False,
+                            "short_code": "ABCD",
+                            "created_at": self.current_time - 1,
+                            "expires_at": self.current_time + app.EXPIRY_SECONDS,
+                        }
+                    ],
+                    "files": [],
+                },
+            ]
+        }
+        app.uploads_index_path().write_text(json.dumps(payload), encoding="utf-8")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+
+        app.load_persisted_workspaces()
+
+        default_snapshot = app.get_snapshot()
+        ops_snapshot = app.get_snapshot("ops123")
+        self.assertEqual(default_snapshot["texts"][0]["short_code"], "ABCD")
+        self.assertNotEqual(ops_snapshot["texts"][0]["short_code"], "ABCD")

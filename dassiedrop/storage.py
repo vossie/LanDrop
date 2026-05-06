@@ -59,6 +59,7 @@ def make_unique_workspace_slug_locked(
     name: str,
     exclude_workspace_id: str | None = None,
     workspaces: dict[str, dict] | None = None,
+    reserved_slugs: set[str] | None = None,
 ) -> str:
     base_slug = workspace_slug(name)
     workspace_map = state.shared_state["workspaces"] if workspaces is None else workspaces
@@ -67,6 +68,7 @@ def make_unique_workspace_slug_locked(
         for workspace in workspace_map.values()
         if workspace.get("id") != exclude_workspace_id
     }
+    used.update(slug for slug in (reserved_slugs or set()) if slug)
     if base_slug not in used:
         return base_slug
     suffix = 2
@@ -351,11 +353,19 @@ def load_persisted_workspaces() -> None:
     ensure_upload_dir()
     index_path = uploads_index_path()
     loaded_workspaces = {}
+    restored_short_codes = set()
 
     def restore_text_entry(text_item: dict) -> dict | None:
         content = text_item.get("content")
         if not isinstance(content, str):
             return None
+        short_code = str(text_item.get("short_code") or "").strip().upper()
+        if not short_code or short_code in restored_short_codes:
+            while True:
+                short_code = make_short_code()
+                if short_code not in restored_short_codes:
+                    break
+        restored_short_codes.add(short_code)
         return {
             "id": str(text_item.get("id") or make_id()),
             "content": content,
@@ -365,7 +375,7 @@ def load_persisted_workspaces() -> None:
             else None,
             "sharer_name": str(text_item.get("sharer_name") or "").strip(),
             "sharer_ip": str(text_item.get("sharer_ip") or "").strip(),
-            "short_code": str(text_item.get("short_code") or make_short_code()).upper(),
+            "short_code": short_code,
             "created_at": float(text_item.get("created_at") or config.now_ts()),
             "expires_at": float(
                 text_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
@@ -379,6 +389,13 @@ def load_persisted_workspaces() -> None:
         target = upload_path(stored_name)
         if target is None or not target.exists() or not target.is_file():
             return None
+        short_code = str(file_item.get("short_code") or "").strip().upper()
+        if not short_code or short_code in restored_short_codes:
+            while True:
+                short_code = make_short_code()
+                if short_code not in restored_short_codes:
+                    break
+        restored_short_codes.add(short_code)
         return {
             "id": str(file_item.get("id") or make_id()),
             "name": sanitize_filename(str(file_item.get("name") or stored_name)),
@@ -390,7 +407,7 @@ def load_persisted_workspaces() -> None:
             else None,
             "sharer_name": str(file_item.get("sharer_name") or "").strip(),
             "sharer_ip": str(file_item.get("sharer_ip") or "").strip(),
-            "short_code": str(file_item.get("short_code") or make_short_code()).upper(),
+            "short_code": short_code,
             "created_at": float(file_item.get("created_at") or config.now_ts()),
             "expires_at": float(
                 file_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
@@ -454,6 +471,11 @@ def load_persisted_workspaces() -> None:
                     workspace["name"],
                     exclude_workspace_id=workspace["id"],
                     workspaces=loaded_workspaces,
+                    reserved_slugs=(
+                        {workspace_slug(config.DEFAULT_WORKSPACE_NAME)}
+                        if workspace["id"] != config.DEFAULT_WORKSPACE_ID
+                        else None
+                    ),
                 )
                 loaded_workspaces[workspace["id"]] = workspace
         else:
