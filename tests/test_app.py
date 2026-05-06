@@ -19,6 +19,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 def reset_app_state() -> None:
     with state.state_lock:
         state.shared_state["workspaces"] = {}
+        state.shared_state["reserved_upload_bytes"] = 0
+        state.shared_state["reserved_upload_names"] = set()
     with state.session_lock:
         state.authorized_sessions.clear()
     with state.auth_attempt_lock:
@@ -297,6 +299,8 @@ class AppStateTests(unittest.TestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_files()
 
@@ -319,6 +323,8 @@ class AppStateTests(unittest.TestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_files()
 

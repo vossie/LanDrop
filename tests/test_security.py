@@ -232,6 +232,58 @@ class SecurityHttpTests(CoreHttpTestCase):
         response = self.upload_request("quota.txt", b"payload", name="Phone")
 
         self.assertEqual(response["status"], 507)
+        self.assertEqual(app.get_snapshot()["files"], [])
+
+    def test_file_share_returns_quota_error_without_fallback_500(self) -> None:
+        self.start_server()
+        config.MAX_TOTAL_STORAGE_BYTES = 3
+        boundary = "----DassieDropBoundary"
+        body = (
+            f"--{boundary}\r\n"
+            'Content-Disposition: form-data; name="file"; filename="quota.txt"\r\n'
+            "Content-Type: application/octet-stream\r\n\r\n"
+            "payload"
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="hidden"\r\n\r\nfalse'
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="password"\r\n\r\n'
+            f"\r\n--{boundary}\r\n"
+            'Content-Disposition: form-data; name="name"\r\n\r\nPhone'
+            f"\r\n--{boundary}--\r\n"
+        ).encode("utf-8")
+
+        response = self.request(
+            "POST",
+            "/api/share-file",
+            body=body,
+            headers={
+                "Content-Type": f"multipart/form-data; boundary={boundary}",
+                "Content-Length": str(len(body)),
+            },
+        )
+
+        self.assertEqual(response["status"], 507)
+        self.assertIn("Storage quota exceeded", response["text"])
+
+    def test_upload_cleans_up_moved_file_when_registration_fails(self) -> None:
+        self.start_server()
+        original_add_file = storage.add_file
+
+        def broken_add_file(*args, **kwargs):
+            raise OSError("persist failed")
+
+        storage.add_file = broken_add_file
+        try:
+            response = self.upload_request("broken.txt", b"payload", name="Phone")
+        finally:
+            storage.add_file = original_add_file
+
+        self.assertEqual(response["status"], 500)
+        self.assertEqual(app.get_snapshot()["files"], [])
+        self.assertFalse((config.UPLOAD_DIR / "broken.txt").exists())
+        with state.state_lock:
+            self.assertEqual(state.shared_state["reserved_upload_bytes"], 0)
+            self.assertEqual(state.shared_state["reserved_upload_names"], set())
 
     def test_upload_with_path_traversal_filename_stays_inside_upload_dir(self) -> None:
         self.start_server()
@@ -276,6 +328,8 @@ class SecurityHttpTests(CoreHttpTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
         app.load_persisted_workspaces()
 
         snapshot = app.get_snapshot("ops123")

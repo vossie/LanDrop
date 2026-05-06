@@ -17,6 +17,8 @@ from dassiedrop import config, state
 def reset_app_state() -> None:
     with state.state_lock:
         state.shared_state["workspaces"] = {}
+        state.shared_state["reserved_upload_bytes"] = 0
+        state.shared_state["reserved_upload_names"] = set()
     with state.session_lock:
         state.authorized_sessions.clear()
     with state.auth_attempt_lock:

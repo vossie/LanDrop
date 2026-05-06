@@ -26,6 +26,18 @@ class ApiTests(CoreStateTestCase):
         self.assertIsNone(result)
         self.assertEqual(handler.error_status, 400)
 
+    def test_parse_json_body_rejects_invalid_content_length(self) -> None:
+        handler = make_app_handler(
+            headers={"Content-Length": "abc"},
+            body=b"{}",
+        )
+
+        result = handler.parse_json_body()
+
+        self.assertIsNone(result)
+        self.assertEqual(handler.error_status, 400)
+        self.assertEqual(handler.error_message, "Invalid Content-Length")
+
     def test_upload_parser_enforces_size_limit(self) -> None:
         handler = make_app_handler(
             headers={
@@ -38,6 +50,21 @@ class ApiTests(CoreStateTestCase):
 
         self.assertIsNone(result)
         self.assertEqual(handler.error_status, 413)
+
+    def test_upload_parser_rejects_invalid_content_length(self) -> None:
+        handler = make_app_handler(
+            headers={
+                "Content-Type": "multipart/form-data; boundary=----BadLength",
+                "Content-Length": "wat",
+            },
+            body=b"",
+        )
+
+        result = handler.parse_file_upload_request()
+
+        self.assertIsNone(result)
+        self.assertEqual(handler.error_status, 400)
+        self.assertEqual(handler.error_message, "Invalid Content-Length")
 
     def test_api_responses_are_consistent_and_parseable(self) -> None:
         payload = app.json_bytes({"ok": True, "type": "text"})

@@ -120,7 +120,9 @@ class AppHandler(BaseHTTPRequestHandler):
         self.wfile.write(data)
 
     def read_json_body(self) -> dict | None:
-        length = int(self.headers.get("Content-Length", "0"))
+        length = self.parse_content_length()
+        if length is None:
+            return None
         if length > config.MAX_JSON_BODY_SIZE:
             self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "JSON body too large")
             return None
@@ -733,7 +735,9 @@ class AppHandler(BaseHTTPRequestHandler):
         if parsed is None:
             return
 
-        self.store_file_upload(parsed, workspace_id)
+        created = self.store_file_upload(parsed, workspace_id)
+        if created is None:
+            return
         snapshot = storage.get_snapshot(workspace_id)
         self.send_json(snapshot)
         websocket.broadcast_snapshot(workspace_id, snapshot)
@@ -748,7 +752,6 @@ class AppHandler(BaseHTTPRequestHandler):
 
         created = self.store_file_upload(parsed, workspace_id)
         if created is None:
-            self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not create file entry")
             return
         snapshot = storage.get_snapshot(workspace_id)
         self.send_json(share_payload("file", created, base_url_from_request(self)))
@@ -767,7 +770,9 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_error(HTTPStatus.BAD_REQUEST, "Missing multipart boundary")
             return None
 
-        length = int(self.headers.get("Content-Length", "0"))
+        length = self.parse_content_length()
+        if length is None:
+            return None
         if length <= 0:
             self.send_error(HTTPStatus.BAD_REQUEST, "Empty upload")
             return None
@@ -798,30 +803,56 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def store_file_upload(self, parsed: dict, workspace_id: str) -> dict | None:
         storage.ensure_upload_dir()
-        if config.MAX_TOTAL_STORAGE_BYTES > 0:
-            current_bytes = storage.total_storage_bytes()
-            if current_bytes + int(parsed["file_size"]) > config.MAX_TOTAL_STORAGE_BYTES:
+        file_size = int(parsed["file_size"])
+        with state.state_lock:
+            if not storage.reserve_upload_capacity_locked(file_size):
                 Path(parsed["temp_path"]).unlink(missing_ok=True)
                 self.send_error(HTTPStatus.INSUFFICIENT_STORAGE, "Storage quota exceeded")
                 return None
-        stored_name = storage.unique_filename(parsed["filename"])
-        target = storage.upload_path(stored_name)
-        if target is None:
-            Path(parsed["temp_path"]).unlink(missing_ok=True)
+            stored_name = storage.reserve_upload_target_name_locked(parsed["filename"])
+            target = storage.upload_path(stored_name)
+            if target is None:
+                storage.release_reserved_upload_bytes_locked(file_size)
+                storage.release_upload_target_name_locked(stored_name)
+                Path(parsed["temp_path"]).unlink(missing_ok=True)
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not store uploaded file")
+                return None
+        try:
+            shutil.move(parsed["temp_path"], target)
+            created = storage.add_file(
+                parsed["filename"],
+                stored_name,
+                file_size,
+                hidden=parsed["hidden"],
+                password=parsed["password"],
+                sharer_name=parsed["name"],
+                sharer_ip=self.client_address[0],
+                workspace_id=workspace_id,
+            )
+            created["workspace_id"] = workspace_id
+            return created
+        except Exception:
+            if target.exists():
+                target.unlink(missing_ok=True)
+            if isinstance(self, AppHandler):
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not store uploaded file")
             return None
-        shutil.move(parsed["temp_path"], target)
+        finally:
+            with state.state_lock:
+                storage.release_reserved_upload_bytes_locked(file_size)
+                storage.release_upload_target_name_locked(stored_name)
 
-        storage.add_file(
-            parsed["filename"],
-            stored_name,
-            parsed["file_size"],
-            hidden=parsed["hidden"],
-            password=parsed["password"],
-            sharer_name=parsed["name"],
-            sharer_ip=self.client_address[0],
-            workspace_id=workspace_id,
-        )
-        return storage.find_file_entry(storage.get_snapshot(workspace_id)["files"][0]["id"], workspace_id=workspace_id)
+    def parse_content_length(self) -> int | None:
+        raw_value = self.headers.get("Content-Length", "0").strip()
+        try:
+            length = int(raw_value or "0")
+        except ValueError:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid Content-Length")
+            return None
+        if length < 0:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid Content-Length")
+            return None
+        return length
 
     def parse_multipart_file_stream(self, length: int, boundary: bytes):
         marker = b"--" + boundary

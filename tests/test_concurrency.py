@@ -2,7 +2,7 @@ import json
 import threading
 
 import app
-from dassiedrop import config
+from dassiedrop import config, state
 
 from tests.support import CoreHttpTestCase, CoreStateTestCase
 
@@ -130,3 +130,36 @@ class ConcurrencyHttpTests(CoreHttpTestCase):
             {item["name"] for item in snapshot["files"]},
             {f"upload-{index}.txt" for index in range(5)},
         )
+
+    def test_concurrent_http_uploads_respect_global_storage_quota(self) -> None:
+        self.start_server()
+        config.MAX_TOTAL_STORAGE_BYTES = len(b"payload-0")
+        barrier = threading.Barrier(2)
+        results = []
+        errors = []
+
+        def worker(index: int) -> None:
+            try:
+                barrier.wait(timeout=5)
+                response = self.upload_request(
+                    f"quota-{index}.txt",
+                    b"payload-0",
+                    name=f"Client-{index}",
+                )
+                results.append(response["status"])
+            except Exception as exc:  # pragma: no cover
+                errors.append(exc)
+
+        threads = [threading.Thread(target=worker, args=(index,)) for index in range(2)]
+        for thread in threads:
+            thread.start()
+        for thread in threads:
+            thread.join(timeout=5)
+
+        self.assertEqual(errors, [])
+        self.assertEqual(sorted(results), [200, 507])
+        snapshot = json.loads(self.request("GET", "/api/state")["body"])
+        self.assertEqual(len(snapshot["files"]), 1)
+        self.assertEqual(snapshot["files"][0]["size"], len(b"payload-0"))
+        with state.state_lock:
+            self.assertEqual(state.shared_state["reserved_upload_bytes"], 0)

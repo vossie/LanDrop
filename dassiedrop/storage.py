@@ -1,6 +1,7 @@
 import hashlib
 import hmac
 import json
+import math
 import mimetypes
 import secrets
 import tempfile
@@ -159,6 +160,53 @@ def total_storage_bytes() -> int:
     return total
 
 
+def reset_shared_state_locked(workspaces: dict | None = None) -> None:
+    state.shared_state["workspaces"] = {} if workspaces is None else workspaces
+    state.shared_state["reserved_upload_bytes"] = 0
+    state.shared_state["reserved_upload_names"] = set()
+
+
+def reserve_upload_capacity_locked(size: int) -> bool:
+    requested = max(0, int(size))
+    reserved = int(state.shared_state.get("reserved_upload_bytes", 0) or 0)
+    if (
+        config.MAX_TOTAL_STORAGE_BYTES > 0
+        and total_storage_bytes() + reserved + requested > config.MAX_TOTAL_STORAGE_BYTES
+    ):
+        return False
+    state.shared_state["reserved_upload_bytes"] = reserved + requested
+    return True
+
+
+def release_reserved_upload_bytes_locked(size: int) -> None:
+    reserved = int(state.shared_state.get("reserved_upload_bytes", 0) or 0)
+    state.shared_state["reserved_upload_bytes"] = max(0, reserved - max(0, int(size)))
+
+
+def reserve_upload_target_name_locked(name: str) -> str:
+    reserved_names = state.shared_state.setdefault("reserved_upload_names", set())
+    candidate = sanitize_filename(name)
+    path = config.UPLOAD_DIR / candidate
+    if not path.exists() and candidate not in reserved_names:
+        reserved_names.add(candidate)
+        return candidate
+
+    stem = Path(candidate).stem
+    suffix = Path(candidate).suffix
+    while True:
+        candidate = f"{stem}-{secrets.token_hex(4)}{suffix}"
+        path = config.UPLOAD_DIR / candidate
+        if not path.exists() and candidate not in reserved_names:
+            reserved_names.add(candidate)
+            return candidate
+
+
+def release_upload_target_name_locked(name: str) -> None:
+    reserved_names = state.shared_state.get("reserved_upload_names")
+    if isinstance(reserved_names, set):
+        reserved_names.discard(name)
+
+
 def build_workspace(
     name: str,
     password_hash: str | None = None,
@@ -247,7 +295,14 @@ def touch_workspace_locked(workspace: dict, persist_interval: float = 60.0) -> b
     return current - previous >= persist_interval
 
 
-def trim_workspace_history_locked(workspace: dict) -> None:
+def delete_file_artifacts(entries: list[dict]) -> None:
+    for item in entries:
+        target = upload_path(item["stored_name"])
+        if target is not None and target.exists():
+            target.unlink(missing_ok=True)
+
+
+def trim_workspace_history_locked(workspace: dict, delete_files: bool = True) -> list[dict]:
     overflow_files = []
     if len(workspace["texts"]) > config.MAX_TEXT_HISTORY:
         workspace["texts"] = workspace["texts"][: config.MAX_TEXT_HISTORY]
@@ -256,12 +311,11 @@ def trim_workspace_history_locked(workspace: dict) -> None:
         overflow_files = workspace["files"][config.MAX_FILE_HISTORY :]
         workspace["files"] = workspace["files"][: config.MAX_FILE_HISTORY]
 
-    for item in overflow_files:
-        target = upload_path(item["stored_name"])
-        if target is not None and target.exists():
-            target.unlink(missing_ok=True)
+    if delete_files:
+        delete_file_artifacts(overflow_files)
 
     recompute_workspace_updated_at_locked(workspace)
+    return overflow_files
 
 
 def prune_workspace_locked(workspace: dict) -> bool:
@@ -355,10 +409,29 @@ def load_persisted_workspaces() -> None:
     loaded_workspaces = {}
     restored_short_codes = set()
 
+    def restore_float(value: object, default: float) -> float:
+        try:
+            restored = float(value)
+        except (TypeError, ValueError):
+            return default
+        if not math.isfinite(restored):
+            return default
+        return restored
+
+    def restore_int(value: object, default: int) -> int:
+        try:
+            restored = int(value)
+        except (TypeError, ValueError):
+            return default
+        if restored < 0:
+            return default
+        return restored
+
     def restore_text_entry(text_item: dict) -> dict | None:
         content = text_item.get("content")
         if not isinstance(content, str):
             return None
+        now = config.now_ts()
         short_code = str(text_item.get("short_code") or "").strip().upper()
         if not short_code or short_code in restored_short_codes:
             while True:
@@ -376,9 +449,9 @@ def load_persisted_workspaces() -> None:
             "sharer_name": str(text_item.get("sharer_name") or "").strip(),
             "sharer_ip": str(text_item.get("sharer_ip") or "").strip(),
             "short_code": short_code,
-            "created_at": float(text_item.get("created_at") or config.now_ts()),
-            "expires_at": float(
-                text_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
+            "created_at": restore_float(text_item.get("created_at"), now),
+            "expires_at": restore_float(
+                text_item.get("expires_at"), now + config.EXPIRY_SECONDS
             ),
         }
 
@@ -389,6 +462,7 @@ def load_persisted_workspaces() -> None:
         target = upload_path(stored_name)
         if target is None or not target.exists() or not target.is_file():
             return None
+        now = config.now_ts()
         short_code = str(file_item.get("short_code") or "").strip().upper()
         if not short_code or short_code in restored_short_codes:
             while True:
@@ -400,7 +474,7 @@ def load_persisted_workspaces() -> None:
             "id": str(file_item.get("id") or make_id()),
             "name": sanitize_filename(str(file_item.get("name") or stored_name)),
             "stored_name": stored_name,
-            "size": int(file_item.get("size") or target.stat().st_size),
+            "size": restore_int(file_item.get("size"), target.stat().st_size),
             "hidden": bool(file_item.get("hidden", False)),
             "password_hash": file_item.get("password_hash")
             if isinstance(file_item.get("password_hash"), str)
@@ -408,9 +482,9 @@ def load_persisted_workspaces() -> None:
             "sharer_name": str(file_item.get("sharer_name") or "").strip(),
             "sharer_ip": str(file_item.get("sharer_ip") or "").strip(),
             "short_code": short_code,
-            "created_at": float(file_item.get("created_at") or config.now_ts()),
-            "expires_at": float(
-                file_item.get("expires_at") or (config.now_ts() + config.EXPIRY_SECONDS)
+            "created_at": restore_float(file_item.get("created_at"), now),
+            "expires_at": restore_float(
+                file_item.get("expires_at"), now + config.EXPIRY_SECONDS
             ),
         }
 
@@ -433,12 +507,10 @@ def load_persisted_workspaces() -> None:
                     else None,
                     workspace_id=workspace_id,
                     slug=str(item.get("slug") or workspace_slug(str(item.get("name") or config.DEFAULT_WORKSPACE_NAME))),
-                    created_at=float(item.get("created_at") or config.now_ts()),
-                    last_used_at=float(
-                        item.get("last_used_at")
-                        or item.get("updated_at")
-                        or item.get("created_at")
-                        or config.now_ts()
+                    created_at=restore_float(item.get("created_at"), config.now_ts()),
+                    last_used_at=restore_float(
+                        item.get("last_used_at") or item.get("updated_at") or item.get("created_at"),
+                        config.now_ts(),
                     ),
                 )
                 raw_texts = item.get("texts", [])
@@ -500,7 +572,7 @@ def load_persisted_workspaces() -> None:
                 loaded_workspaces[workspace["id"]] = workspace
 
     with state.state_lock:
-        state.shared_state["workspaces"] = loaded_workspaces
+        reset_shared_state_locked(loaded_workspaces)
         ensure_default_workspace_locked()
         persist_workspaces_locked()
 
@@ -774,32 +846,41 @@ def add_file(
     sharer_name: str = "",
     sharer_ip: str = "",
     workspace_id: str = config.DEFAULT_WORKSPACE_ID,
-) -> None:
+) -> dict:
     with state.state_lock:
         workspace = get_workspace_locked(workspace_id)
         if workspace is None:
             workspace = ensure_default_workspace_locked()
         prune_workspace_locked(workspace)
+        previous_files = list(workspace["files"])
+        previous_updated_at = workspace.get("updated_at", 0.0)
+        previous_last_used_at = workspace.get("last_used_at", workspace["created_at"])
         created_at = config.now_ts()
-        workspace["files"].insert(
-            0,
-            {
-                "id": make_id(),
-                "name": original_name,
-                "stored_name": stored_name,
-                "size": size,
-                "hidden": hidden,
-                "password_hash": hash_password(password) if password else None,
-                "sharer_name": sharer_name.strip(),
-                "sharer_ip": sharer_ip.strip(),
-                "short_code": make_unique_short_code_locked(),
-                "created_at": created_at,
-                "expires_at": created_at + config.EXPIRY_SECONDS,
-            },
-        )
-        trim_workspace_history_locked(workspace)
+        entry = {
+            "id": make_id(),
+            "name": original_name,
+            "stored_name": stored_name,
+            "size": size,
+            "hidden": hidden,
+            "password_hash": hash_password(password) if password else None,
+            "sharer_name": sharer_name.strip(),
+            "sharer_ip": sharer_ip.strip(),
+            "short_code": make_unique_short_code_locked(),
+            "created_at": created_at,
+            "expires_at": created_at + config.EXPIRY_SECONDS,
+        }
+        workspace["files"].insert(0, entry)
+        overflow_files = trim_workspace_history_locked(workspace, delete_files=False)
         touch_workspace_locked(workspace, persist_interval=0.0)
-        persist_workspaces_locked()
+        try:
+            persist_workspaces_locked()
+        except Exception:
+            workspace["files"] = previous_files
+            workspace["updated_at"] = previous_updated_at
+            workspace["last_used_at"] = previous_last_used_at
+            raise
+        delete_file_artifacts(overflow_files)
+        return dict(entry)
 
 
 def delete_file_entry(file_id: str, workspace_id: str = config.DEFAULT_WORKSPACE_ID) -> bool:

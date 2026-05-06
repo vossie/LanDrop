@@ -14,6 +14,8 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_workspaces()
 
@@ -43,6 +45,8 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_workspaces()
 
@@ -58,12 +62,163 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_workspaces()
 
         listed = app.list_workspaces()
         self.assertEqual(len(listed), 1)
         self.assertEqual(listed[0]["id"], app.DEFAULT_WORKSPACE_ID)
+
+    def test_corrupted_metadata_fields_are_ignored_without_crashing_reload(self) -> None:
+        target = config.UPLOAD_DIR / "kept.txt"
+        target.write_text("payload", encoding="utf-8")
+        payload = {
+            "workspaces": [
+                {
+                    "id": "ops123",
+                    "name": "Ops Room",
+                    "slug": "ops-room",
+                    "created_at": "not-a-float",
+                    "updated_at": "also-bad",
+                    "last_used_at": "still-bad",
+                    "texts": [
+                        {
+                            "id": "text123",
+                            "content": "alpha",
+                            "hidden": False,
+                            "short_code": "ABCD",
+                            "created_at": "broken",
+                            "expires_at": "broken-too",
+                        }
+                    ],
+                    "files": [
+                        {
+                            "id": "file123",
+                            "name": "kept.txt",
+                            "stored_name": "kept.txt",
+                            "size": "abc",
+                            "hidden": False,
+                            "short_code": "EFGH",
+                            "created_at": "broken",
+                            "expires_at": "broken-too",
+                        }
+                    ],
+                }
+            ]
+        }
+        app.uploads_index_path().write_text(json.dumps(payload), encoding="utf-8")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
+
+        app.load_persisted_workspaces()
+
+        snapshot = app.get_snapshot("ops123")
+        self.assertEqual(snapshot["texts"][0]["content"], "alpha")
+        self.assertEqual(snapshot["files"][0]["name"], "kept.txt")
+        self.assertEqual(snapshot["files"][0]["size"], target.stat().st_size)
+
+    def test_negative_persisted_file_size_falls_back_to_actual_file_size(self) -> None:
+        target = config.UPLOAD_DIR / "negative.txt"
+        target.write_text("payload", encoding="utf-8")
+        payload = {
+            "workspaces": [
+                {
+                    "id": "ops123",
+                    "name": "Ops Room",
+                    "slug": "ops-room",
+                    "created_at": self.current_time,
+                    "updated_at": self.current_time,
+                    "last_used_at": self.current_time,
+                    "texts": [],
+                    "files": [
+                        {
+                            "id": "file123",
+                            "name": "negative.txt",
+                            "stored_name": "negative.txt",
+                            "size": -5,
+                            "hidden": False,
+                            "short_code": "EFGH",
+                            "created_at": self.current_time,
+                            "expires_at": self.current_time + app.EXPIRY_SECONDS,
+                        }
+                    ],
+                }
+            ]
+        }
+        app.uploads_index_path().write_text(json.dumps(payload), encoding="utf-8")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
+
+        app.load_persisted_workspaces()
+
+        snapshot = app.get_snapshot("ops123")
+        self.assertEqual(snapshot["files"][0]["size"], target.stat().st_size)
+
+    def test_non_finite_persisted_timestamps_fall_back_to_defaults(self) -> None:
+        target = config.UPLOAD_DIR / "finite.txt"
+        target.write_text("payload", encoding="utf-8")
+        payload = {
+            "workspaces": [
+                {
+                    "id": "ops123",
+                    "name": "Ops Room",
+                    "slug": "ops-room",
+                    "created_at": "NaN",
+                    "updated_at": "Infinity",
+                    "last_used_at": "-Infinity",
+                    "texts": [
+                        {
+                            "id": "text123",
+                            "content": "alpha",
+                            "hidden": False,
+                            "short_code": "ABCD",
+                            "created_at": "NaN",
+                            "expires_at": "Infinity",
+                        }
+                    ],
+                    "files": [
+                        {
+                            "id": "file123",
+                            "name": "finite.txt",
+                            "stored_name": "finite.txt",
+                            "size": 7,
+                            "hidden": False,
+                            "short_code": "EFGH",
+                            "created_at": "-Infinity",
+                            "expires_at": "NaN",
+                        }
+                    ],
+                }
+            ]
+        }
+        app.uploads_index_path().write_text(json.dumps(payload), encoding="utf-8")
+
+        with state.state_lock:
+            state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
+
+        app.load_persisted_workspaces()
+
+        snapshot = app.get_snapshot("ops123")
+        self.assertEqual(snapshot["texts"][0]["created_at"], self.current_time)
+        self.assertEqual(
+            snapshot["texts"][0]["expires_at"],
+            self.current_time + app.EXPIRY_SECONDS,
+        )
+        self.assertEqual(snapshot["files"][0]["created_at"], self.current_time)
+        self.assertEqual(
+            snapshot["files"][0]["expires_at"],
+            self.current_time + app.EXPIRY_SECONDS,
+        )
 
     def test_reload_ignores_unknown_workspace_records_and_repairs_index(self) -> None:
         stray = config.UPLOAD_DIR / "kept.txt"
@@ -97,6 +252,8 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_workspaces()
 
@@ -133,6 +290,8 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_workspaces()
         listed = {
@@ -149,6 +308,8 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
+            state.shared_state["reserved_upload_names"] = set()
 
         app.load_persisted_workspaces()
 
@@ -203,6 +364,7 @@ class PersistenceTests(CoreStateTestCase):
 
         with state.state_lock:
             state.shared_state["workspaces"] = {}
+            state.shared_state["reserved_upload_bytes"] = 0
 
         app.load_persisted_workspaces()
 
