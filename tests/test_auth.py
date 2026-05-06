@@ -1,6 +1,6 @@
 import json
 
-from dassiedrop import auth, config
+from dassiedrop import auth, config, state
 
 import app
 from tests.support import CoreStateTestCase, make_app_handler
@@ -31,3 +31,25 @@ class AuthTests(CoreStateTestCase):
         self.assertIsNotNone(latest)
         self.assertIsNone(latest["content"])
         self.assertTrue(latest["password_required"])
+
+    def test_sessions_expire_after_ttl(self) -> None:
+        session_id = auth.create_authorized_session()
+        handler = make_app_handler(headers={"Cookie": f"session={session_id}"})
+
+        session_key, session = auth.get_session(handler)
+        self.assertEqual(session_key, session_id)
+        self.assertIsNotNone(session)
+
+        self.current_time += config.SESSION_TTL_SECONDS + 1
+        session_key, session = auth.get_session(handler)
+
+        self.assertIsNone(session_key)
+        self.assertIsNone(session)
+
+    def test_cleanup_authorized_sessions_removes_expired_sessions(self) -> None:
+        session_id = auth.create_authorized_session()
+
+        self.current_time += config.SESSION_TTL_SECONDS + 1
+        auth.cleanup_authorized_sessions()
+
+        self.assertNotIn(session_id, state.authorized_sessions)

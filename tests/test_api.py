@@ -204,8 +204,18 @@ class ApiContractHttpTests(CoreHttpTestCase):
 
         self.assertEqual(response["status"], 200)
         self.assertEqual(response["headers"]["Content-Type"], "text/plain")
+        self.assertEqual(response["headers"]["X-Content-Type-Options"], "nosniff")
         self.assertIn("attachment;", response["headers"]["Content-Disposition"])
         self.assertEqual(response["body"], b"payload")
+
+    def test_https_responses_include_hsts_header(self) -> None:
+        self.start_server()
+        self.server.is_https = True
+
+        response = self.request("GET", "/workspaces")
+
+        self.assertEqual(response["status"], 200)
+        self.assertIn("Strict-Transport-Security", response["headers"])
 
     def test_text_share_contract_headers_are_stable(self) -> None:
         self.start_server()

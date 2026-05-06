@@ -2,6 +2,8 @@ const resolvedShareBaseUrl =
   (typeof configuredShareBaseUrl === "string" && configuredShareBaseUrl) ||
   (window.LANDROP_CONFIG && window.LANDROP_CONFIG.shareBaseUrl) ||
   "";
+const csrfToken =
+  (window.LANDROP_CONFIG && window.LANDROP_CONFIG.csrfToken) || "";
 const sharedText = document.getElementById("sharedText");
 const sharerName = document.getElementById("sharerName");
 const textPanel = document.getElementById("textPanel");
@@ -46,6 +48,13 @@ const fileAccordionState = new Map();
 let stateSocket = null;
 let websocketRetryTimer = null;
 let pollingTimer = null;
+
+function withCsrfHeaders(headers = {}) {
+  if (!csrfToken) {
+    return headers;
+  }
+  return { ...headers, "X-CSRF-Token": csrfToken };
+}
 
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
@@ -343,7 +352,8 @@ async function copyText(content) {
 async function deleteText(id) {
   try {
     const response = await fetch(`/api/text/${encodeURIComponent(id)}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: withCsrfHeaders()
     });
     if (!response.ok) {
       throw new Error(`Delete failed: ${response.status}`);
@@ -375,7 +385,7 @@ async function revealProtectedText(entry) {
   try {
     const response = await fetch(`/api/text/${encodeURIComponent(entry.id)}/reveal`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withCsrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ password })
     });
     if (!response.ok) {
@@ -455,7 +465,8 @@ function isKnownImageMimeType(contentType) {
 async function deleteFile(id) {
   try {
     const response = await fetch(`/api/file/${encodeURIComponent(id)}`, {
-      method: "DELETE"
+      method: "DELETE",
+      headers: withCsrfHeaders()
     });
     if (!response.ok) {
       throw new Error(`Delete failed: ${response.status}`);
@@ -917,7 +928,7 @@ async function saveText() {
   try {
     const response = await fetch("/api/text", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withCsrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({
         text: submittedText,
         hidden: submittedHidden,
@@ -967,6 +978,7 @@ async function uploadFile(file = fileInput.files[0]) {
   try {
     const response = await fetch("/api/upload", {
       method: "POST",
+      headers: withCsrfHeaders(),
       body: formData
     });
     if (!response.ok) {

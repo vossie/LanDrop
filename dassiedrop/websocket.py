@@ -104,6 +104,7 @@ def start_background_tasks() -> None:
             from . import auth
 
             auth.cleanup_throttle_failures()
+            auth.cleanup_authorized_sessions()
             for workspace_id in storage.prune_expired_entries():
                 broadcast_snapshot(workspace_id)
 

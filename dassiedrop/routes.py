@@ -104,14 +104,36 @@ class AppHandler(BaseHTTPRequestHandler):
         "object-src 'none'; base-uri 'self'; frame-ancestors 'none'"
     )
 
+    def send_common_security_headers(self) -> None:
+        self.send_header("X-Content-Type-Options", "nosniff")
+        if getattr(self.server, "is_https", False):
+            self.send_header("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+
     def send_throttled(self, message: str, retry_after: int) -> None:
         data = message.encode("utf-8")
         self.send_response(HTTPStatus.TOO_MANY_REQUESTS)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_common_security_headers()
         self.send_header("Retry-After", str(retry_after))
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def read_json_body(self) -> dict | None:
+        length = int(self.headers.get("Content-Length", "0"))
+        if length > config.MAX_JSON_BODY_SIZE:
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "JSON body too large")
+            return None
+        body = self.rfile.read(length) if length > 0 else b"{}"
+        try:
+            payload = json.loads(body.decode("utf-8"))
+        except json.JSONDecodeError:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return None
+        if not isinstance(payload, dict):
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+            return None
+        return payload
 
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
@@ -193,6 +215,9 @@ class AppHandler(BaseHTTPRequestHandler):
         if parsed.path == "/login":
             self.handle_login()
             return
+        if not auth.validate_csrf(self):
+            self.send_error(HTTPStatus.FORBIDDEN, "CSRF token required")
+            return
 
         if config.ACCESS_CODE and not auth.is_authorized(self):
             self.send_error(HTTPStatus.UNAUTHORIZED, "Access code required")
@@ -236,6 +261,9 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def do_DELETE(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
+        if not auth.validate_csrf(self):
+            self.send_error(HTTPStatus.FORBIDDEN, "CSRF token required")
+            return
         if config.ACCESS_CODE and not auth.is_authorized(self):
             self.send_error(HTTPStatus.UNAUTHORIZED, "Access code required")
             return
@@ -299,6 +327,7 @@ class AppHandler(BaseHTTPRequestHandler):
                     "__SHARE_BASE_URL__": json.dumps(get_share_base_url()),
                     "__APP_VERSION__": html.escape(get_app_version()),
                     "__WORKSPACE_NAME__": html.escape(storage.compact_workspace_name(workspace["name"])),
+                    "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
                 },
             ),
             cookie=cookie,
@@ -309,11 +338,14 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_html(render_template("login.html"))
             return
 
-        _, _, cookie = auth.ensure_browser_session(self)
+        _, session, cookie = auth.ensure_browser_session(self)
         self.send_html(
             render_template(
                 "workspaces.html",
-                {"__APP_VERSION__": html.escape(get_app_version())},
+                {
+                    "__APP_VERSION__": html.escape(get_app_version()),
+                    "__CSRF_TOKEN__": html.escape(auth.csrf_token(session)),
+                },
             ),
             cookie=cookie,
         )
@@ -370,12 +402,8 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_throttled("Too many access code attempts", retry_after)
             return
 
-        length = int(self.headers.get("Content-Length", "0"))
-        body = self.rfile.read(length)
-        try:
-            payload = json.loads(body.decode("utf-8"))
-        except json.JSONDecodeError:
-            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
+        payload = self.read_json_body()
+        if payload is None:
             return
 
         code = payload.get("code", "")
@@ -392,17 +420,7 @@ class AppHandler(BaseHTTPRequestHandler):
         )
 
     def parse_json_body(self) -> dict | None:
-        length = int(self.headers.get("Content-Length", "0"))
-        body = self.rfile.read(length) if length > 0 else b"{}"
-        try:
-            payload = json.loads(body.decode("utf-8"))
-        except json.JSONDecodeError:
-            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
-            return None
-        if not isinstance(payload, dict):
-            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid JSON")
-            return None
-        return payload
+        return self.read_json_body()
 
     def handle_workspace_create(self) -> None:
         payload = self.parse_json_body()
@@ -780,6 +798,12 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def store_file_upload(self, parsed: dict, workspace_id: str) -> dict | None:
         storage.ensure_upload_dir()
+        if config.MAX_TOTAL_STORAGE_BYTES > 0:
+            current_bytes = storage.total_storage_bytes()
+            if current_bytes + int(parsed["file_size"]) > config.MAX_TOTAL_STORAGE_BYTES:
+                Path(parsed["temp_path"]).unlink(missing_ok=True)
+                self.send_error(HTTPStatus.INSUFFICIENT_STORAGE, "Storage quota exceeded")
+                return None
         stored_name = storage.unique_filename(parsed["filename"])
         target = storage.upload_path(stored_name)
         if target is None:
@@ -1032,6 +1056,7 @@ class AppHandler(BaseHTTPRequestHandler):
         content_type = storage.guess_content_type(entry["name"])
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
+        self.send_common_security_headers()
         disposition = "attachment" if as_attachment else "inline"
         self.send_header(
             "Content-Disposition",
@@ -1057,6 +1082,7 @@ class AppHandler(BaseHTTPRequestHandler):
         content_type = storage.guess_content_type(target.name)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", content_type)
+        self.send_common_security_headers()
         self.send_header("Cache-Control", "public, max-age=3600")
         self.send_header("Content-Length", str(target.stat().st_size))
         self.end_headers()
@@ -1067,6 +1093,7 @@ class AppHandler(BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_common_security_headers()
         self.send_header("Content-Security-Policy", self.content_security_policy)
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Pragma", "no-cache")
@@ -1081,6 +1108,7 @@ class AppHandler(BaseHTTPRequestHandler):
         data = storage.json_bytes(payload)
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "application/json; charset=utf-8")
+        self.send_common_security_headers()
         self.send_header("Cache-Control", "no-store")
         if cookie:
             self.send_header("Set-Cookie", cookie)
@@ -1092,6 +1120,7 @@ class AppHandler(BaseHTTPRequestHandler):
         data = body.encode("utf-8")
         self.send_response(HTTPStatus.OK)
         self.send_header("Content-Type", "text/plain; charset=utf-8")
+        self.send_common_security_headers()
         self.send_header("Cache-Control", "no-store")
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
@@ -1100,6 +1129,7 @@ class AppHandler(BaseHTTPRequestHandler):
     def redirect(self, location: str, cookie: str | None = None) -> None:
         self.send_response(HTTPStatus.SEE_OTHER)
         self.send_header("Location", location)
+        self.send_common_security_headers()
         self.send_header("Cache-Control", "no-store, no-cache, must-revalidate")
         self.send_header("Pragma", "no-cache")
         self.send_header("Expires", "0")

@@ -6,7 +6,16 @@ const workspacePasswordWrap = document.getElementById("workspacePasswordWrap");
 const workspacePassword = document.getElementById("workspacePassword");
 const createWorkspaceBtn = document.getElementById("createWorkspaceBtn");
 const requestedWorkspaceSlug = new URLSearchParams(window.location.search).get("workspace") || "";
+const csrfToken =
+  (window.LANDROP_CONFIG && window.LANDROP_CONFIG.csrfToken) || "";
 let pendingWorkspaceAction = null;
+
+function withCsrfHeaders(headers = {}) {
+  if (!csrfToken) {
+    return headers;
+  }
+  return { ...headers, "X-CSRF-Token": csrfToken };
+}
 
 window.addEventListener("pageshow", (event) => {
   if (event.persisted) {
@@ -45,7 +54,7 @@ async function openWorkspace(workspace) {
   try {
     const response = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/enter`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withCsrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ password: "" })
     });
     if (!response.ok) {
@@ -133,7 +142,7 @@ function renderWorkspaces(workspaces, currentWorkspaceId) {
       try {
         const response = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}`, {
           method: "DELETE",
-          headers: { "Content-Type": "application/json" },
+          headers: withCsrfHeaders({ "Content-Type": "application/json" }),
           body: JSON.stringify({ password: "" })
         });
         if (!response.ok) {
@@ -213,7 +222,7 @@ function renderWorkspaces(workspaces, currentWorkspaceId) {
           if (action === "delete") {
             const response = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}`, {
               method: "DELETE",
-              headers: { "Content-Type": "application/json" },
+              headers: withCsrfHeaders({ "Content-Type": "application/json" }),
               body: JSON.stringify({ password })
             });
             if (!response.ok) {
@@ -228,7 +237,7 @@ function renderWorkspaces(workspaces, currentWorkspaceId) {
 
           const response = await fetch(`/api/workspaces/${encodeURIComponent(workspace.id)}/enter`, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: withCsrfHeaders({ "Content-Type": "application/json" }),
             body: JSON.stringify({ password })
           });
           if (!response.ok) {
@@ -274,7 +283,7 @@ async function createWorkspace() {
   try {
     const response = await fetch("/api/workspaces", {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: withCsrfHeaders({ "Content-Type": "application/json" }),
       body: JSON.stringify({ name, password })
     });
     if (!response.ok) {

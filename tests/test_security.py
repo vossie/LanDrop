@@ -171,6 +171,52 @@ class SecurityTests(CoreStateTestCase):
 
 
 class SecurityHttpTests(CoreHttpTestCase):
+    def test_cookie_backed_mutations_require_csrf_token(self) -> None:
+        self.start_server()
+        cookie = self.request("GET", "/workspaces")["headers"]["Set-Cookie"].split(";", 1)[0]
+
+        blocked = self.request(
+            "POST",
+            "/api/workspaces",
+            body=json.dumps({"name": "Ops Room", "password": ""}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "Origin": "http://127.0.0.1",
+            },
+        )
+
+        self.assertEqual(blocked["status"], 403)
+
+    def test_cookie_backed_mutations_accept_valid_csrf_token(self) -> None:
+        self.start_server()
+        page = self.request("GET", "/workspaces")
+        cookie = page["headers"]["Set-Cookie"].split(";", 1)[0]
+        marker = 'csrfToken: "'
+        token = page["text"].split(marker, 1)[1].split('"', 1)[0]
+
+        allowed = self.request(
+            "POST",
+            "/api/workspaces",
+            body=json.dumps({"name": "Ops Room", "password": ""}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "Cookie": cookie,
+                "Origin": "http://127.0.0.1",
+                "X-CSRF-Token": token,
+            },
+        )
+
+        self.assertEqual(allowed["status"], 200)
+
+    def test_upload_is_rejected_when_global_storage_quota_is_exceeded(self) -> None:
+        self.start_server()
+        config.MAX_TOTAL_STORAGE_BYTES = 3
+
+        response = self.upload_request("quota.txt", b"payload", name="Phone")
+
+        self.assertEqual(response["status"], 507)
+
     def test_upload_with_path_traversal_filename_stays_inside_upload_dir(self) -> None:
         self.start_server()
 

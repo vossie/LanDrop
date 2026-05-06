@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import app
+from dassiedrop import config
 
 from tests.support import CoreStateTestCase, make_app_handler
 
@@ -46,6 +47,20 @@ class InputValidationTests(CoreStateTestCase):
         self.assertIsNone(parsed)
         self.assertEqual(handler.error_status, 400)
         self.assertEqual(handler.error_message, "Name must be a string")
+
+    def test_json_body_rejects_payloads_over_size_cap(self) -> None:
+        config.MAX_JSON_BODY_SIZE = 8
+        body = b'{"text":"too long"}'
+        handler = make_app_handler(
+            headers={"Content-Length": str(len(body))},
+            body=body,
+        )
+
+        parsed = handler.parse_json_body()
+
+        self.assertIsNone(parsed)
+        self.assertEqual(handler.error_status, 413)
+        self.assertEqual(handler.error_message, "JSON body too large")
 
     def test_file_upload_parser_rejects_missing_boundary(self) -> None:
         handler = make_app_handler(

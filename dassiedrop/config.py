@@ -11,6 +11,8 @@ TEMPLATES_DIR = BASE_DIR / "templates"
 VERSION_FILE = BASE_DIR / "VERSION"
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads"))).resolve()
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1 GB
+MAX_JSON_BODY_SIZE = int(os.environ.get("MAX_JSON_BODY_SIZE", str(1024 * 1024)))
+MAX_TOTAL_STORAGE_BYTES = int(os.environ.get("MAX_TOTAL_STORAGE_BYTES", "0"))
 EXPIRY_SECONDS = 24 * 60 * 60
 MAX_TEXT_HISTORY = 200
 MAX_FILE_HISTORY = 100
@@ -33,6 +35,7 @@ DEFAULT_WORKSPACE_NAME = "Default"
 AUTH_FAILURE_WINDOW_SECONDS = int(os.environ.get("AUTH_FAILURE_WINDOW_SECONDS", "60"))
 AUTH_MAX_FAILURES = int(os.environ.get("AUTH_MAX_FAILURES", "5"))
 AUTH_LOCKOUT_SECONDS = int(os.environ.get("AUTH_LOCKOUT_SECONDS", "60"))
+SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(7 * 24 * 60 * 60)))
 
 
 def now_ts() -> float:

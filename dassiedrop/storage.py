@@ -113,6 +113,21 @@ def make_upload_spool() -> tempfile.NamedTemporaryFile:
     return tempfile.NamedTemporaryFile(prefix="dassiedrop-upload-", suffix=".part", delete=False)
 
 
+def total_storage_bytes() -> int:
+    total = 0
+    if not config.UPLOAD_DIR.exists():
+        return 0
+    for path in config.UPLOAD_DIR.iterdir():
+        if path.name.startswith("."):
+            continue
+        try:
+            if path.is_file():
+                total += path.stat().st_size
+        except OSError:
+            continue
+    return total
+
+
 def build_workspace(
     name: str,
     password_hash: str | None = None,

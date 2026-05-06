@@ -34,6 +34,12 @@ def get_session(handler: BaseHTTPRequestHandler) -> tuple[str | None, dict | Non
         session = state.authorized_sessions.get(session_id)
         if session is None:
             return (None, None)
+        now = config.now_ts()
+        last_seen = float(session.get("last_seen_at") or session.get("created_at") or now)
+        if now - last_seen > config.SESSION_TTL_SECONDS:
+            state.authorized_sessions.pop(session_id, None)
+            return (None, None)
+        session["last_seen_at"] = now
         return (session_id, session)
 
 
@@ -51,8 +57,14 @@ def is_authorized(handler: BaseHTTPRequestHandler) -> bool:
 
 def create_authorized_session(workspace_id: str | None = None) -> str:
     session_id = make_session_id()
+    now = config.now_ts()
     with state.session_lock:
-        state.authorized_sessions[session_id] = {"workspace_id": workspace_id}
+        state.authorized_sessions[session_id] = {
+            "workspace_id": workspace_id,
+            "csrf_token": secrets.token_urlsafe(24),
+            "created_at": now,
+            "last_seen_at": now,
+        }
     return session_id
 
 
@@ -158,6 +170,54 @@ def ensure_browser_session(handler: BaseHTTPRequestHandler) -> tuple[str | None,
         session,
         session_cookie(session_id, secure=bool(getattr(handler.server, "is_https", False))),
     )
+
+
+def csrf_token(session: dict | None) -> str:
+    if not session:
+        return ""
+    value = session.get("csrf_token")
+    return value if isinstance(value, str) else ""
+
+
+def csrf_required(handler: BaseHTTPRequestHandler) -> bool:
+    if handler.command not in {"POST", "PUT", "PATCH", "DELETE"}:
+        return False
+    if handler.path == "/login":
+        return False
+    if handler.headers.get("X-API-Key", "").strip():
+        return False
+    if not bool(parse_cookies(handler.headers.get("Cookie", "")).get("session")):
+        return False
+    return bool(
+        handler.headers.get("Origin")
+        or handler.headers.get("Referer")
+        or handler.headers.get("Sec-Fetch-Site")
+    )
+
+
+def validate_csrf(handler: BaseHTTPRequestHandler) -> bool:
+    if not csrf_required(handler):
+        return True
+    _, session = get_session(handler)
+    if session is None:
+        return False
+    return hmac.compare_digest(
+        handler.headers.get("X-CSRF-Token", "").strip(),
+        csrf_token(session),
+    )
+
+
+def cleanup_authorized_sessions() -> None:
+    now = config.now_ts()
+    with state.session_lock:
+        expired = [
+            session_id
+            for session_id, session in state.authorized_sessions.items()
+            if now - float(session.get("last_seen_at") or session.get("created_at") or now)
+            > config.SESSION_TTL_SECONDS
+        ]
+        for session_id in expired:
+            state.authorized_sessions.pop(session_id, None)
 
 
 def requested_workspace_selector(handler: BaseHTTPRequestHandler) -> str:
