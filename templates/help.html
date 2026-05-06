@@ -38,35 +38,31 @@
   <section class="grid">
     <article class="panel tab-panel help-panel">
       <div class="panel-title help-panel-title">
+        <h2>Contents</h2>
+        <div class="meta">Jump to the part you need.</div>
+      </div>
+      <div class="help-copy">
+        <ul>
+          <li><a href="#lan-link-examples">LAN Link Examples</a></li>
+          <li><a href="#general-use">General Use</a></li>
+          <li><a href="#sharing-text">Sharing text</a></li>
+          <li><a href="#sharing-files">Sharing files</a></li>
+          <li><a href="#lan-links">LAN links</a></li>
+          <li><a href="#protecting-shared-content">Protecting shared content</a></li>
+          <li><a href="#password-behaviour">Password behaviour</a></li>
+          <li><a href="#using-lan-links-from-scripts">Using LAN links from scripts</a></li>
+          <li><a href="#api-access">API access</a></li>
+          <li><a href="#downloads-and-previews">Downloads and previews</a></li>
+        </ul>
+      </div>
+    </article>
+
+    <article id="lan-link-examples" class="panel tab-panel help-panel">
+      <div class="panel-title help-panel-title">
         <h2>LAN Link Examples</h2>
         <div class="meta">Use a LAN link directly from a terminal with curl.</div>
       </div>
       <div class="help-copy">
-        <p>Set the link once and print the shared text:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-curl -ksSL "$LAN_LINK"</code></pre>
-
-        <p>Store the shared text in a shell variable:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-SHARED_TEXT="$(curl -ksSL "$LAN_LINK")"
-printf '%s\n' "$SHARED_TEXT"</code></pre>
-
-        <p>Run the shared text as a command:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-bash -c "$(curl -ksSL "$LAN_LINK")"</code></pre>
-
-        <p>If the workspace is protected, add one access password header:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-curl -ksSL \
-  -H 'X-Access-Password: workspace-secret' \
-  "$LAN_LINK"</code></pre>
-
-        <p>If the shared item has its own password, use that same header instead. Object passwords override workspace passwords:</p>
-        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
-curl -ksSL \
-  -H 'X-Access-Password: item-secret' \
-  "$LAN_LINK"</code></pre>
-
         <p>LAN link access uses the most specific applicable protection rule. Object-level password protection overrides workspace-level password protection. Workspace password protection applies only when the object does not define its own password.</p>
 
         <p>LAN link access matrix:</p>
@@ -101,23 +97,136 @@ curl -ksSL \
             </tr>
           </tbody>
         </table>
+
+        <p>Set the link once and print the shared text:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+curl -ksSL "$LAN_LINK"</code></pre>
+
+        <p>Store the shared text in a shell variable:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+SHARED_TEXT="$(curl -ksSL "$LAN_LINK")"
+printf '%s\n' "$SHARED_TEXT"</code></pre>
+
+        <p>Run the shared text as a command:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+bash -c "$(curl -ksSL "$LAN_LINK")"</code></pre>
+
+        <p>If the workspace is protected, add one access password header:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+curl -ksSL \
+  -H 'X-Access-Password: workspace-secret' \
+  "$LAN_LINK"</code></pre>
+
+        <p>If the shared item has its own password, use that same header instead. Object passwords override workspace passwords:</p>
+        <pre class="help-code"><code>LAN_LINK='https://your-dassiedrop-host:8443/s/TASD'
+curl -ksSL \
+  -H 'X-Access-Password: item-secret' \
+  "$LAN_LINK"</code></pre>
       </div>
     </article>
 
-    <article class="panel tab-panel help-panel">
+    <article id="general-use" class="panel tab-panel help-panel">
       <div class="panel-title help-panel-title">
         <h2>General Use</h2>
-        <div class="meta">How the main parts fit together.</div>
+        <div class="meta">The basics</div>
       </div>
       <div class="help-copy">
-        <p>Text tab: paste text, click <strong>Save</strong>, then copy the LAN link or short code from history.</p>
-        <p>Files tab: drag a file in or choose one, then share or download it from another device.</p>
-        <p>Hidden items: turn on <strong>Hidden</strong> and set an item password when the content itself should need a second secret.</p>
-        <p>Workspaces: use separate workspaces to keep different streams of text and files apart. A protected workspace requires a password for API access and for LAN links when the shared item does not have its own password.</p>
-        <p>API key: <code>X-API-Key</code> is the app-level automation secret. If <code>API_KEY</code> is configured, use that. Otherwise it falls back to <code>ACCESS_CODE</code>.</p>
-        <p>LAN links: <code>/s/...</code> links are the simplest way to fetch shared content from scripts. They do not use <code>X-API-Key</code>. If a password is needed, always send it as <code>X-Access-Password</code>.</p>
-        <p>Password precedence on LAN links: object password first, workspace password second, no password if neither is set.</p>
-        <p>Downloads and previews: direct file routes like <code>/download/&lt;id&gt;</code> and <code>/preview/&lt;id&gt;</code> are still API-style routes and keep their own header rules.</p>
+        <p>DassieDrop is a local drop zone you open in a browser.</p>
+        <ul>
+          <li>Open it on any device on your network</li>
+          <li>Share text and files instantly</li>
+          <li>Use it directly via the UI or via shareable LAN links</li>
+        </ul>
+        <p>No accounts. No cloud. Everything stays on your network.</p>
+
+        <h3>Using DassieDrop across devices</h3>
+        <p>Open DassieDrop in your browser:</p>
+        <pre class="help-code"><code>http://&lt;your-ip&gt;:8000</code></pre>
+        <p>From there you can:</p>
+        <ul>
+          <li>Paste text or upload files</li>
+          <li>See shared content update in real time</li>
+          <li>Access the same workspace from multiple devices</li>
+        </ul>
+        <p>This is the primary way to use DassieDrop.</p>
+
+        <h3 id="sharing-text">Sharing text</h3>
+        <ol>
+          <li>Go to the Text tab.</li>
+          <li>Paste your text.</li>
+          <li>Click <strong>Save</strong>.</li>
+          <li>Copy the LAN link or short code.</li>
+        </ol>
+        <p>Open that link on another device to view it.</p>
+
+        <h3 id="sharing-files">Sharing files</h3>
+        <ol>
+          <li>Go to the Files tab.</li>
+          <li>Drag and drop a file, or choose one manually.</li>
+          <li>Copy the LAN link.</li>
+        </ol>
+        <p>Open the link on another device to download it.</p>
+
+        <h3 id="lan-links">LAN links (sharing links)</h3>
+        <p>A LAN link looks like:</p>
+        <pre class="help-code"><code>https://&lt;your-ip-or-host&gt;/s/&lt;SHORT-CODE&gt;</code></pre>
+        <p>This is the primary way to share content.</p>
+        <ul>
+          <li>Works in any browser</li>
+          <li>Works across devices on your network</li>
+          <li>Can also be used from scripts such as <code>curl</code></li>
+          <li>Does not require an API key</li>
+        </ul>
+
+        <h3 id="protecting-shared-content">Protecting shared content</h3>
+        <p>You can protect content at two levels:</p>
+        <p><strong>1. Item (object) password</strong></p>
+        <ul>
+          <li>Use <strong>Hidden</strong> + password when sharing text or files.</li>
+          <li>Protects that specific item.</li>
+          <li>Anyone with the link must also know the password.</li>
+        </ul>
+        <p><strong>2. Workspace password</strong></p>
+        <ul>
+          <li>Workspaces separate content streams.</li>
+          <li>A protected workspace requires a password.</li>
+          <li>Applies to all items that do not have their own password.</li>
+        </ul>
+
+        <h3 id="password-behaviour">Password behaviour (important)</h3>
+        <p>DassieDrop keeps this simple:</p>
+        <ul>
+          <li>If the item has a password, that password is required.</li>
+          <li>Otherwise, if the workspace has a password, that password is required.</li>
+          <li>Otherwise, no password is required.</li>
+        </ul>
+        <p>You only ever need one password, never both.</p>
+
+        <h3 id="using-lan-links-from-scripts">Using LAN links from scripts</h3>
+        <p>You can fetch shared content using curl:</p>
+        <pre class="help-code"><code>curl "https://example/s/AbC123"</code></pre>
+        <p>If a password is required:</p>
+        <pre class="help-code"><code>curl "https://example/s/AbC123" \
+  -H "X-Access-Password: yourPassword"</code></pre>
+        <p>You do not need an API key for LAN links.</p>
+
+        <h3 id="api-access">API access (automation)</h3>
+        <p>The API is separate from LAN links.</p>
+        <ul>
+          <li>Uses <code>X-API-Key</code></li>
+          <li>Controlled by <code>API_KEY</code> or <code>ACCESS_CODE</code></li>
+          <li>Intended for automation and scripting</li>
+        </ul>
+        <p>Example:</p>
+        <pre class="help-code"><code>curl -H "X-API-Key: yourKey" http://host/api/...</code></pre>
+
+        <h3 id="downloads-and-previews">Downloads and previews</h3>
+        <p>Routes like <code>/download/&lt;id&gt;</code> and <code>/preview/&lt;id&gt;</code> are API-style endpoints, not share links.</p>
+        <ul>
+          <li>They follow API authentication rules.</li>
+          <li>They may require <code>X-API-Key</code>.</li>
+        </ul>
+        <p>Use LAN links (<code>/s/...</code>) for sharing between devices.</p>
       </div>
     </article>
   </section>
