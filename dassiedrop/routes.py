@@ -137,6 +137,25 @@ class AppHandler(BaseHTTPRequestHandler):
             return None
         return payload
 
+    def read_form_body(self) -> dict[str, str] | None:
+        length = self.parse_content_length()
+        if length is None:
+            return None
+        if length > config.MAX_JSON_BODY_SIZE:
+            self.send_error(HTTPStatus.REQUEST_ENTITY_TOO_LARGE, "Form body too large")
+            return None
+        body = self.rfile.read(length) if length > 0 else b""
+        try:
+            parsed = urllib.parse.parse_qs(body.decode("utf-8"), keep_blank_values=True)
+        except UnicodeDecodeError:
+            self.send_error(HTTPStatus.BAD_REQUEST, "Invalid form body")
+            return None
+        return {key: values[0] if values else "" for key, values in parsed.items()}
+
+    def is_browser_request(self) -> bool:
+        accept = self.headers.get("Accept", "")
+        return "text/html" in accept.lower()
+
     def do_GET(self) -> None:
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/favicon.ico":
@@ -220,6 +239,16 @@ class AppHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         if parsed.path == "/login":
             self.handle_login()
+            return
+        if parsed.path.startswith("/s/"):
+            short_code = urllib.parse.unquote(parsed.path.removeprefix("/s/"))
+            password = auth.requested_access_password(self)
+            if not password:
+                payload = self.read_form_body()
+                if payload is None:
+                    return
+                password = str(payload.get("access_password", "")).strip()
+            self.handle_short_link(short_code, password)
             return
         if not auth.validate_csrf(self):
             self.send_error(HTTPStatus.FORBIDDEN, "CSRF token required")
@@ -700,18 +729,37 @@ class AppHandler(BaseHTTPRequestHandler):
         if not normalized_code:
             self.send_access_denied()
             return
+        entry = storage.find_entry_by_short_code(short_code)
+        workspace = None
+        requires_password = False
+        if entry is not None:
+            _, payload = entry
+            workspace = storage.get_workspace(payload["workspace_id"])
+            requires_password = bool(payload.get("password_hash")) or bool(
+                workspace and workspace.get("password_hash")
+            )
+        browser_request = self.is_browser_request()
+        if (
+            browser_request
+            and self.command == "GET"
+            and not password
+            and entry is not None
+            and workspace is not None
+            and requires_password
+        ):
+            self.send_share_access_page(normalized_code)
+            return
+
         allowed, _ = auth.throttle_status(self, "short-link", normalized_code)
         if not allowed:
-            self.send_access_denied()
+            self.send_access_denied(browser_request=browser_request and requires_password, short_code=normalized_code)
             return
-        entry = storage.find_entry_by_short_code(short_code)
         if entry is None:
             auth.record_throttle_failure(self, "short-link", normalized_code)
             self.send_access_denied()
             return
 
         entry_type, payload = entry
-        workspace = storage.get_workspace(payload["workspace_id"])
         if workspace is None:
             auth.record_throttle_failure(self, "short-link", normalized_code)
             self.send_access_denied()
@@ -719,12 +767,12 @@ class AppHandler(BaseHTTPRequestHandler):
         if payload.get("password_hash"):
             if not storage.entry_password_is_valid(payload, password):
                 auth.record_throttle_failure(self, "short-link", normalized_code)
-                self.send_access_denied()
+                self.send_access_denied(browser_request=browser_request, short_code=normalized_code)
                 return
         elif workspace.get("password_hash"):
             if not storage.workspace_password_is_valid(workspace, password):
                 auth.record_throttle_failure(self, "short-link", normalized_code)
-                self.send_access_denied()
+                self.send_access_denied(browser_request=browser_request, short_code=normalized_code)
                 return
         if entry_type == "text":
             auth.clear_throttle_failures(self, "short-link", normalized_code)
@@ -1151,9 +1199,9 @@ class AppHandler(BaseHTTPRequestHandler):
         with target.open("rb") as handle:
             shutil.copyfileobj(handle, self.wfile)
 
-    def send_html(self, body: str, cookie: str | None = None) -> None:
+    def send_html(self, body: str, cookie: str | None = None, status: HTTPStatus = HTTPStatus.OK) -> None:
         data = body.encode("utf-8")
-        self.send_response(HTTPStatus.OK)
+        self.send_response(status)
         self.send_header("Content-Type", "text/html; charset=utf-8")
         self.send_common_security_headers()
         self.send_header("Content-Security-Policy", self.content_security_policy)
@@ -1188,7 +1236,14 @@ class AppHandler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(data)
 
-    def send_access_denied(self) -> None:
+    def send_access_denied(
+        self,
+        browser_request: bool = False,
+        short_code: str = "",
+    ) -> None:
+        if browser_request and short_code:
+            self.send_share_access_page(short_code, error_message="Access denied", status=HTTPStatus.UNAUTHORIZED)
+            return
         data = storage.json_bytes({"message": "Access denied"})
         self.send_response(HTTPStatus.UNAUTHORIZED)
         self.send_header("Content-Type", "application/json; charset=utf-8")
@@ -1197,6 +1252,23 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(data)))
         self.end_headers()
         self.wfile.write(data)
+
+    def send_share_access_page(
+        self,
+        short_code: str,
+        error_message: str = "",
+        status: HTTPStatus = HTTPStatus.OK,
+    ) -> None:
+        self.send_html(
+            render_template(
+                "share-access.html",
+                {
+                    "__SHORT_CODE__": html.escape(short_code),
+                    "__ERROR_TEXT__": html.escape(error_message),
+                },
+            ),
+            status=status,
+        )
 
     def redirect(self, location: str, cookie: str | None = None) -> None:
         self.send_response(HTTPStatus.SEE_OTHER)

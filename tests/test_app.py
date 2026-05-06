@@ -876,6 +876,96 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(allowed_share["status"], 200)
         self.assertEqual(allowed_share["body"], b"Hello world")
 
+    def test_browser_get_to_protected_short_link_shows_password_page(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "Hello world"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": workspace["slug"],
+                "X-Workspace-Password": "vault",
+            },
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+
+        response = self.request(
+            "GET",
+            f"/s/{created_entry['short_code']}",
+            headers={"Accept": "text/html"},
+        )
+
+        self.assertEqual(response["status"], 200)
+        self.assertIn("Access Password", response["text"])
+        self.assertIn(f'action="/s/{created_entry["short_code"]}"', response["text"])
+
+    def test_browser_post_to_protected_short_link_opens_content_with_correct_password(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "Hello world"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": workspace["slug"],
+                "X-Workspace-Password": "vault",
+            },
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+
+        response = self.request(
+            "POST",
+            f"/s/{created_entry['short_code']}",
+            body=b"access_password=vault",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(b"access_password=vault")),
+                "Accept": "text/html",
+            },
+        )
+
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["body"], b"Hello world")
+
+    def test_browser_post_to_protected_short_link_rerenders_page_on_wrong_password(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        create_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "Hello world"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-Workspace-Name": workspace["slug"],
+                "X-Workspace-Password": "vault",
+            },
+        )
+        self.assertEqual(create_response["status"], 200)
+        created_entry = json.loads(create_response["body"])["texts"][0]
+
+        response = self.request(
+            "POST",
+            f"/s/{created_entry['short_code']}",
+            body=b"access_password=wrong",
+            headers={
+                "Content-Type": "application/x-www-form-urlencoded",
+                "Content-Length": str(len(b"access_password=wrong")),
+                "Accept": "text/html",
+            },
+        )
+
+        self.assertEqual(response["status"], 401)
+        self.assertIn("Access Password", response["text"])
+        self.assertIn("Access denied", response["text"])
+
     def test_short_link_with_object_password_overrides_workspace_password(self) -> None:
         self.start_server()
         workspace = app.create_workspace("Secure Space", password="vault")

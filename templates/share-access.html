@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DassieDrop Access</title>
+  <link rel="icon" type="image/png" href="/assets/DassieDrop-dassie-icon.png">
+  <link rel="stylesheet" href="/assets/login.css">
+</head>
+<body>
+<main class="card">
+  <img class="login-brand" src="/assets/dassiedrop_horizontal_tight.png" alt="DassieDrop">
+  <h1>Access Password</h1>
+  <p>Enter the access password for this LAN link.</p>
+  <form method="post" action="/s/__SHORT_CODE__">
+    <input name="access_password" type="password" placeholder="Access password" autofocus>
+    <button type="submit">Open Link</button>
+  </form>
+  <div class="error">__ERROR_TEXT__</div>
+</main>
+</body>
+</html>
