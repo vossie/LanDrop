@@ -149,3 +149,7 @@ PRs welcome. Keep it simple, local-first, and dependency-free.
 ## Why “Dassie”?
 
 Because it’s small, local, and surprisingly effective, like the rock hyrax.
+![Screenshot-File-Drop-Zone.png](docs/images/Screenshot-File-Drop-Zone.png)
+![Screenshot-Login.png](docs/images/Screenshot-Login.png)
+![Screenshot-Text-Clipboard.png](docs/images/Screenshot-Text-Clipboard.png)
+![Screenshot-Workspace-Selector.png](docs/images/Screenshot-Workspace-Selector.png)
