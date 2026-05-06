@@ -4,7 +4,7 @@ import json
 import struct
 import threading
 
-from . import state, storage
+from . import config, state, storage
 
 
 WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -100,7 +100,7 @@ def start_background_tasks() -> None:
     state.janitor_stop_event.clear()
 
     def run_janitor() -> None:
-        while not state.janitor_stop_event.wait(1.0):
+        while not state.janitor_stop_event.wait(config.JANITOR_INTERVAL_SECONDS):
             from . import auth
 
             auth.cleanup_throttle_failures()

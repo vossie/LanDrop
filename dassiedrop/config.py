@@ -36,6 +36,7 @@ AUTH_FAILURE_WINDOW_SECONDS = int(os.environ.get("AUTH_FAILURE_WINDOW_SECONDS", 
 AUTH_MAX_FAILURES = int(os.environ.get("AUTH_MAX_FAILURES", "5"))
 AUTH_LOCKOUT_SECONDS = int(os.environ.get("AUTH_LOCKOUT_SECONDS", "60"))
 SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(7 * 24 * 60 * 60)))
+JANITOR_INTERVAL_SECONDS = float(os.environ.get("JANITOR_INTERVAL_SECONDS", "30"))
 
 
 def now_ts() -> float:
