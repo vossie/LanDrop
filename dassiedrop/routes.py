@@ -442,29 +442,33 @@ class AppHandler(BaseHTTPRequestHandler):
             self.send_html(render_template("login.html"))
             return
 
+        workspace = storage.get_workspace_by_selector(workspace_slug_value)
+        if workspace is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
+            return
+        if workspace.get("password_hash"):
+            current_workspace_id = session.get("workspace_id")
+            password = auth.requested_workspace_password(self)
+            allowed, retry_after = auth.throttle_status(self, "workspace-shortcut", workspace["id"])
+            if not allowed:
+                self.send_throttled("Too many password attempts", retry_after)
+                return
+            if current_workspace_id != workspace["id"] and not storage.workspace_password_is_valid(
+                workspace, password
+            ):
+                auth.record_throttle_failure(self, "workspace-shortcut", workspace["id"])
+                self.redirect(
+                    f"/workspaces?workspace={urllib.parse.quote(workspace_slug_value)}",
+                    cookie=cookie,
+                )
+                return
+            auth.clear_throttle_failures(self, "workspace-shortcut", workspace["id"])
         with state.state_lock:
-            workspace = storage.get_workspace_by_slug_locked(workspace_slug_value)
-            if workspace is None:
+            locked_workspace = storage.get_workspace_locked(workspace["id"])
+            if locked_workspace is None:
                 self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
                 return
-            if workspace.get("password_hash"):
-                current_workspace_id = session.get("workspace_id")
-                password = auth.requested_workspace_password(self)
-                allowed, retry_after = auth.throttle_status(self, "workspace-shortcut", workspace["id"])
-                if not allowed:
-                    self.send_throttled("Too many password attempts", retry_after)
-                    return
-                if current_workspace_id != workspace["id"] and not storage.workspace_password_is_valid(
-                    workspace, password
-                ):
-                    auth.record_throttle_failure(self, "workspace-shortcut", workspace["id"])
-                    self.redirect(
-                        f"/workspaces?workspace={urllib.parse.quote(workspace_slug_value)}",
-                        cookie=cookie,
-                    )
-                    return
-                auth.clear_throttle_failures(self, "workspace-shortcut", workspace["id"])
-            storage.touch_workspace_locked(workspace, persist_interval=0.0)
+            storage.touch_workspace_locked(locked_workspace, persist_interval=0.0)
             storage.persist_workspaces_locked()
 
         auth.set_session_workspace(session_id, workspace["id"])
@@ -516,6 +520,16 @@ class AppHandler(BaseHTTPRequestHandler):
         password = payload.get("password", "")
         if not isinstance(password, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
+            return
+
+        allowed, retry_after = auth.consume_rate_limit_token(
+            self,
+            "workspace-create",
+            config.WORKSPACE_CREATE_RATE_LIMIT_MAX_REQUESTS,
+            config.WORKSPACE_CREATE_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not allowed:
+            self.send_throttled("Too many workspaces created", retry_after)
             return
 
         workspace = storage.create_workspace(name, password=password.strip())
@@ -594,23 +608,22 @@ class AppHandler(BaseHTTPRequestHandler):
     def require_workspace_context(self) -> str | None:
         explicit_workspace_selector = auth.requested_workspace_selector(self)
         if explicit_workspace_selector:
-            with state.state_lock:
-                workspace = storage.resolve_workspace_selector_locked(explicit_workspace_selector)
-                if workspace is None:
-                    self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
-                    return None
-                allowed, retry_after = auth.throttle_status(self, "workspace-context", workspace["id"])
-                if not allowed:
-                    self.send_throttled("Too many workspace password attempts", retry_after)
-                    return None
-                if workspace.get("password_hash") and not storage.workspace_password_is_valid(
-                    workspace, auth.requested_workspace_password(self)
-                ):
-                    auth.record_throttle_failure(self, "workspace-context", workspace["id"])
-                    self.send_error(HTTPStatus.FORBIDDEN, "Wrong workspace password")
-                    return None
-                auth.clear_throttle_failures(self, "workspace-context", workspace["id"])
-                return workspace["id"]
+            workspace = storage.get_workspace_by_selector(explicit_workspace_selector)
+            if workspace is None:
+                self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
+                return None
+            allowed, retry_after = auth.throttle_status(self, "workspace-context", workspace["id"])
+            if not allowed:
+                self.send_throttled("Too many workspace password attempts", retry_after)
+                return None
+            if workspace.get("password_hash") and not storage.workspace_password_is_valid(
+                workspace, auth.requested_workspace_password(self)
+            ):
+                auth.record_throttle_failure(self, "workspace-context", workspace["id"])
+                self.send_error(HTTPStatus.FORBIDDEN, "Wrong workspace password")
+                return None
+            auth.clear_throttle_failures(self, "workspace-context", workspace["id"])
+            return workspace["id"]
 
         session_id, session = auth.get_session(self)
         if session_id is not None and session is not None:
@@ -1198,9 +1211,23 @@ class AppHandler(BaseHTTPRequestHandler):
         if entry is None:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
+        workspace = storage.get_workspace(entry.get("workspace_id", config.DEFAULT_WORKSPACE_ID))
+        if workspace is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
+            return
         allowed, retry_after = auth.throttle_status(self, "file-download", file_id)
         if not allowed:
             self.send_throttled("Too many password attempts", retry_after)
+            return
+        current_workspace_id = self.current_session_workspace_id()
+        workspace_password = auth.requested_workspace_password(self)
+        if (
+            workspace.get("password_hash")
+            and current_workspace_id != workspace["id"]
+            and not storage.workspace_password_is_valid(workspace, workspace_password)
+        ):
+            auth.record_throttle_failure(self, "file-download", file_id)
+            self.send_error(HTTPStatus.FORBIDDEN, "Wrong workspace password")
             return
         if entry.get("password_hash") and not storage.entry_password_is_valid(entry, password):
             auth.record_throttle_failure(self, "file-download", file_id)
@@ -1214,9 +1241,23 @@ class AppHandler(BaseHTTPRequestHandler):
         if entry is None:
             self.send_error(HTTPStatus.NOT_FOUND, "File not found")
             return
+        workspace = storage.get_workspace(entry.get("workspace_id", config.DEFAULT_WORKSPACE_ID))
+        if workspace is None:
+            self.send_error(HTTPStatus.NOT_FOUND, "Workspace not found")
+            return
         allowed, retry_after = auth.throttle_status(self, "file-preview", file_id)
         if not allowed:
             self.send_throttled("Too many password attempts", retry_after)
+            return
+        current_workspace_id = self.current_session_workspace_id()
+        workspace_password = auth.requested_workspace_password(self)
+        if (
+            workspace.get("password_hash")
+            and current_workspace_id != workspace["id"]
+            and not storage.workspace_password_is_valid(workspace, workspace_password)
+        ):
+            auth.record_throttle_failure(self, "file-preview", file_id)
+            self.send_error(HTTPStatus.FORBIDDEN, "Wrong workspace password")
             return
         if entry.get("password_hash") and not storage.entry_password_is_valid(entry, password):
             auth.record_throttle_failure(self, "file-preview", file_id)

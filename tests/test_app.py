@@ -415,6 +415,12 @@ class HttpServerTests(unittest.TestCase):
         self.original_update_check_interval_seconds = config.UPDATE_CHECK_INTERVAL_SECONDS
         self.original_upload_rate_limit_window_seconds = config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS
         self.original_upload_rate_limit_max_requests = config.UPLOAD_RATE_LIMIT_MAX_REQUESTS
+        self.original_workspace_create_rate_limit_window_seconds = (
+            config.WORKSPACE_CREATE_RATE_LIMIT_WINDOW_SECONDS
+        )
+        self.original_workspace_create_rate_limit_max_requests = (
+            config.WORKSPACE_CREATE_RATE_LIMIT_MAX_REQUESTS
+        )
         self.current_time = 1_700_100_000.0
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
@@ -426,6 +432,8 @@ class HttpServerTests(unittest.TestCase):
         config.UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
         config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
         config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
+        config.WORKSPACE_CREATE_RATE_LIMIT_WINDOW_SECONDS = 60
+        config.WORKSPACE_CREATE_RATE_LIMIT_MAX_REQUESTS = 10
         config.now_ts = self.fake_now
         config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -451,6 +459,12 @@ class HttpServerTests(unittest.TestCase):
         config.UPDATE_CHECK_INTERVAL_SECONDS = self.original_update_check_interval_seconds
         config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = self.original_upload_rate_limit_window_seconds
         config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = self.original_upload_rate_limit_max_requests
+        config.WORKSPACE_CREATE_RATE_LIMIT_WINDOW_SECONDS = (
+            self.original_workspace_create_rate_limit_window_seconds
+        )
+        config.WORKSPACE_CREATE_RATE_LIMIT_MAX_REQUESTS = (
+            self.original_workspace_create_rate_limit_max_requests
+        )
         config.now_ts = self.original_now_ts
         config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -786,6 +800,28 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(payload["workspace"]["name"], "qa-room")
         self.assertEqual(payload["workspace"]["slug"], "qa-room")
         self.assertTrue(payload["workspace"]["password_required"])
+
+    def test_workspace_creation_is_rate_limited(self) -> None:
+        self.start_server()
+        config.WORKSPACE_CREATE_RATE_LIMIT_MAX_REQUESTS = 2
+        config.WORKSPACE_CREATE_RATE_LIMIT_WINDOW_SECONDS = 60
+
+        for name in ("one", "two"):
+            response = self.request(
+                "POST",
+                "/api/workspaces",
+                body=json.dumps({"name": name, "password": ""}).encode("utf-8"),
+                headers={"Content-Type": "application/json"},
+            )
+            self.assertEqual(response["status"], 200)
+
+        blocked = self.request(
+            "POST",
+            "/api/workspaces",
+            body=json.dumps({"name": "three", "password": ""}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(blocked["status"], 429)
 
     def test_text_drop_endpoint_adds_text_to_history(self) -> None:
         self.start_server()
@@ -1442,6 +1478,43 @@ class HttpServerTests(unittest.TestCase):
             "GET",
             f"/preview/{file_entry['id']}",
             headers={"X-Entry-Password": "vault"},
+        )
+        self.assertEqual(allowed_preview["status"], 200)
+        self.assertEqual(allowed_preview["body"], b"secret")
+
+    def test_workspace_password_is_required_for_direct_file_download_and_preview(self) -> None:
+        self.start_server()
+        workspace = app.create_workspace("Secure Space", password="vault")
+
+        upload_response = self.upload_request(
+            "locked.txt",
+            b"secret",
+            workspace_slug=workspace["slug"],
+            workspace_password="vault",
+        )
+        self.assertEqual(upload_response["status"], 200)
+        file_entry = json.loads(upload_response["body"])["files"][0]
+
+        blocked_download = self.request("GET", f"/download/{file_entry['id']}")
+        self.assertEqual(blocked_download["status"], 403)
+        self.assertIn("Wrong workspace password", blocked_download["text"])
+
+        allowed_download = self.request(
+            "GET",
+            f"/download/{file_entry['id']}",
+            headers={"X-Workspace-Password": "vault"},
+        )
+        self.assertEqual(allowed_download["status"], 200)
+        self.assertEqual(allowed_download["body"], b"secret")
+
+        blocked_preview = self.request("GET", f"/preview/{file_entry['id']}")
+        self.assertEqual(blocked_preview["status"], 403)
+        self.assertIn("Wrong workspace password", blocked_preview["text"])
+
+        allowed_preview = self.request(
+            "GET",
+            f"/preview/{file_entry['id']}",
+            headers={"X-Workspace-Password": "vault"},
         )
         self.assertEqual(allowed_preview["status"], 200)
         self.assertEqual(allowed_preview["body"], b"secret")

@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.40 - 2026-05-08
+
+- Enforced workspace protection on direct `/download/{fileId}` and `/preview/{fileId}` access. Protected workspaces now require an authorized workspace session or `X-Workspace-Password` even for direct file URLs.
+- Moved workspace password hashing and verification out of the main shared state lock in the creation and selection paths to reduce PBKDF2 lock contention.
+- Added rate limiting for workspace creation requests.
+
 ## 1.0.39 - 2026-05-07
 
 - Tightened workspace identifiers to the canonical `a-z`, `0-9`, `-`, `_`, and `.` character set.

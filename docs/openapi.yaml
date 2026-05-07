@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: DassieDrop API
-  version: 1.0.39
+  version: 1.0.40
   description: |
     OpenAPI schema for the DassieDrop HTTP API.
 
@@ -510,6 +510,7 @@ paths:
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
         - $ref: '#/components/parameters/PasswordQuery'
       responses:
         '200':
@@ -534,6 +535,7 @@ paths:
           required: true
           schema:
             type: string
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
         - $ref: '#/components/parameters/PasswordQuery'
       responses:
         '200':

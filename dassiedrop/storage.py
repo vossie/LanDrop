@@ -266,6 +266,12 @@ def get_workspace(workspace_id: str) -> dict | None:
         return dict(workspace) if workspace is not None else None
 
 
+def get_workspace_by_selector(selector: str) -> dict | None:
+    with state.state_lock:
+        workspace = resolve_workspace_selector_locked(selector)
+        return dict(workspace) if workspace is not None else None
+
+
 def resolve_workspace_selector_locked(selector: str) -> dict | None:
     normalized = selector.strip()
     if not normalized:
@@ -721,13 +727,14 @@ def make_unique_short_code_locked() -> str:
 
 
 def create_workspace(name: str, password: str = "") -> dict:
+    workspace_name = sanitize_workspace_name(name)
+    password_hash = hash_password(password.strip()) if password.strip() else None
     with state.state_lock:
         ensure_default_workspace_locked()
-        workspace_name = sanitize_workspace_name(name)
         workspace = build_workspace(
             workspace_name,
             slug=make_unique_workspace_slug_locked(workspace_name),
-            password_hash=hash_password(password.strip()) if password.strip() else None,
+            password_hash=password_hash,
         )
         state.shared_state["workspaces"][workspace["id"]] = workspace
         persist_workspaces_locked()
@@ -759,28 +766,34 @@ def list_workspaces() -> list[dict]:
 def enter_workspace(session_id: str, workspace_selector: str, password: str = "") -> tuple[bool, str]:
     from .auth import set_session_workspace
 
+    workspace = get_workspace_by_selector(workspace_selector)
+    if workspace is None:
+        return (False, "Workspace not found")
+    if workspace.get("password_hash") and not workspace_password_is_valid(workspace, password.strip()):
+        return (False, "Wrong workspace password")
+
     with state.state_lock:
-        workspace = resolve_workspace_selector_locked(workspace_selector)
-        if workspace is None:
+        locked_workspace = get_workspace_locked(workspace["id"])
+        if locked_workspace is None:
             return (False, "Workspace not found")
-        if workspace.get("password_hash") and not workspace_password_is_valid(
-            workspace, password.strip()
-        ):
-            return (False, "Wrong workspace password")
-        touch_workspace_locked(workspace, persist_interval=0.0)
+        touch_workspace_locked(locked_workspace, persist_interval=0.0)
         persist_workspaces_locked()
     set_session_workspace(session_id, workspace["id"])
     return (True, "")
 
 
 def delete_workspace(workspace_id: str, password: str = "") -> tuple[bool, str]:
+    workspace = get_workspace(workspace_id)
+    if workspace is None:
+        return (False, "Workspace not found")
+    if not workspace_delete_password_is_valid(workspace, password):
+        return (False, "Wrong workspace password")
+
     removed_workspace = None
     with state.state_lock:
-        workspace = get_workspace_locked(workspace_id)
-        if workspace is None:
+        locked_workspace = get_workspace_locked(workspace_id)
+        if locked_workspace is None:
             return (False, "Workspace not found")
-        if not workspace_delete_password_is_valid(workspace, password):
-            return (False, "Wrong workspace password")
         removed_workspace = state.shared_state["workspaces"].pop(workspace_id)
         ensure_default_workspace_locked()
         persist_workspaces_locked()
@@ -797,6 +810,7 @@ def add_text_entry(
     sharer_ip: str = "",
     workspace_id: str = config.DEFAULT_WORKSPACE_ID,
 ) -> None:
+    password_hash = hash_password(password) if password else None
     with state.state_lock:
         workspace = get_workspace_locked(workspace_id)
         if workspace is None:
@@ -809,7 +823,7 @@ def add_text_entry(
                 "id": make_id(),
                 "content": value,
                 "hidden": hidden,
-                "password_hash": hash_password(password) if password else None,
+                "password_hash": password_hash,
                 "sharer_name": sharer_name.strip(),
                 "sharer_ip": sharer_ip.strip(),
                 "short_code": make_unique_short_code_locked(),
@@ -848,6 +862,7 @@ def add_file(
     sharer_ip: str = "",
     workspace_id: str = config.DEFAULT_WORKSPACE_ID,
 ) -> dict:
+    password_hash = hash_password(password) if password else None
     with state.state_lock:
         workspace = get_workspace_locked(workspace_id)
         if workspace is None:
@@ -863,7 +878,7 @@ def add_file(
             "stored_name": stored_name,
             "size": size,
             "hidden": hidden,
-            "password_hash": hash_password(password) if password else None,
+            "password_hash": password_hash,
             "sharer_name": sharer_name.strip(),
             "sharer_ip": sharer_ip.strip(),
             "short_code": make_unique_short_code_locked(),
