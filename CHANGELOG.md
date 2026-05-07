@@ -5,6 +5,9 @@
 - Enforced workspace protection on direct `/download/{fileId}` and `/preview/{fileId}` access. Protected workspaces now require an authorized workspace session or `X-Workspace-Password` even for direct file URLs.
 - Moved workspace password hashing and verification out of the main shared state lock in the creation and selection paths to reduce PBKDF2 lock contention.
 - Added rate limiting for workspace creation requests.
+- Exposed the OpenAPI schema from the running app at `/openapi.yaml`.
+- Bundled the OpenAPI schema into the app package so installed deployments can serve it without relying on the repo `docs/` directory.
+- Added clickable OpenAPI links in the Help API section and in the main footer beside `Help`.
 
 ## 1.0.39 - 2026-05-07
 
