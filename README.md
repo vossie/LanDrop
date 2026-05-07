@@ -110,7 +110,7 @@ Drop:
 Pipe logs or output directly into DassieDrop using `curl`.
 
 ```bash
-cat server.log | curl -F "file=@-" http://SERVER:8000/upload
+curl -F "file=@-;filename=server.log" http://SERVER:8000/api/upload < server.log
 ```
 
 ### The Home Hub
@@ -251,4 +251,3 @@ It is not:
 - a heavyweight collaboration tool
 
 It is a fast, reliable, local-first drop zone that works everywhere a browser works.
-
