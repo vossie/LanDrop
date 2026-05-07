@@ -202,6 +202,10 @@ class AppHandler(BaseHTTPRequestHandler):
             self.handle_help_page()
             return
 
+        if parsed.path == "/openapi.yaml":
+            self.serve_openapi_schema()
+            return
+
         if parsed.path.startswith("/w/"):
             workspace_slug_value = urllib.parse.unquote(parsed.path.removeprefix("/w/"))
             self.handle_workspace_shortcut(workspace_slug_value)
@@ -1258,6 +1262,23 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", content_type)
         self.send_common_security_headers()
         self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Content-Length", str(target.stat().st_size))
+        self.end_headers()
+        with target.open("rb") as handle:
+            shutil.copyfileobj(handle, self.wfile)
+
+    def serve_openapi_schema(self) -> None:
+        target = (config.BASE_DIR / "docs" / "openapi.yaml").resolve()
+        docs_root = (config.BASE_DIR / "docs").resolve()
+        if not storage.path_within_root(docs_root, target) or not target.exists() or not target.is_file():
+            self.send_error(HTTPStatus.NOT_FOUND, "Schema not found")
+            return
+
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", "application/yaml; charset=utf-8")
+        self.send_common_security_headers()
+        self.send_header("Cache-Control", "public, max-age=3600")
+        self.send_header("Content-Disposition", 'attachment; filename="openapi.yaml"')
         self.send_header("Content-Length", str(target.stat().st_size))
         self.end_headers()
         with target.open("rb") as handle:

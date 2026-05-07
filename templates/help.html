@@ -177,6 +177,9 @@ bash script.sh</code></pre>
         <p>Set the API host once:</p>
         <pre class="help-code"><code>API_HOST='http://your-dassiedrop-host:8000'</code></pre>
 
+        <p>Download the OpenAPI schema directly from the app:</p>
+        <pre class="help-code"><code>curl -sS -O "$API_HOST/openapi.yaml"</code></pre>
+
         <p>If the app is protected, send your automation secret as:</p>
         <pre class="help-code"><code>-H 'X-API-Key: your-api-key-or-access-code'</code></pre>
 
@@ -206,7 +209,7 @@ bash script.sh</code></pre>
         <p>Share text into a specific workspace:</p>
         <pre class="help-code"><code>curl -sS \
   -H 'Content-Type: application/json' \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -X POST \
   -d '{
     "text": "hello from ops",
@@ -218,7 +221,7 @@ bash script.sh</code></pre>
         <pre class="help-code"><code>curl -sS \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: your-api-key-or-access-code' \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -H 'X-Workspace-Password: workspace-secret' \
   -X POST \
   -d '{
@@ -246,7 +249,7 @@ bash script.sh</code></pre>
 
         <p>Share a file into a specific workspace:</p>
         <pre class="help-code"><code>curl -sS \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -X POST \
   -F 'file=@./example.txt' \
   -F 'name=CLI' \
@@ -255,7 +258,7 @@ bash script.sh</code></pre>
         <p>Share a file into a protected workspace:</p>
         <pre class="help-code"><code>curl -sS \
   -H 'X-API-Key: your-api-key-or-access-code' \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -H 'X-Workspace-Password: workspace-secret' \
   -X POST \
   -F 'file=@./example.txt' \

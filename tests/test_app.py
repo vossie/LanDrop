@@ -912,6 +912,24 @@ class HttpServerTests(unittest.TestCase):
         self.assertEqual(state["status"], 200)
         self.assertEqual(json.loads(state["body"])["workspace"]["id"], workspace["id"])
 
+    def test_openapi_schema_is_publicly_downloadable(self) -> None:
+        self.start_server()
+
+        response = self.request("GET", "/openapi.yaml")
+
+        self.assertEqual(response["status"], 200)
+        self.assertEqual(response["headers"]["Content-Type"], "application/yaml; charset=utf-8")
+        self.assertIn('attachment; filename="openapi.yaml"', response["headers"]["Content-Disposition"])
+        self.assertIn("openapi: 3.1.0", response["text"])
+
+    def test_openapi_schema_is_publicly_downloadable_when_access_code_is_enabled(self) -> None:
+        self.start_server(access_code="secret-code")
+
+        response = self.request("GET", "/openapi.yaml")
+
+        self.assertEqual(response["status"], 200)
+        self.assertIn("openapi: 3.1.0", response["text"])
+
     def test_duplicate_workspace_slugs_resolve_to_distinct_workspace_urls(self) -> None:
         self.start_server()
         first = app.create_workspace("Carel Space")
@@ -1802,6 +1820,7 @@ class HttpServerTests(unittest.TestCase):
         self.assertIn("X-Access-Password", response["text"])
         self.assertIn("bash -c", response["text"])
         self.assertIn("General Use", response["text"])
+        self.assertIn("openapi.yaml", response["text"])
 
     def test_help_footer_shows_update_notice_when_available(self) -> None:
         config.UPDATE_CHECK_ENABLED = True
