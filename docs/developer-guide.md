@@ -53,10 +53,13 @@ Example workflow:
 3. Run `./.venv/bin/python -m unittest -v test_app.py`.
 4. Commit the change that includes the version bump.
 
+Record the user-visible change in `CHANGELOG.md` in the same release change.
+
 ## Documentation
 
 When you add or change public behavior, update the relevant docs:
 
 - `README.md` for product-facing usage and positioning
+- `CHANGELOG.md` for release notes and user-visible changes
 - `docs/bash-api.md` for shell and `curl` automation flows
 - `docs/developer-guide.md` for contributor and release workflow notes

@@ -430,7 +430,7 @@ class SecurityHttpTests(CoreHttpTestCase):
         for _ in range(config.AUTH_MAX_FAILURES):
             response = self.request(
                 "POST",
-                f"/api/workspaces/{workspace['id']}/enter",
+                f"/api/workspaces/{workspace['slug']}/enter",
                 body=json.dumps({"password": "wrong"}).encode("utf-8"),
                 headers={
                     "Content-Type": "application/json",
@@ -442,7 +442,7 @@ class SecurityHttpTests(CoreHttpTestCase):
 
         throttled = self.request(
             "POST",
-            f"/api/workspaces/{workspace['id']}/enter",
+            f"/api/workspaces/{workspace['slug']}/enter",
             body=json.dumps({"password": "wrong"}).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
@@ -455,7 +455,7 @@ class SecurityHttpTests(CoreHttpTestCase):
         self.current_time += config.AUTH_LOCKOUT_SECONDS + 1
         recovered = self.request(
             "POST",
-            f"/api/workspaces/{workspace['id']}/enter",
+            f"/api/workspaces/{workspace['slug']}/enter",
             body=json.dumps({"password": "vault"}).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",

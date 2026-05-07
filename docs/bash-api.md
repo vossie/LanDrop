@@ -17,10 +17,12 @@ LAN link behavior is documented separately in [lan-link-access.md](lan-link-acce
 
 Workspace-aware requests can target a workspace with any of these:
 
-- `X-Workspace-ID: <workspace-id>`
-- `X-Workspace-Name: <workspace-slug>`
-- `?workspace=<workspace-id-or-slug>`
-- `?workspace_name=<workspace-slug>`
+- `X-Workspace: <workspace-selector>`
+- `?workspace=<workspace-selector>`
+
+Treat the workspace selector as an opaque string. Pass back the value the API gives you, exactly as-is.
+
+The older `X-Workspace-ID`, `X-Workspace-Slug`, `X-Workspace-Name`, `workspace_slug`, and `workspace_name` aliases still work for compatibility, but they are no longer the public contract.
 
 Protected workspaces can also use:
 
@@ -38,7 +40,7 @@ Create a workspace:
 curl -sS \
   -H 'Content-Type: application/json' \
   -X POST \
-  -d '{"name":"Ops Desk","password":"vault"}' \
+  -d '{"name":"ops-desk","password":"vault"}' \
   http://127.0.0.1:8000/api/workspaces
 ```
 
@@ -46,7 +48,7 @@ Read state for a workspace by slug:
 
 ```bash
 curl -sS \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   http://127.0.0.1:8000/api/state
 ```
 
@@ -77,7 +79,7 @@ Example response:
   "created_at": 1714672800.0,
   "expires_at": 1714759200.0,
   "workspace_id": "default",
-  "workspace_name": "Default",
+  "workspace_display_name": "Default",
   "workspace_slug": "default",
   "workspace_path": "/w/default",
   "workspace_url": "http://127.0.0.1:8000/w/default",
@@ -105,7 +107,7 @@ Send text to a specific workspace:
 ```bash
 curl -sS \
   -H 'Content-Type: application/json' \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -X POST \
   -d '{
     "text": "hello from ops",
@@ -138,7 +140,7 @@ Example response:
   "created_at": 1714672800.0,
   "expires_at": 1714759200.0,
   "workspace_id": "default",
-  "workspace_name": "Default",
+  "workspace_display_name": "Default",
   "workspace_slug": "default",
   "workspace_path": "/w/default",
   "workspace_url": "http://127.0.0.1:8000/w/default",
@@ -165,7 +167,7 @@ Upload a file into a specific workspace:
 
 ```bash
 curl -sS \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -X POST \
   -F 'file=@./example.txt' \
   -F 'name=CLI' \
@@ -201,7 +203,7 @@ And combine access code plus workspace targeting:
 curl -sS \
   -H 'Content-Type: application/json' \
   -H 'X-API-Key: your-api-key-or-access-code' \
-  -H 'X-Workspace-Name: ops-desk' \
+  -H 'X-Workspace: ops-desk' \
   -X POST \
   -d '{"text":"hello again"}' \
   http://127.0.0.1:8000/api/share-text

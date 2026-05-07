@@ -283,10 +283,21 @@ def requested_workspace_selector(handler: BaseHTTPRequestHandler) -> str:
     parsed = urllib.parse.urlparse(handler.path)
     query_values = urllib.parse.parse_qs(parsed.query)
     query_value = query_values.get("workspace", [""])[0]
+    query_slug_value = query_values.get("workspace_slug", [""])[0]
     query_name_value = query_values.get("workspace_name", [""])[0]
-    header_value = handler.headers.get("X-Workspace-ID", "")
+    header_value = handler.headers.get("X-Workspace", "")
+    header_id_value = handler.headers.get("X-Workspace-ID", "")
+    header_slug_value = handler.headers.get("X-Workspace-Slug", "")
     header_name_value = handler.headers.get("X-Workspace-Name", "")
-    value = (header_value or header_name_value or query_value or query_name_value).strip()
+    value = (
+        header_value
+        or header_id_value
+        or header_slug_value
+        or header_name_value
+        or query_value
+        or query_slug_value
+        or query_name_value
+    ).strip()
     return value
 
 

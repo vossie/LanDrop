@@ -3,6 +3,7 @@ import hmac
 import json
 import math
 import mimetypes
+import re
 import secrets
 import tempfile
 from pathlib import Path
@@ -26,8 +27,12 @@ def sanitize_filename(name: str) -> str:
 
 
 def sanitize_workspace_name(name: str) -> str:
-    value = " ".join(name.strip().split())
-    return value[:80] or "Workspace"
+    normalized = name.strip().lower()
+    normalized = re.sub(r"[^a-z0-9._-]+", "-", normalized)
+    normalized = re.sub(r"-{2,}", "-", normalized)
+    normalized = re.sub(r"([_.-]){2,}", r"\1", normalized)
+    normalized = normalized.strip("._-")
+    return normalized[:80] or "workspace"
 
 
 def compact_workspace_name(name: str) -> str:
@@ -35,18 +40,7 @@ def compact_workspace_name(name: str) -> str:
 
 
 def workspace_slug(name: str) -> str:
-    normalized = sanitize_workspace_name(name).lower()
-    slug_chars = []
-    last_was_dash = False
-    for char in normalized:
-        if char.isalnum():
-            slug_chars.append(char)
-            last_was_dash = False
-        elif not last_was_dash:
-            slug_chars.append("-")
-            last_was_dash = True
-    slug = "".join(slug_chars).strip("-")
-    return slug or "workspace"
+    return sanitize_workspace_name(name)
 
 
 def workspace_slug_value(workspace: dict) -> str:
@@ -762,11 +756,11 @@ def list_workspaces() -> list[dict]:
     return summaries
 
 
-def enter_workspace(session_id: str, workspace_id: str, password: str = "") -> tuple[bool, str]:
+def enter_workspace(session_id: str, workspace_selector: str, password: str = "") -> tuple[bool, str]:
     from .auth import set_session_workspace
 
     with state.state_lock:
-        workspace = get_workspace_locked(workspace_id)
+        workspace = resolve_workspace_selector_locked(workspace_selector)
         if workspace is None:
             return (False, "Workspace not found")
         if workspace.get("password_hash") and not workspace_password_is_valid(
@@ -775,7 +769,7 @@ def enter_workspace(session_id: str, workspace_id: str, password: str = "") -> t
             return (False, "Wrong workspace password")
         touch_workspace_locked(workspace, persist_interval=0.0)
         persist_workspaces_locked()
-    set_session_workspace(session_id, workspace_id)
+    set_session_workspace(session_id, workspace["id"])
     return (True, "")
 
 

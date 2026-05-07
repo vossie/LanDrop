@@ -102,7 +102,7 @@ class ApiTests(CoreStateTestCase):
                 "created_at",
                 "expires_at",
                 "workspace_id",
-                "workspace_name",
+                "workspace_display_name",
                 "workspace_slug",
                 "workspace_path",
                 "workspace_url",

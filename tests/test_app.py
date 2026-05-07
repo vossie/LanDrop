@@ -138,7 +138,7 @@ class AppStateTests(unittest.TestCase):
 
     def test_compact_workspace_name_limits_header_label_to_16_characters(self) -> None:
         self.assertEqual(app.compact_workspace_name("1234567890abcdefXYZ"), "1234567890abcdef")
-        self.assertEqual(app.compact_workspace_name("  Demo Workspace  "), "Demo Workspace")
+        self.assertEqual(app.compact_workspace_name("  Demo Workspace  "), "demo-workspace")
 
     def test_workspace_slug_normalizes_name_for_direct_urls(self) -> None:
         self.assertEqual(app.workspace_slug("Carel Workspace"), "carel-workspace")
@@ -393,7 +393,7 @@ class AppStateTests(unittest.TestCase):
         payload = app.share_payload("text", entry, "http://127.0.0.1:8000")
 
         self.assertEqual(payload["workspace_id"], workspace["id"])
-        self.assertEqual(payload["workspace_name"], "Ops Desk")
+        self.assertEqual(payload["workspace_display_name"], "ops-desk")
         self.assertEqual(payload["workspace_slug"], "ops-desk")
         self.assertEqual(payload["workspace_path"], "/w/ops-desk")
         self.assertEqual(payload["workspace_url"], "http://127.0.0.1:8000/w/ops-desk")
@@ -485,12 +485,12 @@ class HttpServerTests(unittest.TestCase):
         connection.close()
         return result
 
-    def select_workspace(self, cookie: str, workspace_id: str = app.DEFAULT_WORKSPACE_ID, password: str = ""):
+    def select_workspace(self, cookie: str, workspace: str = app.DEFAULT_WORKSPACE_ID, password: str = ""):
         page = self.request("GET", "/workspaces", headers={"Cookie": cookie})
         token = page["text"].split('<meta name="dassiedrop-csrf-token" content="', 1)[1].split('"', 1)[0]
         return self.request(
             "POST",
-            f"/api/workspaces/{workspace_id}/enter",
+            f"/api/workspaces/{workspace}/enter",
             body=json.dumps({"password": password}).encode("utf-8"),
             headers={
                 "Content-Type": "application/json",
@@ -624,6 +624,7 @@ class HttpServerTests(unittest.TestCase):
         hidden: bool = False,
         password: str = "",
         name: str = "",
+        workspace_slug: str = "",
         workspace_name: str = "",
         workspace_password: str = "",
     ):
@@ -655,7 +656,9 @@ class HttpServerTests(unittest.TestCase):
         }
         if cookie:
             headers["Cookie"] = cookie
-        if workspace_name:
+        if workspace_slug:
+            headers["X-Workspace"] = workspace_slug
+        elif workspace_name:
             headers["X-Workspace-Name"] = workspace_name
         if workspace_password:
             headers["X-Workspace-Password"] = workspace_password
@@ -780,7 +783,7 @@ class HttpServerTests(unittest.TestCase):
 
         self.assertEqual(response["status"], 200)
         payload = json.loads(response["body"])
-        self.assertEqual(payload["workspace"]["name"], "QA Room")
+        self.assertEqual(payload["workspace"]["name"], "qa-room")
         self.assertEqual(payload["workspace"]["slug"], "qa-room")
         self.assertTrue(payload["workspace"]["password_required"])
 
@@ -1145,7 +1148,7 @@ class HttpServerTests(unittest.TestCase):
             f"http://127.0.0.1:{self.port}{payload['share_path']}",
         )
         self.assertEqual(payload["workspace_id"], app.DEFAULT_WORKSPACE_ID)
-        self.assertEqual(payload["workspace_name"], app.DEFAULT_WORKSPACE_NAME)
+        self.assertEqual(payload["workspace_display_name"], app.DEFAULT_WORKSPACE_NAME)
         self.assertEqual(payload["workspace_slug"], app.workspace_slug(app.DEFAULT_WORKSPACE_NAME))
         self.assertEqual(payload["workspace_path"], f"/w/{payload['workspace_slug']}")
         self.assertEqual(payload["workspace_url"], f"http://127.0.0.1:{self.port}{payload['workspace_path']}")
@@ -1188,7 +1191,7 @@ class HttpServerTests(unittest.TestCase):
             f"http://127.0.0.1:{self.port}/download/{payload['id']}",
         )
         self.assertEqual(payload["workspace_id"], app.DEFAULT_WORKSPACE_ID)
-        self.assertEqual(payload["workspace_name"], app.DEFAULT_WORKSPACE_NAME)
+        self.assertEqual(payload["workspace_display_name"], app.DEFAULT_WORKSPACE_NAME)
         self.assertEqual(payload["workspace_slug"], app.workspace_slug(app.DEFAULT_WORKSPACE_NAME))
 
     def test_share_endpoints_accept_x_api_key_when_access_code_is_enabled(self) -> None:
@@ -1850,7 +1853,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("/api/share-text:", doc)
         self.assertIn("/api/share-file:", doc)
         self.assertIn("/api/workspaces:", doc)
-        self.assertIn("X-Workspace-Name", doc)
+        self.assertIn("X-Workspace", doc)
         self.assertIn("X-API-Key", doc)
 
     def test_developer_guide_mentions_versioning_and_main_rule(self) -> None:
@@ -1865,9 +1868,9 @@ class ScriptTests(unittest.TestCase):
         index_template = (root / "templates" / "index.html").read_text(encoding="utf-8")
         version = (root / "VERSION").read_text(encoding="utf-8").strip()
         self.assertEqual(version, app.get_app_version())
-        self.assertIn("No third-party services", readme)
+        self.assertIn("No cloud. No accounts. No syncing.", readme)
         self.assertIn("docs/api-usage.md", readme)
-        self.assertIn("Why not Flask?", readme)
+        self.assertIn("local-first drop zone", readme)
         self.assertIn("Python standard library", readme)
         self.assertIn("ISC License", license_text)
         self.assertIn("Copyright (c) 2026 Carel Vosloo", license_text)

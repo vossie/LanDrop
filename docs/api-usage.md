@@ -17,10 +17,10 @@ Read the current workspace snapshot:
 curl http://127.0.0.1:8000/api/state
 ```
 
-Target a workspace by slug:
+Target a workspace by selector:
 
 ```bash
-curl -H 'X-Workspace-Name: default' \
+curl -H 'X-Workspace: default' \
   http://127.0.0.1:8000/api/state
 ```
 
@@ -106,5 +106,5 @@ curl -X POST \
 ## Notes
 
 - The API is intended for local-network use.
-- Use `X-Workspace-Name`, `X-Workspace-ID`, or the workspace query parameters when targeting a non-default workspace.
+- Use `X-Workspace` or `workspace` when targeting a non-default workspace.
 - If you expose DassieDrop externally, put it behind proper TLS and access controls.

@@ -57,12 +57,12 @@ def base_url_from_request(handler: BaseHTTPRequestHandler) -> str:
 def share_payload(entry_type: str, entry: dict, base_url: str) -> dict:
     path = f"/s/{urllib.parse.quote(entry['short_code'])}"
     workspace_id = entry.get("workspace_id", config.DEFAULT_WORKSPACE_ID)
-    workspace_name = config.DEFAULT_WORKSPACE_NAME
+    workspace_display_name = config.DEFAULT_WORKSPACE_NAME
     workspace_slug_value = storage.workspace_slug(config.DEFAULT_WORKSPACE_NAME)
     with state.state_lock:
         workspace = storage.get_workspace_locked(workspace_id)
         if workspace is not None:
-            workspace_name = workspace["name"]
+            workspace_display_name = workspace["name"]
             workspace_slug_value = storage.workspace_slug_value(workspace)
     payload = {
         "type": entry_type,
@@ -75,7 +75,7 @@ def share_payload(entry_type: str, entry: dict, base_url: str) -> dict:
         "created_at": entry["created_at"],
         "expires_at": entry["expires_at"],
         "workspace_id": workspace_id,
-        "workspace_name": workspace_name,
+        "workspace_display_name": workspace_display_name,
         "workspace_slug": workspace_slug_value,
         "workspace_path": f"/w/{urllib.parse.quote(workspace_slug_value)}",
         "workspace_url": f"{base_url.rstrip('/')}/w/{urllib.parse.quote(workspace_slug_value)}",
@@ -286,10 +286,10 @@ class AppHandler(BaseHTTPRequestHandler):
             return
 
         if parsed.path.startswith("/api/workspaces/") and parsed.path.endswith("/enter"):
-            workspace_id = urllib.parse.unquote(
+            workspace_selector = urllib.parse.unquote(
                 parsed.path.removeprefix("/api/workspaces/").removesuffix("/enter")
             )
-            self.handle_workspace_enter(workspace_id)
+            self.handle_workspace_enter(workspace_selector)
             return
 
         if parsed.path == "/api/text":
@@ -523,7 +523,7 @@ class AppHandler(BaseHTTPRequestHandler):
             }
         )
 
-    def handle_workspace_enter(self, workspace_id: str) -> None:
+    def handle_workspace_enter(self, workspace_selector: str) -> None:
         session_id, session = auth.get_session(self)
         if session_id is None or session is None:
             self.send_error(HTTPStatus.UNAUTHORIZED, "Session required")
@@ -535,19 +535,27 @@ class AppHandler(BaseHTTPRequestHandler):
         if not isinstance(password, str):
             self.send_error(HTTPStatus.BAD_REQUEST, "Password must be a string")
             return
-        allowed, retry_after = auth.throttle_status(self, "workspace-enter", workspace_id)
+        allowed, retry_after = auth.throttle_status(self, "workspace-enter", workspace_selector)
         if not allowed:
             self.send_throttled("Too many workspace password attempts", retry_after)
             return
-        ok, message = storage.enter_workspace(session_id, workspace_id, password=password)
+        ok, message = storage.enter_workspace(session_id, workspace_selector, password=password)
         if not ok:
             status = HTTPStatus.NOT_FOUND if message == "Workspace not found" else HTTPStatus.FORBIDDEN
             if status == HTTPStatus.FORBIDDEN:
-                auth.record_throttle_failure(self, "workspace-enter", workspace_id)
+                auth.record_throttle_failure(self, "workspace-enter", workspace_selector)
             self.send_error(status, message)
             return
-        auth.clear_throttle_failures(self, "workspace-enter", workspace_id)
-        self.send_json({"ok": True, "workspace_id": workspace_id})
+        auth.clear_throttle_failures(self, "workspace-enter", workspace_selector)
+        resolved_workspace = storage.get_workspace(self.current_session_workspace_id() or "")
+        self.send_json(
+            {
+                "ok": True,
+                "workspace": storage.serialize_workspace_summary(resolved_workspace)
+                if resolved_workspace is not None
+                else None,
+            }
+        )
 
     def handle_workspace_delete(self, workspace_id: str) -> None:
         payload = self.parse_json_body()
