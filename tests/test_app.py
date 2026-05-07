@@ -2206,6 +2206,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("const clipboardReadAvailable = !!(window.isSecureContext && navigator.clipboard && navigator.clipboard.readText);", script)
         self.assertIn('textEditorWrap.classList.add("clipboard-read-unavailable");', script)
         self.assertIn("window.isSecureContext", script)
+        self.assertIn('const pasted = document.execCommand("paste");', script)
         self.assertIn("navigator.clipboard.readText()", script)
         self.assertIn("Clipboard read requires HTTPS or localhost.", script)
         self.assertIn('if (clipboardReadAvailable && pasteSendBtn) {', script)

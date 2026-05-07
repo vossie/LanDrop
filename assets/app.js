@@ -1021,6 +1021,22 @@ async function uploadFile(file = fileInput.files[0]) {
 }
 
 async function pasteAndSendText() {
+  if (sharedText && typeof document.execCommand === "function") {
+    sharedText.focus();
+    try {
+      const pasted = document.execCommand("paste");
+      if (pasted) {
+        window.setTimeout(() => {
+          if (sharedText.value.trim()) {
+            saveText();
+          }
+        }, 0);
+        return;
+      }
+    } catch (error) {
+      // Fall through to async clipboard read when native paste is unavailable.
+    }
+  }
   if (!window.isSecureContext) {
     sharedText.focus();
     setTextStatus("Clipboard read requires HTTPS or localhost. Paste into the box with Ctrl+V or Cmd+V.");
