@@ -114,6 +114,7 @@ def start_background_tasks() -> None:
             import app as app_module
 
             auth.cleanup_throttle_failures()
+            auth.cleanup_rate_limit_events()
             auth.cleanup_authorized_sessions()
             app_module.check_for_updates()
             for workspace_id in storage.prune_expired_entries():

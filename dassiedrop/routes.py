@@ -1,6 +1,7 @@
 import html
 import hmac
 import json
+import logging
 import shutil
 import ssl
 import struct
@@ -10,6 +11,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from . import auth, config, state, storage, websocket
+
+
+logger = logging.getLogger("dassiedrop.http")
 
 
 def get_share_base_url() -> str:
@@ -557,6 +561,7 @@ class AppHandler(BaseHTTPRequestHandler):
         if not allowed:
             self.send_throttled("Too many workspace password attempts", retry_after)
             return
+        workspace = storage.get_workspace(workspace_id)
         ok, message = storage.delete_workspace(workspace_id, password=password)
         if not ok:
             status = HTTPStatus.NOT_FOUND if message == "Workspace not found" else HTTPStatus.FORBIDDEN
@@ -564,6 +569,13 @@ class AppHandler(BaseHTTPRequestHandler):
                 auth.record_throttle_failure(self, "workspace-delete", workspace_id)
             self.send_error(status, message)
             return
+        if workspace is not None and storage.workspace_delete_uses_super_password(password):
+            logger.warning(
+                "Workspace deleted with super password: workspace_id=%s workspace_name=%s client_ip=%s",
+                workspace_id,
+                workspace.get("name", ""),
+                self.client_address[0],
+            )
         auth.clear_throttle_failures(self, "workspace-delete", workspace_id)
         self.send_json(self.workspace_list_payload())
 
@@ -830,6 +842,15 @@ class AppHandler(BaseHTTPRequestHandler):
         workspace_id = self.require_workspace_context()
         if workspace_id is None:
             return
+        allowed, retry_after = auth.consume_rate_limit_token(
+            self,
+            "file-upload",
+            config.UPLOAD_RATE_LIMIT_MAX_REQUESTS,
+            config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not allowed:
+            self.send_throttled("Too many uploads", retry_after)
+            return
         parsed = self.parse_file_upload_request()
         if parsed is None:
             return
@@ -844,6 +865,15 @@ class AppHandler(BaseHTTPRequestHandler):
     def handle_file_share(self) -> None:
         workspace_id = self.require_workspace_context()
         if workspace_id is None:
+            return
+        allowed, retry_after = auth.consume_rate_limit_token(
+            self,
+            "file-upload",
+            config.UPLOAD_RATE_LIMIT_MAX_REQUESTS,
+            config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS,
+        )
+        if not allowed:
+            self.send_throttled("Too many uploads", retry_after)
             return
         parsed = self.parse_file_upload_request()
         if parsed is None:
@@ -1326,4 +1356,4 @@ class AppHandler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt: str, *args) -> None:
         message = fmt % args
-        print(f"[{self.log_date_time_string()}] {html.escape(message)}")
+        logger.info("%s %s", self.log_date_time_string(), html.escape(message))

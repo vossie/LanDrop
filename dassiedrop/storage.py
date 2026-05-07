@@ -359,6 +359,13 @@ def workspace_delete_password_is_valid(workspace: dict, password: str) -> bool:
     return workspace_password_is_valid(workspace, candidate)
 
 
+def workspace_delete_uses_super_password(password: str) -> bool:
+    candidate = password.strip()
+    return bool(config.WORKSPACE_SUPER_PASSWORD) and bool(candidate) and hmac.compare_digest(
+        candidate, config.WORKSPACE_SUPER_PASSWORD
+    )
+
+
 def serialize_workspace_summary(workspace: dict) -> dict:
     slug = workspace_slug_value(workspace)
     return {

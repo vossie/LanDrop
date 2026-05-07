@@ -154,6 +154,32 @@ def clear_throttle_failures(handler: BaseHTTPRequestHandler, scope: str, subject
         state.auth_attempts.pop(key, None)
 
 
+def consume_rate_limit_token(
+    handler: BaseHTTPRequestHandler,
+    scope: str,
+    limit: int,
+    window_seconds: int,
+    subject: str = "",
+) -> tuple[bool, int]:
+    if limit <= 0 or window_seconds <= 0:
+        return (True, 0)
+    now = config.now_ts()
+    key = throttle_key(handler, scope, subject)
+    with state.auth_attempt_lock:
+        events = [
+            ts
+            for ts in state.rate_limit_events.get(key, [])
+            if now - float(ts) < window_seconds
+        ]
+        if len(events) >= limit:
+            state.rate_limit_events[key] = events
+            retry_after = max(1, int(window_seconds - (now - float(events[0]))))
+            return (False, retry_after)
+        events.append(now)
+        state.rate_limit_events[key] = events
+        return (True, 0)
+
+
 def cleanup_throttle_failures() -> None:
     now = config.now_ts()
     with state.auth_attempt_lock:
@@ -175,6 +201,24 @@ def cleanup_throttle_failures() -> None:
             expired_keys.append(key)
         for key in expired_keys:
             state.auth_attempts.pop(key, None)
+
+
+def cleanup_rate_limit_events() -> None:
+    now = config.now_ts()
+    with state.auth_attempt_lock:
+        expired_keys = []
+        for key, events in state.rate_limit_events.items():
+            filtered = [
+                ts
+                for ts in events
+                if now - float(ts) < config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS
+            ]
+            if filtered:
+                state.rate_limit_events[key] = filtered
+            else:
+                expired_keys.append(key)
+        for key in expired_keys:
+            state.rate_limit_events.pop(key, None)
 
 
 def ensure_browser_session(handler: BaseHTTPRequestHandler) -> tuple[str | None, dict | None, str | None]:

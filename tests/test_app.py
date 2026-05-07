@@ -1,6 +1,7 @@
 import base64
 import http.client
 import json
+import logging
 import os
 import socket
 import struct
@@ -32,6 +33,7 @@ def reset_app_state() -> None:
         state.authorized_sessions.clear()
     with state.auth_attempt_lock:
         state.auth_attempts.clear()
+        state.rate_limit_events.clear()
     app.stop_background_tasks()
 
 
@@ -411,6 +413,8 @@ class HttpServerTests(unittest.TestCase):
         self.original_update_check_enabled = config.UPDATE_CHECK_ENABLED
         self.original_update_check_url = config.UPDATE_CHECK_URL
         self.original_update_check_interval_seconds = config.UPDATE_CHECK_INTERVAL_SECONDS
+        self.original_upload_rate_limit_window_seconds = config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS
+        self.original_upload_rate_limit_max_requests = config.UPLOAD_RATE_LIMIT_MAX_REQUESTS
         self.current_time = 1_700_100_000.0
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
@@ -420,6 +424,8 @@ class HttpServerTests(unittest.TestCase):
         config.UPDATE_CHECK_ENABLED = False
         config.UPDATE_CHECK_URL = "https://example.invalid/VERSION"
         config.UPDATE_CHECK_INTERVAL_SECONDS = 24 * 60 * 60
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
         config.now_ts = self.fake_now
         config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -443,6 +449,8 @@ class HttpServerTests(unittest.TestCase):
         config.UPDATE_CHECK_ENABLED = self.original_update_check_enabled
         config.UPDATE_CHECK_URL = self.original_update_check_url
         config.UPDATE_CHECK_INTERVAL_SECONDS = self.original_update_check_interval_seconds
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = self.original_upload_rate_limit_window_seconds
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = self.original_upload_rate_limit_max_requests
         config.now_ts = self.original_now_ts
         config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -806,6 +814,50 @@ class HttpServerTests(unittest.TestCase):
         )
 
         self.assertEqual(response["status"], 413)
+
+    def test_file_upload_is_rate_limited_per_client_ip(self) -> None:
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = 2
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
+        self.start_server()
+
+        first = self.upload_request("one.txt", b"payload-1")
+        second = self.upload_request("two.txt", b"payload-2")
+        third = self.upload_request("three.txt", b"payload-3")
+
+        self.assertEqual(first["status"], 200)
+        self.assertEqual(second["status"], 200)
+        self.assertEqual(third["status"], 429)
+        self.assertEqual(third["headers"]["Retry-After"], "60")
+
+    def test_workspace_delete_logs_super_password_usage(self) -> None:
+        self.start_server()
+        config.WORKSPACE_SUPER_PASSWORD = "override"
+        workspace = app.create_workspace("Secure", password="vault")
+
+        workspace_page = self.request("GET", "/workspaces")
+        self.assertEqual(workspace_page["status"], 200)
+        cookie = workspace_page["headers"]["Set-Cookie"].split(";", 1)[0]
+        token = workspace_page["text"].split('<meta name="dassiedrop-csrf-token" content="', 1)[1].split('"', 1)[0]
+
+        with self.assertLogs("dassiedrop.http", level="WARNING") as captured:
+            response = self.request(
+                "DELETE",
+                f"/api/workspaces/{workspace['id']}",
+                body=json.dumps({"password": "override"}).encode("utf-8"),
+                headers={
+                    "Content-Type": "application/json",
+                    "Cookie": cookie,
+                    "X-CSRF-Token": token,
+                },
+            )
+
+        self.assertEqual(response["status"], 200)
+        self.assertTrue(
+            any(
+                "Workspace deleted with super password" in message and workspace["id"] in message
+                for message in captured.output
+            )
+        )
 
     def test_delete_flow_removes_entry_from_follow_up_requests(self) -> None:
         self.start_server()
@@ -1987,6 +2039,7 @@ class ScriptTests(unittest.TestCase):
         self.assertIn("COPY dassiedrop ./dassiedrop", dockerfile)
         self.assertIn('VOLUME ["/data"]', dockerfile)
         self.assertIn("EXPOSE 8000 8443", dockerfile)
+        self.assertIn("HEALTHCHECK --interval=30s --timeout=5s CMD python3 -c", dockerfile)
         self.assertIn('CMD ["python3", "app.py"]', dockerfile)
 
     def test_docker_compose_persists_uploads_and_configures_env(self) -> None:

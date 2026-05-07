@@ -8,6 +8,7 @@ auth_attempt_lock = threading.Lock()
 authorized_sessions: dict[str, dict] = {}
 websocket_clients = set()
 auth_attempts: dict[str, dict] = {}
+rate_limit_events: dict[str, list[float]] = {}
 janitor_thread: threading.Thread | None = None
 janitor_stop_event = threading.Event()
 shared_state = {

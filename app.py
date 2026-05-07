@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import logging
 import os
 import threading
 
@@ -93,6 +94,7 @@ EXPIRY_SECONDS = config.EXPIRY_SECONDS
 MAX_TEXT_HISTORY = config.MAX_TEXT_HISTORY
 MAX_FILE_HISTORY = config.MAX_FILE_HISTORY
 MAX_FILE_SIZE = config.MAX_FILE_SIZE
+logger = logging.getLogger("dassiedrop.app")
 
 
 def __getattr__(name):
@@ -154,6 +156,10 @@ def check_for_updates(force: bool = False) -> bool:
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(name)s %(message)s",
+    )
     ensure_upload_dir()
     load_persisted_workspaces()
     if config.UPDATE_CHECK_ENABLED:
@@ -164,14 +170,14 @@ def main() -> None:
         raise RuntimeError("HTTP_PORT and HTTPS_PORT must be different when HTTPS is enabled.")
 
     http_server, http_scheme = build_server(host, config.HTTP_PORT, use_https=False)
-    print(f"Serving DassieDrop on {http_scheme}://{host}:{config.HTTP_PORT}")
+    logger.info("Serving DassieDrop on %s://%s:%s", http_scheme, host, config.HTTP_PORT)
 
     if not config.HTTPS_ENABLED:
         http_server.serve_forever()
         return
 
     https_server, https_scheme = build_server(host, config.HTTPS_PORT, use_https=True)
-    print(f"Serving DassieDrop on {https_scheme}://{host}:{config.HTTPS_PORT}")
+    logger.info("Serving DassieDrop on %s://%s:%s", https_scheme, host, config.HTTPS_PORT)
 
     http_thread = threading.Thread(target=http_server.serve_forever, daemon=True)
     http_thread.start()

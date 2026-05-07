@@ -29,6 +29,7 @@ def reset_app_state() -> None:
         state.authorized_sessions.clear()
     with state.auth_attempt_lock:
         state.auth_attempts.clear()
+        state.rate_limit_events.clear()
     app.stop_background_tasks()
 
 
@@ -48,6 +49,8 @@ class CoreStateTestCase(unittest.TestCase):
         self.original_max_json_body_size = config.MAX_JSON_BODY_SIZE
         self.original_max_total_storage_bytes = config.MAX_TOTAL_STORAGE_BYTES
         self.original_session_ttl_seconds = config.SESSION_TTL_SECONDS
+        self.original_upload_rate_limit_window_seconds = config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS
+        self.original_upload_rate_limit_max_requests = config.UPLOAD_RATE_LIMIT_MAX_REQUESTS
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
         config.API_KEY = ""
@@ -59,6 +62,8 @@ class CoreStateTestCase(unittest.TestCase):
         config.MAX_JSON_BODY_SIZE = 1024 * 1024
         config.MAX_TOTAL_STORAGE_BYTES = 0
         config.SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
         config.now_ts = self.fake_now
         config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -79,6 +84,8 @@ class CoreStateTestCase(unittest.TestCase):
         config.MAX_JSON_BODY_SIZE = self.original_max_json_body_size
         config.MAX_TOTAL_STORAGE_BYTES = self.original_max_total_storage_bytes
         config.SESSION_TTL_SECONDS = self.original_session_ttl_seconds
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = self.original_upload_rate_limit_window_seconds
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = self.original_upload_rate_limit_max_requests
         config.now_ts = self.original_now_ts
         config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
@@ -103,6 +110,8 @@ class CoreHttpTestCase(unittest.TestCase):
         self.original_max_json_body_size = config.MAX_JSON_BODY_SIZE
         self.original_max_total_storage_bytes = config.MAX_TOTAL_STORAGE_BYTES
         self.original_session_ttl_seconds = config.SESSION_TTL_SECONDS
+        self.original_upload_rate_limit_window_seconds = config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS
+        self.original_upload_rate_limit_max_requests = config.UPLOAD_RATE_LIMIT_MAX_REQUESTS
         self.current_time = 1_700_100_000.0
         config.UPLOAD_DIR = Path(self.temp_dir.name) / "uploads"
         config.ACCESS_CODE = ""
@@ -115,6 +124,8 @@ class CoreHttpTestCase(unittest.TestCase):
         config.MAX_JSON_BODY_SIZE = 1024 * 1024
         config.MAX_TOTAL_STORAGE_BYTES = 0
         config.SESSION_TTL_SECONDS = 7 * 24 * 60 * 60
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = 60
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = 10
         config.now_ts = self.fake_now
         config.VERSION_FILE = Path(self.temp_dir.name) / "VERSION"
         config.VERSION_FILE.write_text("9.9.9", encoding="utf-8")
@@ -141,6 +152,8 @@ class CoreHttpTestCase(unittest.TestCase):
         config.MAX_JSON_BODY_SIZE = self.original_max_json_body_size
         config.MAX_TOTAL_STORAGE_BYTES = self.original_max_total_storage_bytes
         config.SESSION_TTL_SECONDS = self.original_session_ttl_seconds
+        config.UPLOAD_RATE_LIMIT_WINDOW_SECONDS = self.original_upload_rate_limit_window_seconds
+        config.UPLOAD_RATE_LIMIT_MAX_REQUESTS = self.original_upload_rate_limit_max_requests
         config.now_ts = self.original_now_ts
         config.VERSION_FILE = self.original_version_file
         self.temp_dir.cleanup()
