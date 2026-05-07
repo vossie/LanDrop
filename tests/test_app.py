@@ -573,6 +573,31 @@ class HttpServerTests(unittest.TestCase):
             payload_length = struct.unpack("!Q", read_exact(8))[0]
         return read_exact(payload_length), bytes(pending)
 
+    def read_websocket_close_code(self, connection: socket.socket, buffered: bytes = b"") -> tuple[int, bytes]:
+        pending = bytearray(buffered)
+
+        def read_exact(length: int) -> bytes:
+            while len(pending) < length:
+                chunk = connection.recv(4096)
+                if not chunk:
+                    raise AssertionError("WebSocket connection closed early")
+                pending.extend(chunk)
+            data = bytes(pending[:length])
+            del pending[:length]
+            return data
+
+        header = read_exact(2)
+        first_byte, second_byte = header
+        self.assertEqual(first_byte & 0x0F, 0x8)
+        payload_length = second_byte & 0x7F
+        if payload_length == 126:
+            payload_length = struct.unpack("!H", read_exact(2))[0]
+        elif payload_length == 127:
+            payload_length = struct.unpack("!Q", read_exact(8))[0]
+        payload = read_exact(payload_length)
+        self.assertGreaterEqual(len(payload), 2)
+        return struct.unpack("!H", payload[:2])[0], bytes(pending)
+
     def wait_for_websocket_client_count(self, expected_count: int, timeout: float = 2.0) -> None:
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
@@ -1667,7 +1692,9 @@ class HttpServerTests(unittest.TestCase):
         )
         self.assertEqual(text_response["status"], 200)
 
+        close_code, buffered = self.read_websocket_close_code(websocket, buffered)
         self.wait_for_websocket_client_count(0)
+        self.assertEqual(close_code, 1008)
 
     def test_latest_endpoints_return_not_found_when_history_is_empty(self) -> None:
         self.start_server()

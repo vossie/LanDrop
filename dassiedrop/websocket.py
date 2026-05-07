@@ -8,6 +8,7 @@ from . import auth, config, state, storage
 
 
 WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
+WEBSOCKET_CLOSE_POLICY_VIOLATION = 1008
 
 
 def websocket_accept_value(key: str) -> str:
@@ -49,6 +50,9 @@ class WebSocketClient:
     def send_json(self, payload: dict) -> bool:
         return self.send_frame(0x1, json.dumps(payload).encode("utf-8"))
 
+    def send_close(self, code: int) -> bool:
+        return self.send_frame(0x8, struct.pack("!H", code))
+
     def close(self) -> None:
         with self.write_lock:
             if self.closed:
@@ -88,6 +92,7 @@ def broadcast_snapshot(workspace_id: str, snapshot: dict | None = None) -> None:
     failed_clients = []
     for client in clients:
         if client.session_id and auth.get_session_by_id(client.session_id, touch=False) is None:
+            client.send_close(WEBSOCKET_CLOSE_POLICY_VIOLATION)
             failed_clients.append(client)
             continue
         if not client.send_json(payload):
