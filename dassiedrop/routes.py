@@ -110,6 +110,7 @@ def update_notice_html() -> str:
 
 class AppHandler(BaseHTTPRequestHandler):
     server_version = "DassieDrop/1.2"
+    protocol_version = "HTTP/1.1"
     content_security_policy = (
         "default-src 'self'; "
         "img-src 'self' data:; "
