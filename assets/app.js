@@ -42,6 +42,7 @@ let copiedTextId = null;
 let copiedTextTimer = null;
 let lastRenderedTexts = [];
 let lastSnapshotSignature = null;
+let deferredSnapshot = null;
 const textAccordionState = new Map();
 const fileAccordionState = new Map();
 let stateSocket = null;
@@ -802,6 +803,28 @@ function snapshotSignature(snapshot) {
   });
 }
 
+function shouldDeferSnapshot() {
+  return document.visibilityState === "visible" && activeTab === "text" && isTextFormActive();
+}
+
+function handleIncomingSnapshot(snapshot) {
+  if (shouldDeferSnapshot()) {
+    deferredSnapshot = snapshot;
+    return;
+  }
+  deferredSnapshot = null;
+  renderSnapshot(snapshot);
+}
+
+function flushDeferredSnapshot() {
+  if (!deferredSnapshot || shouldDeferSnapshot()) {
+    return;
+  }
+  const snapshot = deferredSnapshot;
+  deferredSnapshot = null;
+  renderSnapshot(snapshot);
+}
+
 function renderSnapshot(snapshot) {
   const nextTextId = snapshot.texts && snapshot.texts.length ? snapshot.texts[0].id : null;
   const nextFileId = snapshot.files && snapshot.files.length ? snapshot.files[0].id : null;
@@ -847,7 +870,7 @@ async function fetchState() {
     if (!response.ok) {
       throw new Error(`State request failed: ${response.status}`);
     }
-    renderSnapshot(await response.json());
+    handleIncomingSnapshot(await response.json());
   } catch (error) {
     textStatus.textContent = "Could not refresh shared data.";
   }
@@ -880,7 +903,7 @@ function connectStateSocket() {
 
   stateSocket.addEventListener("message", (event) => {
     try {
-      renderSnapshot(JSON.parse(event.data));
+      handleIncomingSnapshot(JSON.parse(event.data));
     } catch (error) {
       textStatus.textContent = "Could not read live updates.";
     }
@@ -915,6 +938,9 @@ function startPollingFallback() {
     return;
   }
   pollingTimer = window.setInterval(() => {
+    if (shouldDeferSnapshot()) {
+      return;
+    }
     if (!stateSocket || stateSocket.readyState !== WebSocket.OPEN) {
       fetchState();
     }
@@ -1067,6 +1093,12 @@ sharedText.addEventListener("keydown", (event) => {
     saveText();
   }
 });
+sharedText.addEventListener("blur", flushDeferredSnapshot);
+sharerName.addEventListener("blur", flushDeferredSnapshot);
+hiddenText.addEventListener("change", flushDeferredSnapshot);
+textPassword.addEventListener("blur", flushDeferredSnapshot);
+saveTextBtn.addEventListener("blur", flushDeferredSnapshot);
+document.addEventListener("visibilitychange", flushDeferredSnapshot);
 
 dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
