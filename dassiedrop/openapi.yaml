@@ -1,0 +1,1041 @@
+openapi: 3.1.0
+info:
+  title: DassieDrop API
+  version: 1.0.40
+  description: |
+    OpenAPI schema for the DassieDrop HTTP API.
+
+    This schema covers the documented HTTP endpoints used by the browser UI and
+    automation clients. The `/ws` WebSocket snapshot stream is intentionally not
+    modeled here.
+servers:
+  - url: http://localhost:8000
+    description: Local HTTP
+  - url: https://localhost:8443
+    description: Local HTTPS
+tags:
+  - name: Auth
+  - name: Workspaces
+  - name: Text
+  - name: Files
+  - name: Shares
+paths:
+  /login:
+    post:
+      tags: [Auth]
+      summary: Create an authorized browser session
+      description: |
+        If `ACCESS_CODE` is configured, send it in the JSON body. On success,
+        the server sets the session cookie and places the session in the default
+        workspace immediately.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: Authorized session created
+          headers:
+            Set-Cookie:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OkResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/workspaces:
+    get:
+      tags: [Workspaces]
+      summary: List workspaces
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      responses:
+        '200':
+          description: Workspace list and current session selection
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceListResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    post:
+      tags: [Workspaces]
+      summary: Create a workspace
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateWorkspaceRequest'
+      responses:
+        '200':
+          description: Workspace created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateWorkspaceResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /api/workspaces/{workspace}/enter:
+    post:
+      tags: [Workspaces]
+      summary: Enter a workspace for the current browser session
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspacePath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePasswordRequest'
+      responses:
+        '200':
+          description: Workspace selected
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceEnterResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/workspaces/{workspaceId}:
+    delete:
+      tags: [Workspaces]
+      summary: Delete a workspace
+      description: The default workspace cannot be deleted.
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceIdPath'
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WorkspacePasswordRequest'
+      responses:
+        '200':
+          description: Updated workspace list
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceListResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/state:
+    get:
+      tags: [Workspaces]
+      summary: Get the current workspace snapshot
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '200':
+          description: Full workspace snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Workspace not selected for the current session
+
+  /api/latest-text:
+    get:
+      tags: [Text]
+      summary: Get the newest text entry
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '200':
+          description: Newest text entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TextEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/text:
+    post:
+      tags: [Text]
+      summary: Add a text entry to the current workspace
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextCreateRequest'
+      responses:
+        '200':
+          description: Updated workspace snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Workspace not selected for the current session
+
+  /api/share-text:
+    post:
+      tags: [Shares, Text]
+      summary: Create a text entry and return a compact share payload
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TextCreateRequest'
+      responses:
+        '200':
+          description: Share payload for the created text entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TextShareResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/text/{textId}/reveal:
+    post:
+      tags: [Text]
+      summary: Reveal a protected hidden text entry
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - name: textId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PasswordRequest'
+      responses:
+        '200':
+          description: Revealed text content
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TextRevealResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/text/{textId}:
+    delete:
+      tags: [Text]
+      summary: Delete a text entry
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - name: textId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '200':
+          description: Updated workspace snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/latest-file:
+    get:
+      tags: [Files]
+      summary: Get the newest file entry metadata
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '200':
+          description: Newest file entry metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileEntry'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/latest-file/content:
+    get:
+      tags: [Files]
+      summary: Download the newest file in the selected workspace
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '200':
+          description: File bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /api/upload:
+    post:
+      tags: [Files]
+      summary: Upload a file to the current workspace
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FileUploadRequest'
+      responses:
+        '200':
+          description: Updated workspace snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          description: File too large
+
+  /api/share-file:
+    post:
+      tags: [Shares, Files]
+      summary: Upload a file and return a compact share payload
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - $ref: '#/components/parameters/WorkspaceHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/FileUploadRequest'
+      responses:
+        '200':
+          description: Share payload for the created file entry
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FileShareResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '413':
+          description: File too large
+
+  /api/file/{fileId}:
+    delete:
+      tags: [Files]
+      summary: Delete a file entry
+      security:
+        - sessionCookie: []
+        - apiKeyAuth: []
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/WorkspaceIdHeader'
+        - $ref: '#/components/parameters/WorkspaceNameHeader'
+        - $ref: '#/components/parameters/WorkspaceQuery'
+        - $ref: '#/components/parameters/WorkspaceNameQuery'
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '200':
+          description: Updated workspace snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkspaceSnapshot'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /download/{fileId}:
+    get:
+      tags: [Files, Shares]
+      summary: Download a file by id
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/PasswordQuery'
+      responses:
+        '200':
+          description: File bytes
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /preview/{fileId}:
+    get:
+      tags: [Files, Shares]
+      summary: Preview a file inline by id
+      parameters:
+        - name: fileId
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/WorkspacePasswordHeader'
+        - $ref: '#/components/parameters/PasswordQuery'
+      responses:
+        '200':
+          description: File bytes rendered inline
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /s/{shortCode}:
+    get:
+      tags: [Shares]
+      summary: Resolve a short share link
+      parameters:
+        - name: shortCode
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/AccessPasswordHeader'
+      responses:
+        '200':
+          description: Shared text or file content
+          content:
+            text/plain:
+              schema:
+                type: string
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '401':
+          description: Generic LAN-link denial response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                    example: Access denied
+
+  /w/{workspaceSlug}:
+    get:
+      tags: [Workspaces]
+      summary: Enter a workspace by slug and redirect to the main UI
+      parameters:
+        - name: workspaceSlug
+          in: path
+          required: true
+          schema:
+            type: string
+        - $ref: '#/components/parameters/WorkspacePasswordQuery'
+      responses:
+        '303':
+          description: Browser redirect to the app root
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+components:
+  securitySchemes:
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for automation clients. Uses `API_KEY` when configured, otherwise falls back to `ACCESS_CODE`.
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: dassiedrop_session
+  parameters:
+    AccessPasswordHeader:
+      name: X-Access-Password
+      in: header
+      required: false
+      schema:
+        type: string
+    WorkspacePath:
+      name: workspace
+      in: path
+      required: true
+      schema:
+        type: string
+      description: Opaque workspace selector string. Case-sensitive.
+    WorkspaceIdPath:
+      name: workspaceId
+      in: path
+      required: true
+      schema:
+        type: string
+    WorkspaceHeader:
+      name: X-Workspace
+      in: header
+      required: false
+      schema:
+        type: string
+      description: Opaque workspace selector string. Case-sensitive.
+    WorkspaceIdHeader:
+      name: X-Workspace-ID
+      in: header
+      required: false
+      deprecated: true
+      schema:
+        type: string
+      description: Deprecated alias for `X-Workspace`.
+    WorkspaceSlugHeader:
+      name: X-Workspace-Slug
+      in: header
+      required: false
+      deprecated: true
+      schema:
+        type: string
+      description: Deprecated alias for `X-Workspace`.
+    WorkspaceNameHeader:
+      name: X-Workspace-Name
+      in: header
+      required: false
+      deprecated: true
+      schema:
+        type: string
+      description: Deprecated alias for `X-Workspace`.
+    WorkspacePasswordHeader:
+      name: X-Workspace-Password
+      in: header
+      required: false
+      schema:
+        type: string
+    WorkspaceQuery:
+      name: workspace
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Opaque workspace selector string. Case-sensitive.
+    WorkspaceSlugQuery:
+      name: workspace_slug
+      in: query
+      required: false
+      deprecated: true
+      schema:
+        type: string
+      description: Deprecated alias for `workspace`.
+    WorkspaceNameQuery:
+      name: workspace_name
+      in: query
+      required: false
+      deprecated: true
+      schema:
+        type: string
+      description: Deprecated alias for `workspace`.
+    WorkspacePasswordQuery:
+      name: workspace_password
+      in: query
+      required: false
+      schema:
+        type: string
+    PasswordQuery:
+      name: password
+      in: query
+      required: false
+      schema:
+        type: string
+  responses:
+    BadRequest:
+      description: Invalid request
+      content:
+        text/html:
+          schema:
+            type: string
+    Unauthorized:
+      description: Authentication required or failed
+      content:
+        text/html:
+          schema:
+            type: string
+    Forbidden:
+      description: Password or workspace access rejected
+      content:
+        text/html:
+          schema:
+            type: string
+    NotFound:
+      description: Resource not found
+      content:
+        text/html:
+          schema:
+            type: string
+  schemas:
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+    LoginRequest:
+      type: object
+      properties:
+        code:
+          type: string
+      additionalProperties: false
+    PasswordRequest:
+      type: object
+      properties:
+        password:
+          type: string
+      additionalProperties: false
+    WorkspacePasswordRequest:
+      allOf:
+        - $ref: '#/components/schemas/PasswordRequest'
+    CreateWorkspaceRequest:
+      type: object
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: Workspace identifier. Allowed characters are `a-z`, `0-9`, `-`, `_`, and `.`.
+        password:
+          type: string
+      additionalProperties: false
+    WorkspaceSummary:
+      type: object
+      required:
+        - id
+        - name
+        - slug
+        - path
+        - password_required
+        - created_at
+        - updated_at
+        - text_count
+        - file_count
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        slug:
+          type: string
+        path:
+          type: string
+        password_required:
+          type: boolean
+        created_at:
+          type: number
+        updated_at:
+          type: number
+        text_count:
+          type: integer
+        file_count:
+          type: integer
+    WorkspaceListResponse:
+      type: object
+      required: [workspaces, current_workspace_id]
+      properties:
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceSummary'
+        current_workspace_id:
+          type:
+            - string
+            - 'null'
+    CreateWorkspaceResponse:
+      type: object
+      required: [workspace, workspaces, current_workspace_id]
+      properties:
+        workspace:
+          $ref: '#/components/schemas/WorkspaceSummary'
+        workspaces:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkspaceSummary'
+        current_workspace_id:
+          type:
+            - string
+            - 'null'
+    WorkspaceEnterResponse:
+      type: object
+      required: [ok, workspace]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        workspace:
+          $ref: '#/components/schemas/WorkspaceSummary'
+    TextEntry:
+      type: object
+      required:
+        - id
+        - hidden
+        - password_required
+        - sharer_name
+        - sharer_ip
+        - short_code
+        - created_at
+        - expires_at
+        - masked_content
+        - content
+      properties:
+        id:
+          type: string
+        hidden:
+          type: boolean
+        password_required:
+          type: boolean
+        sharer_name:
+          type: string
+        sharer_ip:
+          type: string
+        short_code:
+          type: string
+        created_at:
+          type: number
+        expires_at:
+          type: number
+        masked_content:
+          type: string
+        content:
+          type:
+            - string
+            - 'null'
+    FileEntry:
+      type: object
+      required:
+        - id
+        - name
+        - stored_name
+        - content_type
+        - size
+        - hidden
+        - password_required
+        - sharer_name
+        - sharer_ip
+        - short_code
+        - created_at
+        - expires_at
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        stored_name:
+          type: string
+        content_type:
+          type: string
+        size:
+          type: integer
+        hidden:
+          type: boolean
+        password_required:
+          type: boolean
+        sharer_name:
+          type: string
+        sharer_ip:
+          type: string
+        short_code:
+          type: string
+        created_at:
+          type: number
+        expires_at:
+          type: number
+    WorkspaceSnapshot:
+      type: object
+      required:
+        - workspace
+        - updated_at
+        - expires_after_seconds
+        - latest_text
+        - texts
+        - files
+      properties:
+        workspace:
+          $ref: '#/components/schemas/WorkspaceSummary'
+        updated_at:
+          type: number
+        expires_after_seconds:
+          type: integer
+        latest_text:
+          type: string
+        texts:
+          type: array
+          items:
+            $ref: '#/components/schemas/TextEntry'
+        files:
+          type: array
+          items:
+            $ref: '#/components/schemas/FileEntry'
+    TextCreateRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+        hidden:
+          type: boolean
+          default: false
+        password:
+          type: string
+        name:
+          type: string
+      additionalProperties: false
+    TextRevealResponse:
+      type: object
+      required: [content]
+      properties:
+        content:
+          type: string
+    ShareEnvelope:
+      type: object
+      required:
+        - type
+        - id
+        - short_code
+        - share_path
+        - share_url
+        - hidden
+        - password_required
+        - created_at
+        - expires_at
+        - workspace_id
+        - workspace_display_name
+        - workspace_slug
+        - workspace_path
+        - workspace_url
+      properties:
+        type:
+          type: string
+        id:
+          type: string
+        short_code:
+          type: string
+        share_path:
+          type: string
+        share_url:
+          type: string
+        hidden:
+          type: boolean
+        password_required:
+          type: boolean
+        created_at:
+          type: number
+        expires_at:
+          type: number
+        workspace_id:
+          type: string
+        workspace_display_name:
+          type: string
+        workspace_slug:
+          type: string
+        workspace_path:
+          type: string
+        workspace_url:
+          type: string
+    TextShareResponse:
+      allOf:
+        - $ref: '#/components/schemas/ShareEnvelope'
+        - type: object
+          required: [content]
+          properties:
+            type:
+              type: string
+              const: text
+            content:
+              type: string
+    FileShareResponse:
+      allOf:
+        - $ref: '#/components/schemas/ShareEnvelope'
+        - type: object
+          required: [name, size, download_path, download_url]
+          properties:
+            type:
+              type: string
+              const: file
+            name:
+              type: string
+            size:
+              type: integer
+            download_path:
+              type: string
+            download_url:
+              type: string
+    FileUploadRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+        name:
+          type: string
+          description: Optional sharer name.
+        hidden:
+          type: string
+          description: Send `true` to create a hidden file.
+        password:
+          type: string
+          description: Required when `hidden=true`.

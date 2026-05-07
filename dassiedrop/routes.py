@@ -1309,9 +1309,9 @@ class AppHandler(BaseHTTPRequestHandler):
             shutil.copyfileobj(handle, self.wfile)
 
     def serve_openapi_schema(self) -> None:
-        target = (config.BASE_DIR / "docs" / "openapi.yaml").resolve()
-        docs_root = (config.BASE_DIR / "docs").resolve()
-        if not storage.path_within_root(docs_root, target) or not target.exists() or not target.is_file():
+        package_root = (config.BASE_DIR / "dassiedrop").resolve()
+        target = (package_root / "openapi.yaml").resolve()
+        if not storage.path_within_root(package_root, target) or not target.exists() or not target.is_file():
             self.send_error(HTTPStatus.NOT_FOUND, "Schema not found")
             return
 
