@@ -1,60 +1,135 @@
 # DassieDrop
+
 ![dassiedrop_logo.png](brand/images/dassiedrop_logo.png)
-**Move files and text between your devices, privately, and without the cloud.**
 
-DassieDrop is a lightweight, self-hosted LAN drop zone that lets you share files and clipboard-style text between:
+## Your persistent local drop zone
 
+No cloud. No accounts. No syncing.  
+Just open a browser and drop.
+
+DassieDrop is a lightweight local-first drop zone for your home network.  
+It lets you move files and text between devices using nothing but a browser.
+
+Unlike live-transfer tools, DassieDrop is persistent:
+- drop files now
+- pick them up later
+- access them from any device on your LAN
+
+It bridges the gap between:
 - iPhone / iPad
 - Android
 - Linux
 - Windows
 - macOS
 
-No accounts. No syncing. No third-party services. Just open a browser and drop.
-
 ![dassiedrop_default.png](docs/dassiedrop-default.png)
+
 ---
 
 ## Why DassieDrop?
 
-If you’ve ever:
+You have:
+- a screenshot on your iPhone
+- a PDF on your tablet
+- logs on a server
+- a command on your desktop
 
-- emailed yourself files just to move them
-- used WhatsApp/Slack as a “clipboard”
-- struggled getting files from iPhone → Linux
-- avoided cloud tools for privacy/work reasons
+...and you need it somewhere else quickly.
 
-This is for you.
+Most people end up:
+- emailing themselves files
+- using Slack or WhatsApp as a clipboard
+- uploading to cloud storage
+- fighting with AirDrop limitations
+- debugging unreliable WebRTC connections
+
+DassieDrop solves this with a simple idea:
+
+> A permanent local drop zone for your network.
+
+Upload from one device.  
+Download later from another.
+
+No pairing. No accounts. No cloud dependency.
 
 ---
 
-## What makes it different
+## Features
 
-- Works on anything with a browser
-- No cloud / no external services
-- Instant sharing over your local network
-- Supports both files and text snippets
-- Dead simple, no setup, no accounts
-- Scriptable via curl API
+- **Persistent drop zone**  
+  Upload now and retrieve later.
+
+- **Universal compatibility**  
+  If it has a browser, it works.
+
+- **100% local-first**  
+  Your data stays on your network.
+
+- **File + text sharing**  
+  Share documents, screenshots, URLs, notes, logs, and commands.
+
+- **Simple and lightweight**  
+  Built using the Python standard library with minimal dependencies.
+
+- **Automation-friendly**  
+  API-ready with `curl` support.
 
 ---
 
-## Why not just use something else?
+## How it compares
 
-| Tool | Limitation |
-|------|-----------|
-| AirDrop | Apple-only |
-| Dropbox / Drive / iCloud | Sends your data through the cloud |
-| Email / WhatsApp / Slack | Awkward for quick transfers |
-| USB sticks | Manual and slow |
-| SCP / rsync | Not usable from phones |
-| DassieDrop | Works everywhere via browser on your LAN |
+| Feature | DassieDrop | PairDrop / Snapdrop | Cloud Storage |
+| :--- | :--- | :--- | :--- |
+| **Workflow** | Persistent drop zone | Live device handoff | Sync + storage |
+| **Connectivity** | Standard HTTP | WebRTC | Internet required |
+| **Privacy** | Local-only | Uses signaling infrastructure | Third-party cloud |
+| **Automation** | API / `curl` support | Browser-only | Vendor APIs |
+| **Setup** | Lightweight Python runtime | Node.js + WebRTC stack | Account required |
+| **Availability** | Drop now, collect later | Both devices must be active | Always online |
+
+---
+
+## Common workflows
+
+### Mobile to Desktop
+
+Send screenshots or photos from iPhone or Android directly to Linux, Windows, or macOS.
+
+### Shared Clipboard
+
+Drop:
+- URLs
+- terminal commands
+- notes
+- code snippets
+
+...then open them instantly on another device.
+
+### Server Logs
+
+Pipe logs or output directly into DassieDrop using `curl`.
+
+```bash
+cat server.log | curl -F "file=@-" http://SERVER:8000/upload
+```
+
+### The Home Hub
+
+Run DassieDrop on:
+- a Raspberry Pi
+- a NAS
+- a mini PC
+- a homelab server
+
+...and always have a personal LAN inbox available.
 
 ---
 
 ## Quick Start
 
-Run directly with Python:
+### Option 1 - Run directly with Python
+
+Perfect for quick use or locked-down machines.
 
 ```bash
 git clone https://github.com/vossie/DassieDrop.git
@@ -62,99 +137,118 @@ cd DassieDrop
 python3 app.py
 ```
 
-Open in your browser:
+Access locally:
 
-http://127.0.0.1:8000
+```text
+http://localhost:8000
+```
 
-From another device on the same network:
+Or from another device on your network:
 
+```text
 http://YOUR-IP:8000
+```
 
-Run with Docker:
+---
+
+### Option 2 - Docker
+
+Ideal for homelabs and always-on systems.
 
 ```bash
 git clone https://github.com/vossie/DassieDrop.git
 cd DassieDrop
 docker build -t dassiedrop .
-docker run -d --name dassiedrop -p 8000:8000 -v dassiedrop-data:/data dassiedrop
+docker run -d \
+  --name dassiedrop \
+  -p 8000:8000 \
+  -v dassiedrop-data:/data \
+  dassiedrop
 ```
 
-Then open:
+---
 
-http://127.0.0.1:8000
+## Privacy by design
 
-Docker also supports:
+### Local-only
 
-- native HTTPS on `8443`
-- reverse-proxy TLS with the included Caddy setup
+No external signaling servers.  
+No STUN/TURN infrastructure.  
+No cloud relay services.
 
-For HTTPS, Docker TLS options, service installs, and more setup details, see [docs/installation.md](docs/installation.md).
+### Lightweight and auditable
+
+Small, clean codebase using the Python standard library.
+
+### Auto-cleanup
+
+Optional expiry policies for uploaded files and text.
+
+### Secure
+
+Optional access codes and HTTPS support.
 
 ---
 
-## Privacy & Security
+## Why "Dassie"?
 
-DassieDrop is local-first by design:
+The dassie, or rock hyrax, is a small social mammal native to Southern Africa.
 
-- No internet required
-- No third-party servers
-- Files stay on your machine
-- Auto-expiry (24h cleanup)
-- Optional access code
-- Optional hidden/password-protected items
-
-Not intended to be exposed directly to the public internet without proper setup (reverse proxy + TLS).
+Like this project, it relies on simple shared spaces to stay connected efficiently.
 
 ---
 
-## API
+## Roadmap ideas
 
-See [docs/api-usage.md](docs/api-usage.md) for API usage examples and quick automation notes.
-
----
-
-## Use cases
-
-- Move screenshots from iPhone → Linux instantly
-- Send logs from a server → your phone
-- Share config snippets between work and home machines
-- Quick “clipboard sync” across devices
-- Replace email/Slack as a file bridge
+- QR code device onboarding
+- Drag-and-drop multi-upload
+- Clipboard sync mode
+- File previews
+- Optional authentication
+- Temporary share links
+- Mobile-friendly PWA support
 
 ---
 
-## Requirements
+## Documentation
 
-- Python 3.x
-- No external dependencies
-
-## Why not Flask?
-
-DassieDrop intentionally uses only the Python standard library so it stays easy to run on locked-down machines.
-
----
-
-## Installation
-
-See full instructions in docs/installation.md
+- [Installation Guide](docs/installation.md)
+- [API Documentation](docs/api-usage.md)
+- [Bash and curl API](docs/bash-api.md)
+- [Developer Guide](docs/developer-guide.md)
+- [License](LICENSE)
 
 ---
 
-## Contributing
+## Screenshots
 
-PRs welcome. Keep it simple, local-first, and dependency-free.
+### Login
 
----
-
-## Why “Dassie”?
-
-Because it’s small, local, and surprisingly effective, like the rock hyrax.
 ![Screenshot-Login.png](docs/images/Screenshot-Login.png)
+
+### Workspace selector
 
 ![Screenshot-Workspace-Selector.png](docs/images/Screenshot-Workspace-Selector.png)
 
-![Screenshot-Text-Clipboard.png](docs/images/Screenshot-Text-Clipboard.png)
+### File drop zone
 
 ![Screenshot-File-Drop-Zone.png](docs/images/Screenshot-File-Drop-Zone.png)
 
+### Text clipboard
+
+![Screenshot-Text-Clipboard.png](docs/images/Screenshot-Text-Clipboard.png)
+
+---
+
+## Philosophy
+
+DassieDrop is intentionally simple.
+
+It is not:
+- cloud storage
+- device syncing
+- a social platform
+- a heavyweight collaboration tool
+
+It is a fast, reliable, local-first drop zone that works everywhere a browser works.
 
