@@ -41,6 +41,7 @@ let textStatusTimer = null;
 let copiedTextId = null;
 let copiedTextTimer = null;
 let lastRenderedTexts = [];
+let lastSnapshotSignature = null;
 const textAccordionState = new Map();
 const fileAccordionState = new Map();
 let stateSocket = null;
@@ -791,6 +792,16 @@ function renderFiles(files) {
   }
 }
 
+function snapshotSignature(snapshot) {
+  const texts = Array.isArray(snapshot.texts) ? snapshot.texts : [];
+  const files = Array.isArray(snapshot.files) ? snapshot.files : [];
+  return JSON.stringify({
+    updatedAt: snapshot.updated_at || 0,
+    textIds: texts.map((entry) => entry.id),
+    fileIds: files.map((entry) => entry.id)
+  });
+}
+
 function renderSnapshot(snapshot) {
   const nextTextId = snapshot.texts && snapshot.texts.length ? snapshot.texts[0].id : null;
   const nextFileId = snapshot.files && snapshot.files.length ? snapshot.files[0].id : null;
@@ -816,6 +827,13 @@ function renderSnapshot(snapshot) {
   if (!snapshotInitialized) {
     snapshotInitialized = true;
   }
+
+  const nextSignature = snapshotSignature(snapshot);
+  if (nextSignature === lastSnapshotSignature) {
+    updateTabIndicators();
+    return;
+  }
+  lastSnapshotSignature = nextSignature;
 
   textMeta.textContent = `Last update: ${formatDate(snapshot.updated_at)} • Auto-delete after 24 hours`;
   renderTextHistory(snapshot.texts || []);
