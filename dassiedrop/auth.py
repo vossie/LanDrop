@@ -25,22 +25,32 @@ def session_cookie(session_id: str, secure: bool = False) -> str:
     return f"session={session_id}; Path=/; HttpOnly; SameSite=Lax{secure_suffix}"
 
 
+def get_session_by_id(session_id: str, touch: bool = False) -> dict | None:
+    if not session_id:
+        return None
+    with state.session_lock:
+        session = state.authorized_sessions.get(session_id)
+        if session is None:
+            return None
+        now = config.now_ts()
+        last_seen = float(session.get("last_seen_at") or session.get("created_at") or now)
+        if now - last_seen > config.SESSION_TTL_SECONDS:
+            state.authorized_sessions.pop(session_id, None)
+            return None
+        if touch:
+            session["last_seen_at"] = now
+        return session
+
+
 def get_session(handler: BaseHTTPRequestHandler) -> tuple[str | None, dict | None]:
     cookies = parse_cookies(handler.headers.get("Cookie", ""))
     session_id = cookies.get("session")
     if not session_id:
         return (None, None)
-    with state.session_lock:
-        session = state.authorized_sessions.get(session_id)
-        if session is None:
-            return (None, None)
-        now = config.now_ts()
-        last_seen = float(session.get("last_seen_at") or session.get("created_at") or now)
-        if now - last_seen > config.SESSION_TTL_SECONDS:
-            state.authorized_sessions.pop(session_id, None)
-            return (None, None)
-        session["last_seen_at"] = now
-        return (session_id, session)
+    session = get_session_by_id(session_id, touch=True)
+    if session is None:
+        return (None, None)
+    return (session_id, session)
 
 
 def is_authorized(handler: BaseHTTPRequestHandler) -> bool:

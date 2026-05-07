@@ -40,6 +40,7 @@ AUTH_FAILURE_WINDOW_SECONDS = int(os.environ.get("AUTH_FAILURE_WINDOW_SECONDS", 
 AUTH_MAX_FAILURES = int(os.environ.get("AUTH_MAX_FAILURES", "5"))
 AUTH_LOCKOUT_SECONDS = int(os.environ.get("AUTH_LOCKOUT_SECONDS", "60"))
 SESSION_TTL_SECONDS = int(os.environ.get("SESSION_TTL_SECONDS", str(7 * 24 * 60 * 60)))
+MAX_WEBSOCKET_FRAME_SIZE = int(os.environ.get("MAX_WEBSOCKET_FRAME_SIZE", str(1024 * 1024)))
 JANITOR_INTERVAL_SECONDS = float(os.environ.get("JANITOR_INTERVAL_SECONDS", "30"))
 UPDATE_CHECK_ENABLED = os.environ.get("UPDATE_CHECK_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"}
 UPDATE_CHECK_URL = os.environ.get(

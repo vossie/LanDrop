@@ -6,6 +6,7 @@ import socket
 import struct
 import subprocess
 import threading
+import time
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -571,6 +572,16 @@ class HttpServerTests(unittest.TestCase):
         elif payload_length == 127:
             payload_length = struct.unpack("!Q", read_exact(8))[0]
         return read_exact(payload_length), bytes(pending)
+
+    def wait_for_websocket_client_count(self, expected_count: int, timeout: float = 2.0) -> None:
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
+            with state.websocket_lock:
+                current_count = len(state.websocket_clients)
+            if current_count == expected_count:
+                return
+            time.sleep(0.01)
+        self.fail(f"Expected {expected_count} websocket clients, found {current_count}")
 
     def upload_request(
         self,
@@ -1606,9 +1617,57 @@ class HttpServerTests(unittest.TestCase):
         self.assertTrue(initial_frame)
 
         websocket.sendall(b"\x81\x00")
-        closed = websocket.recv(1)
+        close_frame = websocket.recv(4)
+        self.wait_for_websocket_client_count(0)
 
-        self.assertEqual(closed, b"")
+        self.assertTrue(close_frame)
+
+    def test_websocket_rejects_oversized_client_frames(self) -> None:
+        self.start_server()
+        websocket, handshake, _, buffered = self.open_websocket()
+        self.addCleanup(websocket.close)
+        self.assertIn("101 Switching Protocols", handshake)
+        initial_frame, buffered = self.read_websocket_frame(websocket, buffered)
+        self.assertTrue(initial_frame)
+
+        oversized_length = config.MAX_WEBSOCKET_FRAME_SIZE + 1
+        websocket.sendall(b"\x81\xff" + struct.pack("!Q", oversized_length))
+        close_frame = websocket.recv(4)
+        self.wait_for_websocket_client_count(0)
+
+        self.assertTrue(close_frame)
+
+    def test_websocket_closes_when_cookie_session_expires(self) -> None:
+        self.start_server(access_code="secret-code")
+
+        login = self.request(
+            "POST",
+            "/login",
+            body=json.dumps({"code": "secret-code"}).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+        )
+        self.assertEqual(login["status"], 200)
+        cookie = login["headers"]["Set-Cookie"].split(";", 1)[0]
+
+        websocket, handshake, _, buffered = self.open_websocket(cookie=cookie)
+        self.addCleanup(websocket.close)
+        self.assertIn("101 Switching Protocols", handshake)
+        initial_frame, buffered = self.read_websocket_frame(websocket, buffered)
+        self.assertTrue(initial_frame)
+
+        self.current_time += config.SESSION_TTL_SECONDS + 1
+        text_response = self.request(
+            "POST",
+            "/api/text",
+            body=json.dumps({"text": "server-side update"}).encode("utf-8"),
+            headers={
+                "Content-Type": "application/json",
+                "X-API-Key": "secret-code",
+            },
+        )
+        self.assertEqual(text_response["status"], 200)
+
+        self.wait_for_websocket_client_count(0)
 
     def test_latest_endpoints_return_not_found_when_history_is_empty(self) -> None:
         self.start_server()

@@ -4,7 +4,7 @@ import json
 import struct
 import threading
 
-from . import config, state, storage
+from . import auth, config, state, storage
 
 
 WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -28,9 +28,10 @@ def websocket_frame(opcode: int, payload: bytes = b"") -> bytes:
 
 
 class WebSocketClient:
-    def __init__(self, connection, workspace_id: str) -> None:
+    def __init__(self, connection, workspace_id: str, session_id: str | None = None) -> None:
         self.connection = connection
         self.workspace_id = workspace_id
+        self.session_id = session_id
         self.write_lock = threading.Lock()
         self.closed = False
 
@@ -86,6 +87,9 @@ def broadcast_snapshot(workspace_id: str, snapshot: dict | None = None) -> None:
 
     failed_clients = []
     for client in clients:
+        if client.session_id and auth.get_session_by_id(client.session_id, touch=False) is None:
+            failed_clients.append(client)
+            continue
         if not client.send_json(payload):
             failed_clients.append(client)
 

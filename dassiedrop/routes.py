@@ -3,6 +3,7 @@ import hmac
 import json
 import shutil
 import ssl
+import struct
 import urllib.parse
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -111,6 +112,8 @@ def update_notice_html() -> str:
 class AppHandler(BaseHTTPRequestHandler):
     server_version = "DassieDrop/1.2"
     protocol_version = "HTTP/1.1"
+    websocket_close_protocol_error = 1002
+    websocket_close_message_too_big = 1009
     content_security_policy = (
         "default-src 'self'; "
         "img-src 'self' data:; "
@@ -1054,6 +1057,7 @@ class AppHandler(BaseHTTPRequestHandler):
         workspace_id = self.require_workspace_context()
         if workspace_id is None:
             return
+        session_id, _ = auth.get_session(self)
 
         upgrade = self.headers.get("Upgrade", "")
         connection = self.headers.get("Connection", "")
@@ -1074,7 +1078,7 @@ class AppHandler(BaseHTTPRequestHandler):
         self.send_header("Sec-WebSocket-Accept", accept_value)
         self.end_headers()
 
-        client = websocket.WebSocketClient(self.connection, workspace_id)
+        client = websocket.WebSocketClient(self.connection, workspace_id, session_id=session_id)
         websocket.register_websocket_client(client)
         client.send_json(storage.get_snapshot(workspace_id))
 
@@ -1112,11 +1116,11 @@ class AppHandler(BaseHTTPRequestHandler):
 
         first_byte, second_byte = header
         if not (first_byte & 0x80):
-            return (None, b"")
+            return (0x8, struct.pack("!H", self.websocket_close_protocol_error))
         opcode = first_byte & 0x0F
         masked = bool(second_byte & 0x80)
         if not masked:
-            return (None, b"")
+            return (0x8, struct.pack("!H", self.websocket_close_protocol_error))
         payload_length = second_byte & 0x7F
 
         if payload_length == 126:
@@ -1129,6 +1133,9 @@ class AppHandler(BaseHTTPRequestHandler):
             if extended is None:
                 return (None, b"")
             payload_length = int.from_bytes(extended, "big")
+
+        if payload_length > config.MAX_WEBSOCKET_FRAME_SIZE:
+            return (0x8, struct.pack("!H", self.websocket_close_message_too_big))
 
         masking_key = self.read_exact(4) if masked else b""
         if masked and masking_key is None:
