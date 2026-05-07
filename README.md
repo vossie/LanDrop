@@ -110,7 +110,9 @@ Drop:
 Pipe logs or output directly into DassieDrop using `curl`.
 
 ```bash
-curl -F "file=@-;filename=server.log" http://SERVER:8000/api/upload < server.log
+curl -H "X-API-Key: YOUR_API_KEY" \
+  -F "file=@-;filename=server.log" \
+  http://SERVER:8000/api/upload < server.log
 ```
 
 ### The Home Hub

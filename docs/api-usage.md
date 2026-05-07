@@ -69,6 +69,14 @@ curl -F "file=@-;filename=server.log" \
   http://127.0.0.1:8000/api/upload < server.log
 ```
 
+If DassieDrop is protected, include `X-API-Key`:
+
+```bash
+curl -H 'X-API-Key: your-api-key-or-access-code' \
+  -F "file=@-;filename=server.log" \
+  http://127.0.0.1:8000/api/upload < server.log
+```
+
 ## Delete an Item
 
 Delete a text entry:
