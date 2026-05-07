@@ -41,8 +41,6 @@ let textStatusTimer = null;
 let copiedTextId = null;
 let copiedTextTimer = null;
 let lastRenderedTexts = [];
-let lastSnapshotSignature = null;
-let deferredSnapshot = null;
 const textAccordionState = new Map();
 const fileAccordionState = new Map();
 let stateSocket = null;
@@ -793,38 +791,6 @@ function renderFiles(files) {
   }
 }
 
-function snapshotSignature(snapshot) {
-  const texts = Array.isArray(snapshot.texts) ? snapshot.texts : [];
-  const files = Array.isArray(snapshot.files) ? snapshot.files : [];
-  return JSON.stringify({
-    updatedAt: snapshot.updated_at || 0,
-    textIds: texts.map((entry) => entry.id),
-    fileIds: files.map((entry) => entry.id)
-  });
-}
-
-function shouldDeferSnapshot() {
-  return document.visibilityState === "visible" && activeTab === "text" && isTextFormActive();
-}
-
-function handleIncomingSnapshot(snapshot) {
-  if (shouldDeferSnapshot()) {
-    deferredSnapshot = snapshot;
-    return;
-  }
-  deferredSnapshot = null;
-  renderSnapshot(snapshot);
-}
-
-function flushDeferredSnapshot() {
-  if (!deferredSnapshot || shouldDeferSnapshot()) {
-    return;
-  }
-  const snapshot = deferredSnapshot;
-  deferredSnapshot = null;
-  renderSnapshot(snapshot);
-}
-
 function renderSnapshot(snapshot) {
   const nextTextId = snapshot.texts && snapshot.texts.length ? snapshot.texts[0].id : null;
   const nextFileId = snapshot.files && snapshot.files.length ? snapshot.files[0].id : null;
@@ -851,13 +817,6 @@ function renderSnapshot(snapshot) {
     snapshotInitialized = true;
   }
 
-  const nextSignature = snapshotSignature(snapshot);
-  if (nextSignature === lastSnapshotSignature) {
-    updateTabIndicators();
-    return;
-  }
-  lastSnapshotSignature = nextSignature;
-
   textMeta.textContent = `Last update: ${formatDate(snapshot.updated_at)} • Auto-delete after 24 hours`;
   renderTextHistory(snapshot.texts || []);
   renderFiles(snapshot.files || []);
@@ -870,7 +829,7 @@ async function fetchState() {
     if (!response.ok) {
       throw new Error(`State request failed: ${response.status}`);
     }
-    handleIncomingSnapshot(await response.json());
+    renderSnapshot(await response.json());
   } catch (error) {
     textStatus.textContent = "Could not refresh shared data.";
   }
@@ -889,6 +848,7 @@ function connectStateSocket() {
   try {
     stateSocket = new WebSocket(websocketUrl());
   } catch (error) {
+    startPollingFallback();
     scheduleSocketReconnect();
     return;
   }
@@ -903,7 +863,7 @@ function connectStateSocket() {
 
   stateSocket.addEventListener("message", (event) => {
     try {
-      handleIncomingSnapshot(JSON.parse(event.data));
+      renderSnapshot(JSON.parse(event.data));
     } catch (error) {
       textStatus.textContent = "Could not read live updates.";
     }
@@ -938,13 +898,10 @@ function startPollingFallback() {
     return;
   }
   pollingTimer = window.setInterval(() => {
-    if (shouldDeferSnapshot()) {
-      return;
-    }
     if (!stateSocket || stateSocket.readyState !== WebSocket.OPEN) {
       fetchState();
     }
-  }, 2000);
+  }, 10000);
 }
 
 function stopPollingFallback() {
@@ -1093,12 +1050,6 @@ sharedText.addEventListener("keydown", (event) => {
     saveText();
   }
 });
-sharedText.addEventListener("blur", flushDeferredSnapshot);
-sharerName.addEventListener("blur", flushDeferredSnapshot);
-hiddenText.addEventListener("change", flushDeferredSnapshot);
-textPassword.addEventListener("blur", flushDeferredSnapshot);
-saveTextBtn.addEventListener("blur", flushDeferredSnapshot);
-document.addEventListener("visibilitychange", flushDeferredSnapshot);
 
 dropZone.addEventListener("dragover", (event) => {
   event.preventDefault();
@@ -1119,7 +1070,6 @@ dropZone.addEventListener("drop", (event) => {
 });
 
 fetchState();
-startPollingFallback();
 connectStateSocket();
 updateHiddenOptions();
 syncTabs();
