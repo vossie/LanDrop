@@ -20,6 +20,57 @@ From other devices on the same network:
 http://<this-machine-ip>:8000
 ```
 
+## Windows Portable Build
+
+Download `dassiedrop.exe` and `dassiedrop.env.example` from the [GitHub Releases](https://github.com/vossie/DassieDrop/releases) page.
+
+Double-click `dassiedrop.exe`, or run it from Command Prompt or PowerShell:
+
+```text
+dassiedrop.exe
+```
+
+Then open:
+
+```text
+http://127.0.0.1:8000
+```
+
+From other devices on the same network:
+
+```text
+http://<this-machine-ip>:8000
+```
+
+### Configuration
+
+Copy `dassiedrop.env.example` to `dassiedrop.env` in the same folder as `dassiedrop.exe`, then uncomment and edit the settings you want to change:
+
+```ini
+HTTP_PORT=8000
+ACCESS_CODE=my-secret-code
+UPLOAD_DIR=C:\DassieDrop\uploads
+```
+
+Settings are applied in this priority order:
+
+1. Environment variables set before launching `dassiedrop.exe` (highest priority)
+2. Values in `dassiedrop.env`
+3. Built-in defaults
+
+### Storage
+
+By default, uploaded files go into an `uploads` folder next to `dassiedrop.exe`. To use a different location, set `UPLOAD_DIR` in `dassiedrop.env`.
+
+### HTTPS
+
+Set `HTTPS=1` in `dassiedrop.env` to enable HTTPS. A self-signed certificate is generated automatically in a `certs` folder next to `dassiedrop.exe` on first start. Set `HTTPS_SELF_SIGNED_HOST` to your machine's hostname or LAN IP so the certificate matches the address you open in the browser.
+
+```ini
+HTTPS=1
+HTTPS_SELF_SIGNED_HOST=192.168.1.24
+```
+
 ## Protect The App With An Access Code
 
 ```bash
