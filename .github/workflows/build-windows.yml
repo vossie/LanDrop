@@ -1,0 +1,60 @@
+name: Build Windows Binary
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.13'
+
+      - name: Install dependencies
+        run: pip install pyinstaller pillow
+
+      - name: Generate icon
+        run: python scripts/make_icon.py
+
+      - name: Build binary
+        run: pyinstaller app.spec
+
+      - name: Run functional tests
+        run: python -m unittest tests.test_binary -v
+
+      - name: Read version
+        id: version
+        shell: bash
+        run: echo "version=$(cat VERSION)" >> "$GITHUB_OUTPUT"
+
+      - name: Stage release files
+        shell: bash
+        run: |
+          mkdir -p release
+          cp dist/dassiedrop.exe release/dassiedrop.exe
+          cp docs/dassiedrop.env.example release/dassiedrop.env.example
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dassiedrop-windows-${{ steps.version.outputs.version }}
+          path: release/
+          if-no-files-found: error
+
+      - name: Create release asset
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            release/dassiedrop.exe
+            release/dassiedrop.env.example
+          name: DassieDrop ${{ steps.version.outputs.version }}
+          generate_release_notes: true

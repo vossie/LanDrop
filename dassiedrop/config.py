@@ -1,6 +1,7 @@
 import os
 import re
 import subprocess
+import sys
 import time
 import urllib.error
 import urllib.request
@@ -9,10 +10,47 @@ from pathlib import Path
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
-ASSETS_DIR = BASE_DIR / "assets"
-TEMPLATES_DIR = BASE_DIR / "templates"
-VERSION_FILE = BASE_DIR / "VERSION"
-UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(BASE_DIR / "uploads"))).resolve()
+
+# When running as a PyInstaller one-file bundle, __file__ resolves inside
+# sys._MEIPASS (a temp dir that is deleted on exit).  Bundled read-only data
+# lives there correctly, but writable runtime data must live next to the .exe.
+if getattr(sys, "frozen", False) and hasattr(sys, "_MEIPASS"):
+    ASSETS_DIR = Path(sys._MEIPASS) / "assets"
+    TEMPLATES_DIR = Path(sys._MEIPASS) / "templates"
+    VERSION_FILE = Path(sys._MEIPASS) / "VERSION"
+    _WRITABLE_BASE = Path(sys.executable).parent
+else:
+    ASSETS_DIR = BASE_DIR / "assets"
+    TEMPLATES_DIR = BASE_DIR / "templates"
+    VERSION_FILE = BASE_DIR / "VERSION"
+    _WRITABLE_BASE = BASE_DIR
+
+
+def _load_env_file(path: Path) -> None:
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if key not in os.environ:
+            os.environ[key] = value
+
+
+_load_env_file(_WRITABLE_BASE / "dassiedrop.env")
+
+UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(_WRITABLE_BASE / "uploads"))).resolve()
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1 GB
 MAX_JSON_BODY_SIZE = int(os.environ.get("MAX_JSON_BODY_SIZE", str(1024 * 1024)))
 MAX_TOTAL_STORAGE_BYTES = int(os.environ.get("MAX_TOTAL_STORAGE_BYTES", "0"))
@@ -27,10 +65,10 @@ HTTPS_ENABLED = os.environ.get("HTTPS", "").strip().lower() in {"1", "true", "ye
 HTTP_PORT = int(os.environ.get("HTTP_PORT", os.environ.get("PORT", "8000")))
 HTTPS_PORT = int(os.environ.get("HTTPS_PORT", "8443"))
 HTTPS_CERT_FILE = Path(
-    os.environ.get("HTTPS_CERT_FILE", str(BASE_DIR / "certs" / "dassiedrop-selfsigned.crt"))
+    os.environ.get("HTTPS_CERT_FILE", str(_WRITABLE_BASE / "certs" / "dassiedrop-selfsigned.crt"))
 ).resolve()
 HTTPS_KEY_FILE = Path(
-    os.environ.get("HTTPS_KEY_FILE", str(BASE_DIR / "certs" / "dassiedrop-selfsigned.key"))
+    os.environ.get("HTTPS_KEY_FILE", str(_WRITABLE_BASE / "certs" / "dassiedrop-selfsigned.key"))
 ).resolve()
 HTTPS_SELF_SIGNED_HOST = os.environ.get("HTTPS_SELF_SIGNED_HOST", "localhost").strip() or "localhost"
 HTTPS_SELF_SIGNED_SANS = os.environ.get("HTTPS_SELF_SIGNED_SANS", "").strip()
