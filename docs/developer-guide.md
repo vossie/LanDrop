@@ -55,6 +55,30 @@ Example workflow:
 
 Record the user-visible change in `CHANGELOG.md` in the same release change.
 
+## Releasing the Windows Portable Build
+
+The Windows build is produced by the GitHub Actions workflow in `.github/workflows/build-windows.yml`. It triggers automatically when a version tag is pushed — there is no separate manual step.
+
+To publish a new Windows release:
+
+1. Update `VERSION` and `CHANGELOG.md` in the same commit (following the main branch release rule above).
+2. Commit and push to `master`.
+3. Push a version tag matching the new `VERSION` value:
+
+```bash
+git tag v$(cat VERSION)
+git push origin v$(cat VERSION)
+```
+
+The workflow will:
+
+- Build `dassiedrop.exe` on a Windows runner using PyInstaller
+- Run the functional test suite against the binary
+- Upload a zip artifact (`dassiedrop-windows-<version>`) to the Actions run for inspection
+- Attach `dassiedrop.exe` and `dassiedrop.env.example` as downloadable assets to a GitHub Release named `DassieDrop <version>`
+
+The release and its assets are visible at `https://github.com/vossie/DassieDrop/releases`.
+
 ## Documentation
 
 When you add or change public behavior, update the relevant docs:
