@@ -971,6 +971,7 @@ class AppHandler(BaseHTTPRequestHandler):
                 Path(parsed["temp_path"]).unlink(missing_ok=True)
                 self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not store uploaded file")
                 return None
+        _failed = False
         try:
             shutil.move(parsed["temp_path"], target)
             created = storage.add_file(
@@ -986,15 +987,16 @@ class AppHandler(BaseHTTPRequestHandler):
             created["workspace_id"] = workspace_id
             return created
         except Exception:
+            _failed = True
             if target.exists():
                 target.unlink(missing_ok=True)
-            if isinstance(self, AppHandler):
-                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not store uploaded file")
             return None
         finally:
             with state.state_lock:
                 storage.release_reserved_upload_bytes_locked(file_size)
                 storage.release_upload_target_name_locked(stored_name)
+            if _failed and isinstance(self, AppHandler):
+                self.send_error(HTTPStatus.INTERNAL_SERVER_ERROR, "Could not store uploaded file")
 
     def parse_content_length(self) -> int | None:
         raw_value = self.headers.get("Content-Length", "0").strip()
