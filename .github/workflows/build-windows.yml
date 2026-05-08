@@ -43,7 +43,7 @@ jobs:
         run: |
           mkdir -p release
           cp dist/dassiedrop.exe release/dassiedrop.exe
-          cp dassiedrop.env.example release/dassiedrop.env.example
+          cp docs/dassiedrop.env.example release/dassiedrop.env.example
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4

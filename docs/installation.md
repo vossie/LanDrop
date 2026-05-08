@@ -22,7 +22,12 @@ http://<this-machine-ip>:8000
 
 ## Windows Portable Build
 
-Download `dassiedrop.exe` and `dassiedrop.env.example` from the [GitHub Releases](https://github.com/vossie/DassieDrop/releases) page.
+Download the zip file from the [GitHub Releases](https://github.com/vossie/DassieDrop/releases) page. It contains:
+
+- `dassiedrop.exe` — the application
+- `dassiedrop.env.example` — a configuration template
+
+Extract both files to the same folder.
 
 Double-click `dassiedrop.exe`, or run it from Command Prompt or PowerShell:
 
