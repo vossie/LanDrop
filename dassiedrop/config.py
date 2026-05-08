@@ -25,6 +25,31 @@ else:
     VERSION_FILE = BASE_DIR / "VERSION"
     _WRITABLE_BASE = BASE_DIR
 
+
+def _load_env_file(path: Path) -> None:
+    try:
+        text = path.read_text(encoding="utf-8-sig")
+    except OSError:
+        return
+    for line in text.splitlines():
+        line = line.strip()
+        if not line or line.startswith("#"):
+            continue
+        if "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
+        if key not in os.environ:
+            os.environ[key] = value
+
+
+_load_env_file(_WRITABLE_BASE / "dassiedrop.env")
+
 UPLOAD_DIR = Path(os.environ.get("UPLOAD_DIR", str(_WRITABLE_BASE / "uploads"))).resolve()
 MAX_FILE_SIZE = 1024 * 1024 * 1024  # 1 GB
 MAX_JSON_BODY_SIZE = int(os.environ.get("MAX_JSON_BODY_SIZE", str(1024 * 1024)))

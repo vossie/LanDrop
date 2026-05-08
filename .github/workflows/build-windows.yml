@@ -42,13 +42,17 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: dassiedrop-windows-${{ steps.version.outputs.version }}
-          path: dist/dassiedrop.exe
+          path: |
+            dist/dassiedrop.exe
+            dassiedrop.env.example
           if-no-files-found: error
 
       - name: Create release asset
         if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v2
         with:
-          files: dist/dassiedrop.exe
+          files: |
+            dist/dassiedrop.exe
+            dassiedrop.env.example
           name: DassieDrop ${{ steps.version.outputs.version }}
           generate_release_notes: true

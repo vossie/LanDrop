@@ -372,6 +372,34 @@ class BinaryRestartTests(unittest.TestCase):
         payload = json.loads(index_file.read_text(encoding="utf-8"))
         self.assertIn("workspaces", payload)
 
+    def test_env_file_is_loaded(self) -> None:
+        port = _find_free_port()
+        env_file = BINARY.parent / "dassiedrop.env"
+        env_file.write_text(f"HTTP_PORT={port}\n", encoding="utf-8")
+        try:
+            env = {
+                **os.environ,
+                "HOST": "127.0.0.1",
+                "UPLOAD_DIR": str(self._upload_dir),
+                "HTTPS": "",
+            }
+            env.pop("HTTP_PORT", None)
+            env.pop("PORT", None)
+            proc = subprocess.Popen(
+                [str(BINARY)],
+                env=env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._procs.append(proc)
+            self.assertTrue(
+                _wait_for_server(port),
+                f"Binary did not bind on port {port} from dassiedrop.env — "
+                "env file may not be loaded",
+            )
+        finally:
+            env_file.unlink(missing_ok=True)
+
 
 if __name__ == "__main__":
     unittest.main()
