@@ -21,8 +21,11 @@ jobs:
         with:
           python-version: '3.13'
 
-      - name: Install PyInstaller
-        run: pip install pyinstaller
+      - name: Install dependencies
+        run: pip install pyinstaller pillow
+
+      - name: Generate icon
+        run: python scripts/make_icon.py
 
       - name: Build binary
         run: pyinstaller app.spec
