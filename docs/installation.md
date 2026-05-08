@@ -47,6 +47,18 @@ From other devices on the same network:
 http://<this-machine-ip>:8000
 ```
 
+### Windows Security Warning
+
+When you first run `dassiedrop.exe`, Windows Defender SmartScreen may show a warning:
+"Microsoft Defender SmartScreen prevented an unrecognised app from starting."
+
+This appears because the binary is not signed with a code signing certificate. It is safe to run. To proceed:
+
+1. Click **More info**
+2. Click **Run anyway**
+
+The warning will appear each time until the app accumulates sufficient download reputation with Microsoft, or until the binary is signed with a trusted code signing certificate.
+
 ### Configuration
 
 Copy `dassiedrop.env.example` to `dassiedrop.env` in the same folder as `dassiedrop.exe`, then uncomment and edit the settings you want to change:
